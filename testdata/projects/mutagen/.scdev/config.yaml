@@ -1,0 +1,18 @@
+version: 1
+name: mutagen-test
+
+# Test fixture for Mutagen file sync integration tests
+# Contains a bind mount that should be converted to Mutagen sync
+
+services:
+  app:
+    image: alpine:latest
+    command: sleep infinity
+    working_dir: /app
+    volumes:
+      - ${PROJECTPATH}:/app
+
+mutagen:
+  ignore:
+    - var/cache
+    - "*.log"

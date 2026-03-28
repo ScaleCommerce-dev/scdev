@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>scdev - Local Development Environment</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0c0e13;
+            --bg-elevated: #13161d;
+            --bg-card: #181b24;
+            --bg-card-hover: #1e2230;
+            --text: #c8c9cf;
+            --text-bright: #f0f0f3;
+            --text-mid: #9194a1;
+            --text-muted: #6b7084;
+            --accent: #e2a94b;
+            --accent-dim: rgba(226, 169, 75, 0.12);
+            --accent-glow: rgba(226, 169, 75, 0.06);
+            --green: #34d399;
+            --green-dim: rgba(52, 211, 153, 0.12);
+            --red: #f87171;
+            --red-dim: rgba(248, 113, 113, 0.12);
+            --border: #1e2230;
+            --border-subtle: rgba(255, 255, 255, 0.04);
+            --code-bg: #0a0c10;
+            --mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+            --sans: 'Instrument Sans', -apple-system, sans-serif;
+            /* YAML syntax colors */
+            --yaml-key: #e2a94b;
+            --yaml-value: #c8c9cf;
+            --yaml-string: #87c4a8;
+            --yaml-comment: #555a6e;
+            --yaml-number: #d4976c;
+            --yaml-bool: #d4976c;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: var(--sans);
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.65;
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+            font-size: 15px;
+        }
+
+        /* Subtle dot grid background */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image: radial-gradient(circle, rgba(255,255,255,0.02) 1px, transparent 1px);
+            background-size: 24px 24px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .page {
+            position: relative;
+            z-index: 1;
+            max-width: 1080px;
+            margin: 0 auto;
+            padding: 3rem 2rem 4rem;
+        }
+
+        /* ── Header ── */
+        header {
+            margin-bottom: 3rem;
+        }
+
+        .header-top {
+            display: flex;
+            align-items: flex-end;
+            gap: 1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .logo {
+            font-family: var(--mono);
+            font-size: 2.2rem;
+            font-weight: 700;
+            color: var(--text-bright);
+            letter-spacing: -0.03em;
+        }
+
+        .logo span {
+            color: var(--accent);
+        }
+
+        .version-tag {
+            font-family: var(--mono);
+            font-size: 0.7rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            margin-bottom: 0.45rem;
+        }
+
+        .subtitle {
+            font-family: var(--mono);
+            font-size: 0.9rem;
+            color: var(--text-mid);
+            font-weight: 400;
+        }
+
+        .header-rule {
+            height: 1px;
+            background: linear-gradient(90deg, var(--accent) 0%, var(--accent-dim) 40%, transparent 100%);
+            margin-top: 1.5rem;
+            border: none;
+        }
+
+        /* ── Section ── */
+        .section {
+            margin-bottom: 2.75rem;
+        }
+
+        .section-label {
+            font-family: var(--mono);
+            font-size: 0.7rem;
+            font-weight: 600;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--accent);
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .section-label::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
+        /* ── Service Grid ── */
+        .services-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 0.75rem;
+        }
+
+        .service-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            padding: 1rem 1.1rem;
+            border-radius: 8px;
+            text-decoration: none;
+            color: var(--text);
+            transition: all 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .service-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--accent);
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+
+        .service-card:hover {
+            background: var(--bg-card-hover);
+            border-color: rgba(226, 169, 75, 0.2);
+            transform: translateY(-1px);
+        }
+
+        .service-card:hover::before {
+            opacity: 1;
+        }
+
+        .service-card h3 {
+            font-family: var(--sans);
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-bright);
+        }
+
+        .service-card p {
+            font-size: 0.82rem;
+            color: var(--text-mid);
+            line-height: 1.4;
+        }
+
+        .service-card .url {
+            font-family: var(--mono);
+            font-size: 0.72rem;
+            color: var(--accent);
+            opacity: 0.7;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-top: auto;
+        }
+
+        /* ── Project List ── */
+        .projects-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .project-row {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            padding: 0.85rem 1.25rem;
+            border-radius: 8px;
+            text-decoration: none;
+            color: var(--text);
+            transition: all 0.2s ease;
+            display: grid;
+            grid-template-columns: 200px 1fr auto;
+            align-items: center;
+            gap: 1.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .project-row::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            width: 3px;
+            border-radius: 3px 0 0 3px;
+        }
+
+        .project-row.running::before {
+            background: var(--green);
+        }
+
+        .project-row.stopped::before {
+            background: var(--text-muted);
+            opacity: 0.3;
+        }
+
+        .project-row:hover {
+            background: var(--bg-card-hover);
+        }
+
+        .project-row.running:hover {
+            border-color: rgba(52, 211, 153, 0.2);
+        }
+
+        .project-name {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+
+        .project-name h3 {
+            font-family: var(--mono);
+            font-size: 0.92rem;
+            font-weight: 600;
+            color: var(--text-bright);
+            white-space: nowrap;
+        }
+
+        .project-status {
+            font-family: var(--mono);
+            font-size: 0.6rem;
+            font-weight: 500;
+            padding: 0.15rem 0.5rem;
+            border-radius: 3px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            white-space: nowrap;
+        }
+
+        .project-status.running {
+            background: var(--green-dim);
+            color: var(--green);
+        }
+
+        .project-status.stopped {
+            background: rgba(107, 112, 132, 0.15);
+            color: var(--text-muted);
+        }
+
+        .project-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 0.15rem;
+            min-width: 0;
+        }
+
+        .project-meta .url {
+            font-family: var(--mono);
+            font-size: 0.78rem;
+            color: var(--accent);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .project-meta .path {
+            font-family: var(--mono);
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .project-open {
+            font-family: var(--mono);
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            opacity: 0;
+            transition: opacity 0.15s ease;
+            white-space: nowrap;
+        }
+
+        .project-row:hover .project-open {
+            opacity: 1;
+        }
+
+        .no-projects {
+            font-family: var(--mono);
+            font-size: 0.88rem;
+            color: var(--text-mid);
+            background: var(--bg-card);
+            border: 1px dashed var(--border);
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+        }
+
+        .no-projects code {
+            color: var(--accent);
+            background: var(--accent-dim);
+        }
+
+        /* ── Quick Start ── */
+        .quick-start-content {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.75rem;
+        }
+
+        .steps {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        .step {
+            display: grid;
+            grid-template-columns: 2rem 1fr;
+            gap: 0.75rem;
+            align-items: start;
+        }
+
+        .step-num {
+            font-family: var(--mono);
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--accent);
+            background: var(--accent-dim);
+            width: 1.8rem;
+            height: 1.8rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 5px;
+            flex-shrink: 0;
+        }
+
+        .step-content {
+            min-width: 0;
+        }
+
+        .step-content p {
+            font-size: 0.88rem;
+            color: var(--text);
+            margin-bottom: 0.75rem;
+            line-height: 1.5;
+        }
+
+        .step-content p:last-child {
+            margin-bottom: 0;
+        }
+
+        .terminal-line {
+            font-family: var(--mono);
+            font-size: 0.82rem;
+            background: var(--code-bg);
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            padding: 0.6rem 0.9rem;
+            color: var(--text-bright);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .terminal-line .prompt {
+            color: var(--text-muted);
+            user-select: none;
+        }
+
+        code {
+            font-family: var(--mono);
+            font-size: 0.84rem;
+            background: var(--accent-dim);
+            color: var(--accent);
+            padding: 0.15rem 0.45rem;
+            border-radius: 3px;
+        }
+
+        pre {
+            background: var(--code-bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1.2rem 1.3rem;
+            overflow-x: auto;
+            position: relative;
+        }
+
+        pre .file-label {
+            position: absolute;
+            top: 0;
+            right: 0;
+            font-family: var(--mono);
+            font-size: 0.62rem;
+            color: var(--text-muted);
+            background: var(--bg-card);
+            padding: 0.3rem 0.65rem;
+            border-radius: 0 6px 0 4px;
+            border-left: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+            letter-spacing: 0.02em;
+        }
+
+        pre code {
+            background: none;
+            padding: 0;
+            color: var(--text);
+            font-size: 0.8rem;
+            line-height: 1.7;
+        }
+
+        /* YAML syntax highlighting */
+        .y-k { color: var(--yaml-key); }      /* keys */
+        .y-s { color: var(--yaml-string); }    /* strings */
+        .y-n { color: var(--yaml-number); }    /* numbers */
+        .y-b { color: var(--yaml-bool); }      /* booleans */
+        .y-c { color: var(--yaml-comment); }   /* comments */
+
+        /* ── Commands Table ── */
+        .cmd-table {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .cmd-group-label {
+            font-family: var(--mono);
+            font-size: 0.62rem;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            padding: 0.6rem 1.3rem 0.3rem;
+            background: var(--bg-elevated);
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .cmd-group-label:not(:first-child) {
+            border-top: 1px solid var(--border);
+        }
+
+        .cmd-row {
+            display: flex;
+            align-items: baseline;
+            gap: 1.5rem;
+            padding: 0.55rem 1.3rem;
+            transition: background 0.15s ease;
+        }
+
+        .cmd-row:not(:last-child) {
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .cmd-row:hover {
+            background: var(--bg-card-hover);
+        }
+
+        .cmd-row code {
+            font-family: var(--mono);
+            font-size: 0.82rem;
+            font-weight: 500;
+            color: var(--text-bright);
+            background: none;
+            padding: 0;
+            min-width: 230px;
+            flex-shrink: 0;
+        }
+
+        .cmd-row span {
+            font-size: 0.85rem;
+            color: var(--text-mid);
+        }
+
+        /* ── Config Info ── */
+        .config-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.75rem;
+        }
+
+        .config-item {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.9rem 1.2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .config-item .label {
+            font-family: var(--mono);
+            font-size: 0.65rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+        }
+
+        .config-item .value {
+            font-family: var(--mono);
+            font-size: 0.85rem;
+            color: var(--accent);
+        }
+
+        /* ── Footer ── */
+        footer {
+            margin-top: 3.5rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        footer p {
+            font-family: var(--mono);
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        footer a {
+            font-family: var(--mono);
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: color 0.15s ease;
+        }
+
+        footer a:hover {
+            color: var(--accent);
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 860px) {
+            .services-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+
+            .config-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .page {
+                padding: 2rem 1.25rem 3rem;
+            }
+
+            .logo {
+                font-size: 1.7rem;
+            }
+
+            .services-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .project-row {
+                grid-template-columns: 1fr;
+                gap: 0.35rem;
+            }
+
+            .project-open {
+                display: none;
+            }
+
+            .step {
+                grid-template-columns: 1fr;
+                gap: 0.4rem;
+            }
+
+            .cmd-row {
+                flex-direction: column;
+                gap: 0.15rem;
+            }
+
+            .cmd-row code {
+                min-width: unset;
+            }
+
+            footer {
+                flex-direction: column;
+                gap: 0.5rem;
+                text-align: center;
+            }
+        }
+
+        /* ── Animations ── */
+        @media (prefers-reduced-motion: no-preference) {
+            header {
+                animation: fadeUp 0.4s ease both;
+            }
+
+            .section {
+                animation: fadeUp 0.4s ease both;
+            }
+
+            .section:nth-child(1) { animation-delay: 0.05s; }
+            .section:nth-child(2) { animation-delay: 0.1s; }
+            .section:nth-child(3) { animation-delay: 0.15s; }
+            .section:nth-child(4) { animation-delay: 0.2s; }
+            .section:nth-child(5) { animation-delay: 0.25s; }
+            .section:nth-child(6) { animation-delay: 0.3s; }
+
+            @keyframes fadeUp {
+                from {
+                    opacity: 0;
+                    transform: translateY(8px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <header>
+            <div class="header-top">
+                <div class="logo">sc<span>dev</span></div>
+                <div class="version-tag">local</div>
+            </div>
+            <p class="subtitle">local development environment</p>
+            <hr class="header-rule">
+        </header>
+
+${PROJECTS_SECTION}
+
+        <div class="section">
+            <div class="section-label">Shared Services</div>
+            <div class="services-grid">
+                <a href="${PROTOCOL}://docs.shared.${DOMAIN}" class="service-card">
+                    <h3>Docs</h3>
+                    <p>This page</p>
+                    <span class="url">docs.shared.${DOMAIN}</span>
+                </a>
+                <a href="${PROTOCOL}://router.shared.${DOMAIN}" class="service-card">
+                    <h3>Router</h3>
+                    <p>Traefik dashboard</p>
+                    <span class="url">router.shared.${DOMAIN}</span>
+                </a>
+                <a href="${PROTOCOL}://mail.shared.${DOMAIN}" class="service-card">
+                    <h3>Mail</h3>
+                    <p>Mailpit catcher</p>
+                    <span class="url">mail.shared.${DOMAIN}</span>
+                </a>
+                <a href="${PROTOCOL}://db.shared.${DOMAIN}" class="service-card">
+                    <h3>Database</h3>
+                    <p>Adminer UI</p>
+                    <span class="url">db.shared.${DOMAIN}</span>
+                </a>
+                <a href="${PROTOCOL}://redis.shared.${DOMAIN}" class="service-card">
+                    <h3>Redis</h3>
+                    <p>Insights browser</p>
+                    <span class="url">redis.shared.${DOMAIN}</span>
+                </a>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-label">Configuration</div>
+            <div class="config-grid">
+                <div class="config-item">
+                    <span class="label">Domain Pattern</span>
+                    <span class="value">*.${DOMAIN}</span>
+                </div>
+                <div class="config-item">
+                    <span class="label">Global Config</span>
+                    <span class="value">~/.scdev/global-config.yaml</span>
+                </div>
+                <div class="config-item">
+                    <span class="label">Project Config</span>
+                    <span class="value">.scdev/config.yaml</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-label">Commands</div>
+            <div class="cmd-table">
+                <div class="cmd-group-label">Project</div>
+                <div class="cmd-row"><code>scdev start</code> <span>Start project services</span></div>
+                <div class="cmd-row"><code>scdev stop</code> <span>Stop project services</span></div>
+                <div class="cmd-row"><code>scdev down [-v]</code> <span>Remove containers, optionally volumes</span></div>
+                <div class="cmd-row"><code>scdev restart</code> <span>Stop and start project</span></div>
+                <div class="cmd-row"><code>scdev exec &lt;svc&gt; &lt;cmd&gt;</code> <span>Run command in container</span></div>
+                <div class="cmd-row"><code>scdev logs [-f] [svc]</code> <span>View service logs</span></div>
+                <div class="cmd-row"><code>scdev info</code> <span>Show project details</span></div>
+                <div class="cmd-row"><code>scdev list</code> <span>List all projects</span></div>
+                <div class="cmd-group-label">Shared Services</div>
+                <div class="cmd-row"><code>scdev services start|stop</code> <span>Start or stop shared services</span></div>
+                <div class="cmd-row"><code>scdev mail</code> <span>Open Mailpit</span></div>
+                <div class="cmd-row"><code>scdev db</code> <span>Open Adminer</span></div>
+                <div class="cmd-row"><code>scdev redis</code> <span>Open Redis Insights</span></div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-label">Quick Start</div>
+            <div class="quick-start-content">
+                <div class="steps">
+                    <div class="step">
+                        <div class="step-num">1</div>
+                        <div class="step-content">
+                            <p>Create <code>.scdev/config.yaml</code> in your project:</p>
+                            <pre><span class="file-label">.scdev/config.yaml</span><code><span class="y-k">version</span>: <span class="y-n">1</span>
+<span class="y-k">name</span>: <span class="y-s">my-project</span>
+<span class="y-k">domain</span>: <span class="y-s">my-project.${DOMAIN}</span>
+
+<span class="y-k">shared</span>:
+  <span class="y-k">router</span>: <span class="y-b">true</span>
+
+<span class="y-k">services</span>:
+  <span class="y-k">app</span>:
+    <span class="y-k">image</span>: <span class="y-s">php:8.3-apache</span>
+    <span class="y-k">volumes</span>:
+      - <span class="y-s">.:/var/www/html</span>
+    <span class="y-k">routing</span>:
+      <span class="y-k">protocol</span>: <span class="y-s">http</span>
+      <span class="y-k">port</span>: <span class="y-n">80</span></code></pre>
+                        </div>
+                    </div>
+                    <div class="step">
+                        <div class="step-num">2</div>
+                        <div class="step-content">
+                            <p>Start everything:</p>
+                            <div class="terminal-line"><span class="prompt">$</span> scdev start</div>
+                        </div>
+                    </div>
+                    <div class="step">
+                        <div class="step-num">3</div>
+                        <div class="step-content">
+                            <p>Open <code>https://my-project.${DOMAIN}</code> in your browser.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>scdev &mdash; local development environment</p>
+            <a href="https://github.com/ScaleCommerce-DEV/scdev">github</a>
+        </footer>
+    </div>
+</body>
+</html>

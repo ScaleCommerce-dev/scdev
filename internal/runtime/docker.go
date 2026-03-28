@@ -1,0 +1,376 @@
+package runtime
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"os/exec"
+	"strings"
+
+	"golang.org/x/term"
+)
+
+// DockerCLI implements Runtime by shelling out to the docker command
+type DockerCLI struct {
+	// Binary is the path to the docker binary (default: "docker")
+	Binary string
+}
+
+// NewDockerCLI creates a new Docker CLI runtime
+func NewDockerCLI() *DockerCLI {
+	return &DockerCLI{Binary: "docker"}
+}
+
+// CreateContainer creates a new container but does not start it
+func (d *DockerCLI) CreateContainer(ctx context.Context, cfg ContainerConfig) (string, error) {
+	args := []string{"create", "--name", cfg.Name}
+
+	// Add labels
+	for k, v := range cfg.Labels {
+		args = append(args, "--label", fmt.Sprintf("%s=%s", k, v))
+	}
+
+	// Add environment variables
+	for k, v := range cfg.Env {
+		args = append(args, "-e", fmt.Sprintf("%s=%s", k, v))
+	}
+
+	// Add working directory
+	if cfg.WorkingDir != "" {
+		args = append(args, "-w", cfg.WorkingDir)
+	}
+
+	// Add volume mounts
+	for _, vol := range cfg.Volumes {
+		mount := fmt.Sprintf("%s:%s", vol.Source, vol.Target)
+		if vol.ReadOnly {
+			mount += ":ro"
+		}
+		args = append(args, "-v", mount)
+	}
+
+	// Add port mappings
+	for _, port := range cfg.Ports {
+		args = append(args, "-p", port)
+	}
+
+	// Add network
+	if cfg.NetworkName != "" {
+		args = append(args, "--network", cfg.NetworkName)
+	}
+
+	// Add network aliases
+	for _, alias := range cfg.Aliases {
+		args = append(args, "--network-alias", alias)
+	}
+
+	// Add image
+	args = append(args, cfg.Image)
+
+	// Add command if specified
+	args = append(args, cfg.Command...)
+
+	out, err := d.run(ctx, args...)
+	if err != nil {
+		return "", err
+	}
+
+	// Output is the container ID
+	return strings.TrimSpace(out), nil
+}
+
+// StartContainer starts an existing container
+func (d *DockerCLI) StartContainer(ctx context.Context, nameOrID string) error {
+	_, err := d.run(ctx, "start", nameOrID)
+	return err
+}
+
+// StopContainer stops a running container
+func (d *DockerCLI) StopContainer(ctx context.Context, nameOrID string) error {
+	_, err := d.run(ctx, "stop", nameOrID)
+	return err
+}
+
+// RemoveContainer removes a container (must be stopped first)
+func (d *DockerCLI) RemoveContainer(ctx context.Context, nameOrID string) error {
+	_, err := d.run(ctx, "rm", nameOrID)
+	return err
+}
+
+// LogsOptions configures log streaming behavior
+type LogsOptions struct {
+	Follow bool // Stream logs in real-time (-f)
+	Tail   int  // Number of lines to show from end (0 = all)
+}
+
+// Logs streams container logs to stdout/stderr
+func (d *DockerCLI) Logs(ctx context.Context, container string, opts LogsOptions) error {
+	args := []string{"logs"}
+
+	if opts.Follow {
+		args = append(args, "-f")
+	}
+
+	if opts.Tail > 0 {
+		args = append(args, "--tail", fmt.Sprintf("%d", opts.Tail))
+	}
+
+	args = append(args, container)
+
+	cmd := exec.CommandContext(ctx, d.Binary, args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	return cmd.Run()
+}
+
+// Exec runs a command in a running container
+func (d *DockerCLI) Exec(ctx context.Context, container string, command []string, interactive bool, opts ExecOptions) error {
+	args := []string{"exec"}
+
+	// Check if stdin is a real TTY (not just a character device)
+	isTTY := interactive && term.IsTerminal(int(os.Stdin.Fd()))
+
+	if isTTY {
+		args = append(args, "-it")
+	}
+
+	// Add user option if specified
+	if opts.User != "" {
+		args = append(args, "--user", opts.User)
+	}
+
+	// Add workdir option if specified
+	if opts.Workdir != "" {
+		args = append(args, "--workdir", opts.Workdir)
+	}
+
+	args = append(args, container)
+	args = append(args, command...)
+
+	cmd := exec.CommandContext(ctx, d.Binary, args...)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	return cmd.Run()
+}
+
+// ContainerExists checks if a container with the given name exists
+func (d *DockerCLI) ContainerExists(ctx context.Context, name string) (bool, error) {
+	// Use docker inspect - returns error if container doesn't exist
+	_, err := d.run(ctx, "inspect", "--type=container", name)
+	if err != nil {
+		// Check if it's a "not found" error (case-insensitive)
+		errLower := strings.ToLower(err.Error())
+		if strings.Contains(errLower, "no such") || strings.Contains(errLower, "not found") {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
+// IsContainerRunning checks if a container is currently running
+func (d *DockerCLI) IsContainerRunning(ctx context.Context, name string) (bool, error) {
+	out, err := d.run(ctx, "inspect", "--format={{.State.Running}}", name)
+	if err != nil {
+		errLower := strings.ToLower(err.Error())
+		if strings.Contains(errLower, "no such") || strings.Contains(errLower, "not found") {
+			return false, nil
+		}
+		return false, err
+	}
+	return strings.TrimSpace(out) == "true", nil
+}
+
+// GetContainer returns information about a container
+func (d *DockerCLI) GetContainer(ctx context.Context, name string) (*Container, error) {
+	out, err := d.run(ctx, "inspect", "--type=container", name)
+	if err != nil {
+		errLower := strings.ToLower(err.Error())
+		if strings.Contains(errLower, "no such") || strings.Contains(errLower, "not found") {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	// Parse JSON output
+	var inspectResult []struct {
+		ID    string `json:"Id"`
+		Name  string `json:"Name"`
+		State struct {
+			Status  string `json:"Status"`
+			Running bool   `json:"Running"`
+		} `json:"State"`
+		Config struct {
+			Image string `json:"Image"`
+		} `json:"Config"`
+	}
+
+	if err := json.Unmarshal([]byte(out), &inspectResult); err != nil {
+		return nil, fmt.Errorf("failed to parse docker inspect output: %w", err)
+	}
+
+	if len(inspectResult) == 0 {
+		return nil, nil
+	}
+
+	result := inspectResult[0]
+	return &Container{
+		ID:      result.ID,
+		Name:    strings.TrimPrefix(result.Name, "/"),
+		Image:   result.Config.Image,
+		Status:  result.State.Status,
+		Running: result.State.Running,
+	}, nil
+}
+
+// GetContainerLabels returns the labels of a container
+func (d *DockerCLI) GetContainerLabels(ctx context.Context, name string) (map[string]string, error) {
+	out, err := d.run(ctx, "inspect", "--type=container", "--format={{json .Config.Labels}}", name)
+	if err != nil {
+		return nil, err
+	}
+
+	var labels map[string]string
+	if err := json.Unmarshal([]byte(out), &labels); err != nil {
+		return nil, fmt.Errorf("failed to parse container labels: %w", err)
+	}
+
+	return labels, nil
+}
+
+// PullImage pulls an image from a registry
+func (d *DockerCLI) PullImage(ctx context.Context, image string) error {
+	_, err := d.run(ctx, "pull", image)
+	return err
+}
+
+// ImageExists checks if an image exists locally
+func (d *DockerCLI) ImageExists(ctx context.Context, image string) (bool, error) {
+	_, err := d.run(ctx, "inspect", "--type=image", image)
+	if err != nil {
+		errLower := strings.ToLower(err.Error())
+		if strings.Contains(errLower, "no such") || strings.Contains(errLower, "not found") {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
+// CreateNetwork creates a Docker network
+func (d *DockerCLI) CreateNetwork(ctx context.Context, name string) error {
+	_, err := d.run(ctx, "network", "create", name)
+	return err
+}
+
+// RemoveNetwork removes a Docker network
+func (d *DockerCLI) RemoveNetwork(ctx context.Context, name string) error {
+	_, err := d.run(ctx, "network", "rm", name)
+	return err
+}
+
+// NetworkExists checks if a network exists
+func (d *DockerCLI) NetworkExists(ctx context.Context, name string) (bool, error) {
+	_, err := d.run(ctx, "network", "inspect", name)
+	if err != nil {
+		errLower := strings.ToLower(err.Error())
+		if strings.Contains(errLower, "no such") || strings.Contains(errLower, "not found") {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
+// NetworkConnect connects a container to a network
+func (d *DockerCLI) NetworkConnect(ctx context.Context, networkName, containerName string) error {
+	_, err := d.run(ctx, "network", "connect", networkName, containerName)
+	return err
+}
+
+// NetworkDisconnect disconnects a container from a network
+func (d *DockerCLI) NetworkDisconnect(ctx context.Context, networkName, containerName string) error {
+	_, err := d.run(ctx, "network", "disconnect", networkName, containerName)
+	if err != nil {
+		errLower := strings.ToLower(err.Error())
+		// Ignore "not connected" errors
+		if strings.Contains(errLower, "is not connected") {
+			return nil
+		}
+	}
+	return err
+}
+
+// CreateVolume creates a Docker volume
+func (d *DockerCLI) CreateVolume(ctx context.Context, name string) error {
+	_, err := d.run(ctx, "volume", "create", name)
+	return err
+}
+
+// RemoveVolume removes a Docker volume
+func (d *DockerCLI) RemoveVolume(ctx context.Context, name string) error {
+	_, err := d.run(ctx, "volume", "rm", name)
+	return err
+}
+
+// VolumeExists checks if a volume exists
+func (d *DockerCLI) VolumeExists(ctx context.Context, name string) (bool, error) {
+	_, err := d.run(ctx, "volume", "inspect", name)
+	if err != nil {
+		errLower := strings.ToLower(err.Error())
+		if strings.Contains(errLower, "no such") || strings.Contains(errLower, "not found") {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
+// ListVolumes lists volumes matching the filter (e.g., "name=.scdev")
+func (d *DockerCLI) ListVolumes(ctx context.Context, filter string) ([]Volume, error) {
+	args := []string{"volume", "ls", "--format", "{{.Name}}"}
+	if filter != "" {
+		args = append(args, "--filter", filter)
+	}
+
+	out, err := d.run(ctx, args...)
+	if err != nil {
+		return nil, err
+	}
+
+	var volumes []Volume
+	for _, name := range strings.Split(strings.TrimSpace(out), "\n") {
+		if name == "" {
+			continue
+		}
+		volumes = append(volumes, Volume{Name: name})
+	}
+
+	return volumes, nil
+}
+
+// run executes a docker command and returns stdout
+func (d *DockerCLI) run(ctx context.Context, args ...string) (string, error) {
+	cmd := exec.CommandContext(ctx, d.Binary, args...)
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+	if err != nil {
+		// Include stderr in error message for better debugging
+		errMsg := strings.TrimSpace(stderr.String())
+		if errMsg != "" {
+			return "", fmt.Errorf("%s: %s", err, errMsg)
+		}
+		return "", err
+	}
+
+	return stdout.String(), nil
+}

@@ -1,0 +1,51 @@
+version: 1
+name: ${PROJECTDIR}
+domain: ${PROJECTNAME}.${SCDEV_DOMAIN}
+
+info: |
+  ## ${PROJECTNAME}
+
+  Test project with all features.
+
+shared:
+  router: true
+  mail: true
+  observability: false
+  tunnel: false
+
+environment:
+  APP_ENV: dev
+  LOG_LEVEL: debug
+
+services:
+  app:
+    image: alpine:latest
+    command: sleep infinity
+    working_dir: /app
+    volumes:
+      - ${PROJECTPATH}:/app
+      - node_modules:/app/node_modules
+    environment:
+      PORT: "3000"
+      DATABASE_URL: postgres://postgres:postgres@db:5432/${PROJECTNAME}
+    routing:
+      protocol: http
+      port: 3000
+
+  db:
+    image: alpine:latest
+    command: sleep infinity
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${PROJECTNAME}
+    # Expose PostgreSQL via Traefik TCP routing
+    routing:
+      protocol: tcp
+      port: 5432
+      host_port: 5432
+
+volumes:
+  node_modules:
+  db_data:

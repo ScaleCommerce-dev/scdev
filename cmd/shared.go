@@ -1,0 +1,71 @@
+package cmd
+
+import (
+	"context"
+	"fmt"
+	"os/exec"
+	"runtime"
+	"time"
+
+	"github.com/ScaleCommerce-DEV/scdev/internal/config"
+	"github.com/ScaleCommerce-DEV/scdev/internal/services"
+	"github.com/ScaleCommerce-DEV/scdev/internal/ui"
+)
+
+// openSharedServiceURL opens a shared service URL in the browser
+// serviceName is used for error messages (e.g., "mail", "db", "router")
+// urlPath is the subdomain (e.g., "mail.shared", "db.shared", "docs.shared")
+// statusFn returns the service status
+func openSharedServiceURL(
+	serviceName string,
+	urlPath string,
+	statusFn func(context.Context, *services.Manager) (*services.ServiceStatus, error),
+) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	cfg, err := config.LoadGlobalConfig()
+	if err != nil {
+		return fmt.Errorf("failed to load global config: %w", err)
+	}
+
+	mgr := services.NewManager(cfg)
+
+	status, err := statusFn(ctx, mgr)
+	if err != nil {
+		return err
+	}
+
+	if !status.Running {
+		return fmt.Errorf("%s service is not running\n\nStart it with: scdev services start", serviceName)
+	}
+
+	protocol := "http"
+	if cfg.SSL.Enabled {
+		protocol = "https"
+	}
+	url := fmt.Sprintf("%s://%s.%s", protocol, urlPath, cfg.Domain)
+
+	plainMode := ui.PlainMode(cfg.Terminal.Plain)
+	fmt.Printf("Opening %s\n", ui.Hyperlink(url, url, plainMode))
+
+	return openBrowser(url)
+}
+
+// openBrowser opens the given URL in the default browser
+func openBrowser(url string) error {
+	var cmd *exec.Cmd
+
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", url)
+	case "linux":
+		cmd = exec.Command("xdg-open", url)
+	case "windows":
+		cmd = exec.Command("cmd", "/c", "start", url)
+	default:
+		return fmt.Errorf("unsupported platform: %s", runtime.GOOS)
+	}
+
+	return cmd.Start()
+}

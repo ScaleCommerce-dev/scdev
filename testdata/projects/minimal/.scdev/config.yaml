@@ -1,0 +1,7 @@
+version: 1
+name: minimal
+
+services:
+  app:
+    image: alpine:latest
+    command: sleep infinity

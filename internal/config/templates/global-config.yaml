@@ -1,0 +1,41 @@
+# scdev global configuration
+version: 1
+
+# Base domain for all projects (used in ${SCDEV_DOMAIN})
+domain: ${DefaultDomain}
+
+# Container runtime: docker or podman (podman support coming soon)
+runtime: docker
+
+# SSL/TLS certificate configuration
+ssl:
+  enabled: true  # Set to false to skip HTTPS/certificate setup
+
+# Shared services configuration
+shared:
+  router:
+    image: ${RouterImage}
+    dashboard: true
+
+  mail:
+    image: ${MailImage}
+
+  db:
+    image: ${DBUIImage}
+
+  redis_insights:
+    image: ${RedisInsightsImage}
+
+  observability:
+    image: ${ObservabilityImage}
+
+# Terminal output settings
+terminal:
+  plain: false  # Set to true to disable colors, hyperlinks, and markdown rendering
+
+# Mutagen file sync (improves Docker performance on macOS)
+# Replaces slow bind mounts with volume + bidirectional sync
+mutagen:
+  enabled: auto       # auto = enabled on macOS, disabled on Linux
+                      # Set to "true" or "false" to override
+  sync_mode: two-way-safe  # Sync mode: two-way-safe, two-way-resolved, one-way-safe

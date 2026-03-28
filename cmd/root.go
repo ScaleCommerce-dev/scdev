@@ -1,0 +1,239 @@
+package cmd
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"strings"
+	"time"
+
+	"github.com/ScaleCommerce-DEV/scdev/internal/config"
+	"github.com/ScaleCommerce-DEV/scdev/internal/project"
+	"github.com/ScaleCommerce-DEV/scdev/internal/tools"
+	"github.com/ScaleCommerce-DEV/scdev/internal/ui"
+	"github.com/spf13/cobra"
+)
+
+var (
+	// configDir holds the --config flag value
+	configDir string
+
+	rootCmd = &cobra.Command{
+		Use:          "scdev",
+		Short:        "Local development environment framework",
+		Long:         `scdev is a local development environment framework for web applications.`,
+		SilenceUsage: true, // Don't show usage on runtime errors (only on invalid args)
+		RunE:         runRoot,
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			// Set the project directory override if --config was specified
+			if configDir != "" {
+				config.SetProjectDirOverride(configDir)
+			}
+			return nil
+		},
+	}
+)
+
+func init() {
+	// Global flags
+	rootCmd.PersistentFlags().StringVar(&configDir, "config", "", "Path to project directory containing .scdev/ (overrides auto-discovery)")
+
+	// Set custom help template to include project commands before flags
+	rootCmd.SetHelpTemplate(`{{with (or .Long .Short)}}{{. | trimTrailingWhitespaces}}
+
+{{end}}{{if or .Runnable .HasSubCommands}}{{.UsageString}}{{end}}`)
+
+	// Custom usage template that includes project commands
+	rootCmd.SetUsageTemplate(`Usage:{{if .Runnable}}
+  {{.UseLine}}{{end}}{{if .HasAvailableSubCommands}}
+  {{.CommandPath}} [command]{{end}}{{if gt (len .Aliases) 0}}
+
+Aliases:
+  {{.NameAndAliases}}{{end}}{{if .HasExample}}
+
+Examples:
+{{.Example}}{{end}}{{if .HasAvailableSubCommands}}
+
+Available Commands:{{range .Commands}}{{if (or .IsAvailableCommand (eq .Name "help"))}}
+  {{rpad .Name .NamePadding }} {{.Short}}{{end}}{{end}}{{end}}{{if .HasAvailableLocalFlags}}
+{{projectCommands}}
+Flags:
+{{.LocalFlags.FlagUsages | trimTrailingWhitespaces}}{{end}}{{if .HasAvailableInheritedFlags}}
+
+Global Flags:
+{{.InheritedFlags.FlagUsages | trimTrailingWhitespaces}}{{end}}{{if .HasHelpSubCommands}}
+
+Additional help topics:{{range .Commands}}{{if .IsAdditionalHelpTopicCommand}}
+  {{rpad .CommandPath .CommandPathPadding}} {{.Short}}{{end}}{{end}}{{end}}{{if .HasAvailableSubCommands}}
+
+Use "{{.CommandPath}} [command] --help" for more information about a command.{{end}}
+`)
+
+	// Add custom template function for project commands
+	cobra.AddTemplateFunc("projectCommands", getProjectCommandsString)
+}
+
+func runRoot(cmd *cobra.Command, args []string) error {
+	// If no command given, check if we need first-run setup
+	ran, err := RunSystemcheckIfNeeded()
+	if err != nil {
+		return err
+	}
+
+	if ran {
+		// First-run setup was performed, we're done
+		return nil
+	}
+
+	// Already initialized, show help
+	fmt.Println()
+	return cmd.Help()
+}
+
+// Execute runs the root command
+// It intercepts unknown commands and tries to route them to justfiles
+func Execute() error {
+	// Parse --config flag early so it applies to justfile commands too
+	parseConfigFlag()
+
+	// Check if first arg might be a justfile command
+	if len(os.Args) > 1 {
+		cmdName := os.Args[1]
+
+		// Skip if it looks like a flag
+		if strings.HasPrefix(cmdName, "-") {
+			return rootCmd.Execute()
+		}
+
+		// Skip if it's a built-in command
+		if isBuiltinCommand(cmdName) {
+			return rootCmd.Execute()
+		}
+
+		// Try to find a matching justfile
+		if justfile := findJustfile(cmdName); justfile != nil {
+			if err := runJustfile(justfile, os.Args[2:]); err != nil {
+				fmt.Fprintf(os.Stderr, "       in %s\n", justfile.Path)
+				return err
+			}
+			return nil
+		}
+	}
+
+	return rootCmd.Execute()
+}
+
+// parseConfigFlag extracts --config flag from args before Cobra processes them
+// This is needed because justfile commands bypass Cobra's flag parsing
+func parseConfigFlag() {
+	for i, arg := range os.Args {
+		if arg == "--config" && i+1 < len(os.Args) {
+			configDir = os.Args[i+1]
+			config.SetProjectDirOverride(configDir)
+			return
+		}
+		if strings.HasPrefix(arg, "--config=") {
+			configDir = strings.TrimPrefix(arg, "--config=")
+			config.SetProjectDirOverride(configDir)
+			return
+		}
+	}
+}
+
+// isBuiltinCommand checks if the name is a registered Cobra command
+func isBuiltinCommand(name string) bool {
+	for _, cmd := range rootCmd.Commands() {
+		if cmd.Name() == name {
+			return true
+		}
+		// Check aliases
+		for _, alias := range cmd.Aliases {
+			if alias == name {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// getProjectCommandsString returns the project commands section as a string for the help template
+func getProjectCommandsString() string {
+	// Try to find project directory
+	dir, err := config.FindProjectDir()
+	if err != nil {
+		return "" // Not in a project, skip
+	}
+
+	// Load project to discover justfiles
+	proj, err := project.LoadFromDir(dir)
+	if err != nil {
+		return ""
+	}
+
+	justfiles, err := proj.DiscoverJustfiles()
+	if err != nil || len(justfiles) == 0 {
+		return "" // No justfiles found
+	}
+
+	var sb strings.Builder
+	sb.WriteString("\nProject Commands:\n")
+
+	// Try to get just binary for listing recipes
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	var just *tools.Just
+	if toolMgr, err := tools.NewManager(); err == nil {
+		if justPath, err := toolMgr.EnsureTool(ctx, tools.JustTool()); err == nil {
+			just = tools.NewJust(justPath)
+		}
+	}
+
+	for _, jf := range justfiles {
+		sb.WriteString(fmt.Sprintf("  %s\n", jf.Name))
+
+		// Try to get recipes with descriptions for this justfile
+		if just != nil {
+			listOutput, err := just.List(ctx, jf.Path)
+			if err != nil {
+				// Show syntax error in red
+				errMsg := fmt.Sprintf("Syntax error in .scdev/commands/%s.just", jf.Name)
+				sb.WriteString(fmt.Sprintf("      %s\n", ui.Color(errMsg, "red", false)))
+			} else {
+				// Parse the recipes, skipping the "Available recipes:" header
+				var recipes []string
+				var defaultIdx = -1
+				for _, line := range strings.Split(listOutput, "\n") {
+					line = strings.TrimSpace(line)
+					if line == "" || line == "Available recipes:" {
+						continue
+					}
+					// Check if this is the "default" recipe
+					recipeName := strings.Fields(line)[0]
+					if recipeName == "default" {
+						defaultIdx = len(recipes)
+					}
+					recipes = append(recipes, line)
+				}
+
+				// If there's a recipe named "default", move it to the top
+				if defaultIdx > 0 {
+					defaultLine := recipes[defaultIdx]
+					recipes = append([]string{defaultLine}, append(recipes[:defaultIdx], recipes[defaultIdx+1:]...)...)
+					defaultIdx = 0
+				}
+
+				// Output recipes, marking "default" with *
+				for i, line := range recipes {
+					if i == defaultIdx && defaultIdx >= 0 {
+						sb.WriteString(fmt.Sprintf("    * %s\n", line))
+					} else {
+						sb.WriteString(fmt.Sprintf("      %s\n", line))
+					}
+				}
+			}
+		}
+	}
+
+	return sb.String()
+}
