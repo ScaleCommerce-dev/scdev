@@ -271,6 +271,12 @@ scdev redis              # Open Redis Insights in browser
 scdev docs               # Open docs page in browser
 ```
 
+## Completo Briefing
+
+`Completo-Briefing.md` provides project context to Completo's AI features (card description
+generation). Update it when the domain model, architecture, or conventions change significantly.
+Use the `/completo-briefing` skill to regenerate it.
+
 ## Detailed Docs
 
 - `planning/implementation-plan.md` - Full milestone details, acceptance criteria

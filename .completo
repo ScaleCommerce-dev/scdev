@@ -1,0 +1,5 @@
+PROJECT=scdev
+TODO_STATUS=To Do
+IN_PROGRESS_STATUS=In Progress
+HANDOFF_STATUS=Review
+INSTRUCTIONS=Follow Go conventions. Run `make test` before handing off.
