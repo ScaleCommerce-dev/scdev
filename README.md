@@ -41,10 +41,7 @@ This isn't just about saving time (though you will). It's about **consistency**.
 
 ```bash
 # Install scdev (macOS/Linux)
-curl -fsSL https://raw.githubusercontent.com/ScaleCommerce-DEV/scdev/main/install.sh | bash
-
-# Add to your PATH (the installer will remind you)
-export PATH="$PATH:$HOME/.scdev/bin"
+curl -fsSL https://raw.githubusercontent.com/ScaleCommerce-DEV/scdev/main/install.sh | sh
 
 # First run - sets up SSL certificates and shared services
 scdev systemcheck
