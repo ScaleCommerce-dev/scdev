@@ -16,9 +16,6 @@ func TestProjectConfigDefaults(t *testing.T) {
 		t.Error("expected Services to be nil")
 	}
 
-	if cfg.Volumes != nil {
-		t.Error("expected Volumes to be nil")
-	}
 }
 
 func TestServiceConfigFields(t *testing.T) {

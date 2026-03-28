@@ -88,9 +88,8 @@ type ProjectConfig struct {
 	AutoOpenAtStart bool                     `yaml:"auto_open_at_start"`
 	Shared          ProjectSharedConfig      `yaml:"shared"`
 	Environment     map[string]string        `yaml:"environment"`
-	Services        map[string]ServiceConfig `yaml:"services"`
-	Volumes         map[string]VolumeConfig  `yaml:"volumes"`
-	Mutagen         ProjectMutagenConfig     `yaml:"mutagen"`
+	Services map[string]ServiceConfig `yaml:"services"`
+	Mutagen  ProjectMutagenConfig   `yaml:"mutagen"`
 }
 
 // ProjectMutagenConfig defines project-level Mutagen settings
@@ -128,7 +127,3 @@ type RoutingConfig struct {
 	HostPort int    `yaml:"host_port"` // Host port for tcp/udp (required for tcp/udp, ignored for http/https)
 }
 
-// VolumeConfig defines a named volume
-type VolumeConfig struct {
-	// Currently empty, but struct kept for future options (e.g., driver, labels)
-}

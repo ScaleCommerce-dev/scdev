@@ -1,3 +1,11 @@
+## v0.1.1
+
+### Improvements
+
+- Auto-discover named volumes from service definitions — no more redundant top-level `volumes:` section in project config
+- Streamlined CLAUDE.md and planning docs — removed stale TODOs, marked completed phases
+- Removed TODO comments from code — all tracked as Completo tickets
+
 ## v0.1.0
 
 ### Initial Release

@@ -77,7 +77,7 @@ func showProjectInfo(ctx context.Context, proj *project.Project) error {
 	fmt.Println()
 
 	// Volumes
-	if len(proj.Config.Volumes) > 0 {
+	if len(proj.NamedVolumes()) > 0 {
 		fmt.Println("Volumes:")
 		volumes, err := proj.Volumes(ctx)
 		if err != nil {

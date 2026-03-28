@@ -45,7 +45,3 @@ services:
       protocol: tcp
       port: 5432
       host_port: 5432
-
-volumes:
-  node_modules:
-  db_data:

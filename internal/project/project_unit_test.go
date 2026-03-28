@@ -49,10 +49,7 @@ func newTestProject(mock *runtime.MockRuntime) *Project {
 		Config: &config.ProjectConfig{
 			Name: "testproject",
 			Services: map[string]config.ServiceConfig{
-				"app": {Image: "alpine:latest", Command: "sleep infinity"},
-			},
-			Volumes: map[string]config.VolumeConfig{
-				"data": {},
+				"app": {Image: "alpine:latest", Command: "sleep infinity", Volumes: []string{"data:/data"}},
 			},
 			Shared: config.ProjectSharedConfig{
 				Router:        false,

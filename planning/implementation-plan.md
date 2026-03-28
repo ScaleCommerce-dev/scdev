@@ -382,8 +382,6 @@ services:
     volumes:
       - db_data:/var/lib/postgresql/data
 
-volumes:
-  db_data:
 ```
 
 ---
@@ -856,30 +854,6 @@ make install
 
 ---
 
-## Open Questions for Future Milestones
+## Status
 
-These don't need answers now, but we'll address them later:
-
-1. **Future:** Observability (OpenObserve) - how much config needed?
-2. **Future:** Tunnel (Cloudflare vs frp) - which to implement first?
-3. **Templates:** Git-based? Local copies? Registry?
-4. **Self-update:** Use which library? Or shell to curl?
-5. **Windows:** WSL2 only, or native Windows containers too?
-
----
-
-## Next Steps
-
-**Milestone 12: Shared Redis UI** is complete.
-
-All core milestones (0-12) are now complete. Additionally implemented:
-- `scdev logs` - View container logs with follow and tail options
-- `scdev restart` - Stop and start project in one command
-- `scdev mail/db/redis/docs` - Open shared service UIs in browser
-
-Future work could include:
-- Observability (OpenObserve integration)
-- Tunnel support (Cloudflare/frp)
-- Project templates (`scdev create <template>`)
-- Self-update functionality
-- Additional commands: `shell`, `stats` (ctop integration)
+All core milestones (0-12) are complete. Future work is tracked in Completo (project: scdev).

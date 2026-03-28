@@ -179,10 +179,6 @@ services:
   redis:
     image: redis:7-alpine
 
-volumes:
-  db_data:
-  composer_cache:
-
 # Paths to exclude from Mutagen sync (macOS)
 mutagen:
   ignore:
@@ -282,8 +278,6 @@ services:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: app
 
-volumes:
-  db_data:
 ```
 
 ### Node.js + PostgreSQL
@@ -312,9 +306,6 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: app
 
-volumes:
-  db_data:
-  node_modules:
 ```
 
 ### Static Site / Frontend

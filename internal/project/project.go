@@ -72,6 +72,22 @@ func (p *Project) VolumeName(volume string) string {
 	return fmt.Sprintf("%s.%s.scdev", volume, p.Config.Name)
 }
 
+// NamedVolumes returns all named volumes discovered from service volume mounts.
+func (p *Project) NamedVolumes() []string {
+	seen := make(map[string]bool)
+	var names []string
+	for _, svc := range p.Config.Services {
+		for _, vol := range svc.Volumes {
+			source, _, isNamed := parseVolumeMount(vol)
+			if isNamed && !seen[source] {
+				seen[source] = true
+				names = append(names, source)
+			}
+		}
+	}
+	return names
+}
+
 // ContainerStatus returns the status of a container: "running", "stopped", "not created", or "unknown"
 func (p *Project) ContainerStatus(ctx context.Context, containerName string) string {
 	exists, err := p.Runtime.ContainerExists(ctx, containerName)
@@ -233,7 +249,7 @@ func (p *Project) Start(ctx context.Context) error {
 	}
 
 	// Create project volumes if they don't exist
-	for volumeName := range p.Config.Volumes {
+	for _, volumeName := range p.NamedVolumes() {
 		fullName := p.VolumeName(volumeName)
 		exists, err := p.Runtime.VolumeExists(ctx, fullName)
 		if err != nil {
@@ -537,7 +553,7 @@ func (p *Project) Down(ctx context.Context, removeVolumes bool) error {
 	// Remove volumes if requested
 	if removeVolumes {
 		// Remove project volumes
-		for volumeName := range p.Config.Volumes {
+		for _, volumeName := range p.NamedVolumes() {
 			fullName := p.VolumeName(volumeName)
 			exists, err := p.Runtime.VolumeExists(ctx, fullName)
 			if err != nil {
@@ -582,7 +598,7 @@ func (p *Project) Update(ctx context.Context) (bool, error) {
 	}
 
 	// Ensure volumes exist
-	for volumeName := range p.Config.Volumes {
+	for _, volumeName := range p.NamedVolumes() {
 		fullName := p.VolumeName(volumeName)
 		exists, err := p.Runtime.VolumeExists(ctx, fullName)
 		if err != nil {
@@ -726,7 +742,6 @@ func (p *Project) serviceNeedsRecreate(ctx context.Context, serviceName string, 
 		}
 	}
 
-	// TODO: Could also compare image, env, volumes, etc.
 	// For now, focus on routing changes
 
 	return false, nil
@@ -896,7 +911,7 @@ type VolumeInfo struct {
 func (p *Project) Volumes(ctx context.Context) ([]VolumeInfo, error) {
 	var volumes []VolumeInfo
 
-	for volumeName := range p.Config.Volumes {
+	for _, volumeName := range p.NamedVolumes() {
 		fullName := p.VolumeName(volumeName)
 		exists, err := p.Runtime.VolumeExists(ctx, fullName)
 		if err != nil {
@@ -1247,7 +1262,6 @@ func (p *Project) startMutagenSessions(ctx context.Context, m *mutagen.Mutagen, 
 			// Use sync mode from global config if set
 			if globalCfg != nil && globalCfg.Mutagen.SyncMode != "" {
 				// SessionConfig doesn't have SyncMode yet, it's hardcoded in CreateSession
-				// TODO: Add SyncMode to SessionConfig
 			}
 
 			if err := m.CreateSession(ctx, cfg); err != nil {
