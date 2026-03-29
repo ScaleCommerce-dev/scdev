@@ -1,8 +1,8 @@
 # scdev
 
-**The local dev environment you — and your coding agent — will actually love.**
+**Dev environments that you and your AI agent will love.**
 
-scdev is a local development tool that gets you from `git clone` to coding in seconds. One command starts your entire project — HTTPS, routing, shared services, and all.
+scdev is a local development tool that gets you from `git clone` to coding in seconds. One command starts your entire project - HTTPS, routing, shared services, and all.
 
 ```bash
 cd my-project
@@ -10,13 +10,13 @@ scdev start
 # Your project is running at https://my-project.scalecommerce.site
 ```
 
-> `scalecommerce.site` is a wildcard DNS pointing to `127.0.0.1` — everything runs locally on your machine. No cloud, no accounts. You can use your own domain.
+> `scalecommerce.site` is a wildcard DNS pointing to `127.0.0.1` - everything runs locally on your machine. No cloud, no accounts. You can use your own domain.
 
 **Requires:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) (macOS/Windows) or Docker Engine (Linux)
 
 ## How It Works
 
-Every project runs in its own isolated Docker network. A shared Traefik router gives each project its own HTTPS subdomain — no port conflicts, no SSL setup. Shared services like mail catching, database browsing, and Redis inspection are available to all projects automatically.
+Every project runs in its own isolated Docker network. A shared Traefik router gives each project its own HTTPS subdomain - no port conflicts, no SSL setup. Shared services like mail catching, database browsing, and Redis inspection are available to all projects automatically.
 
 ![scdev architecture](docs/architecture.png)
 
@@ -73,7 +73,7 @@ cd my-app
 scdev start
 ```
 
-Open https://my-app.scalecommerce.site — that's it. HTTPS works out of the box via [mkcert](https://github.com/FiloSottile/mkcert).
+Open https://my-app.scalecommerce.site - that's it. HTTPS works out of the box via [mkcert](https://github.com/FiloSottile/mkcert).
 
 ## Shared Services
 
@@ -81,7 +81,7 @@ These run once and are shared across all your projects. No per-project configura
 
 | Service | URL | What it does |
 |---------|-----|--------------|
-| Router | `https://router.shared.scalecommerce.site` | Traefik dashboard — see all routes |
+| Router | `https://router.shared.scalecommerce.site` | Traefik dashboard - see all routes |
 | Mail | `https://mail.shared.scalecommerce.site` | Catches all outgoing email ([Mailpit](https://github.com/axllent/mailpit)) |
 | DB | `https://db.shared.scalecommerce.site` | Browse any project's database ([Adminer](https://www.adminer.org/)) |
 | Redis | `https://redis.shared.scalecommerce.site` | Inspect Redis keys and data ([Redis Insights](https://redis.io/insight/)) |
@@ -102,7 +102,7 @@ Every project and shared service gets locally-trusted HTTPS certificates. Your b
 
 ### Fast File Sync (macOS)
 
-Docker Desktop's file sharing is notoriously slow on macOS. scdev automatically uses [Mutagen](https://mutagen.io/) for fast bidirectional sync — no configuration needed. On Linux, native bind mounts are used (already fast).
+Docker Desktop's file sharing is notoriously slow on macOS. scdev automatically uses [Mutagen](https://mutagen.io/) for fast bidirectional sync - no configuration needed. On Linux, native bind mounts are used (already fast).
 
 Exclude paths you don't need synced:
 
@@ -141,11 +141,11 @@ Each project runs in its own Docker network. Services within a project communica
 
 scdev gives AI coding agents (Claude Code, Cursor, Copilot) exactly what they need: deterministic environments with zero ambiguity.
 
-- **One command** — `scdev start` is all the agent needs. No multi-step setup to get wrong.
-- **Predictable URLs** — The app is always at `https://{name}.scalecommerce.site`. No port guessing.
-- **Single config file** — `.scdev/config.yaml` is the complete source of truth. One file to read, not five.
-- **Discoverable commands** — `ls .scdev/commands/` reveals all project-specific tasks. No guessing.
-- **`scdev exec app <cmd>`** — Run anything in any container. No container name lookup needed.
+- **One command** - `scdev start` is all the agent needs. No multi-step setup to get wrong.
+- **Predictable URLs** - The app is always at `https://{name}.scalecommerce.site`. No port guessing.
+- **Single config file** - `.scdev/config.yaml` is the complete source of truth. One file to read, not five.
+- **Discoverable commands** - `ls .scdev/commands/` reveals all project-specific tasks. No guessing.
+- **`scdev exec app <cmd>`** - Run anything in any container. No container name lookup needed.
 
 ## Commands
 
@@ -349,7 +349,7 @@ mutagen:
 `scalecommerce.site` uses wildcard DNS pointing to `127.0.0.1`. If it doesn't work:
 
 1. Check: `dig my-app.scalecommerce.site`
-2. Corporate VPNs sometimes block external DNS — try a different network
+2. Corporate VPNs sometimes block external DNS - try a different network
 3. Add entries to `/etc/hosts` as a workaround
 
 ### "Containers won't start"

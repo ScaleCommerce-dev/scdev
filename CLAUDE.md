@@ -14,7 +14,7 @@ make test-integration # Run integration tests (requires Docker)
 
 ## Releases
 
-1. Update `CHANGELOG.md` — add new `## vX.Y.Z` section at top
+1. Update `CHANGELOG.md` - add new `## vX.Y.Z` section at top
 2. Commit, tag, push:
    ```bash
    git add CHANGELOG.md && git commit -m "Release vX.Y.Z"
@@ -30,6 +30,10 @@ make test-integration # Run integration tests (requires Docker)
 - **Tests:** Unit tests from start, integration tests tagged `//go:build integration`
 - **Default Domain:** `scalecommerce.site` - wildcard DNS resolving to 127.0.0.1
 - **Named Volumes:** Auto-discovered from service volume mounts - no top-level `volumes:` section needed (unlike Docker Compose). `parseVolumeMount()` detects named vs bind volumes.
+
+## Style
+
+- **Never use em-dashes** (—). Use regular hyphens (-) in all code, copy, comments, and docs.
 
 ## Conventions That Break Expectations
 
@@ -51,7 +55,7 @@ When adding a new shared service (easy to miss steps):
 
 - Mutagen ignored paths are NOT synced in either direction. This breaks IDE autocomplete if `vendor/` or `node_modules/` are ignored.
 - Only directory bind mounts are synced via Mutagen. Single-file mounts stay as regular bind mounts.
-- The docs page (`docs.shared.<domain>`) doubles as a 404 catch-all via Traefik — unmatched URLs redirect there.
+- The docs page (`docs.shared.<domain>`) doubles as a 404 catch-all via Traefik - unmatched URLs redirect there.
 
 ## Completo Briefing
 
