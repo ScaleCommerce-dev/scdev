@@ -1,6 +1,6 @@
 # scdev
 
-**Dev environments that you and your AI agent will love.**
+**Ever seen a developer and an AI agent fall in love with a dev environment?** 🧑‍💻🤖❤️
 
 scdev is a local development tool that gets you from `git clone` to coding in seconds. One command starts your entire project - HTTPS, routing, shared services, and all.
 
