@@ -124,6 +124,15 @@ Every project and shared service gets locally-trusted HTTPS certificates. Your b
 
 File sharing between your host and containers is notoriously slow on macOS. scdev automatically syncs files at native speed - no configuration needed. On Linux this isn't needed (already fast).
 
+How much difference does it make? We benchmarked `pnpm install` on a Nuxt app:
+
+| Approach | pnpm install | Dev server ready |
+|----------|-------------|-----------------|
+| Docker bind mount (default macOS) | **34.6s** | 7s |
+| scdev with file sync | **4.9s** | 4s |
+
+That's a **7x speedup** on dependency installation. The trick: scdev syncs your source code via fast file sync, while keeping `node_modules` inside the container where filesystem operations are native speed.
+
 Exclude paths you don't need synced:
 
 ```yaml
