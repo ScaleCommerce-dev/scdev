@@ -1,8 +1,8 @@
 # scdev
 
-**Stop fighting your dev environment. Start coding.**
+**The local dev environment you — and your coding agent — will actually love.**
 
-scdev is a local development tool that gets you from `git clone` to coding in seconds. One command starts your entire project - HTTPS, routing, shared services, and all.
+scdev is a local development tool that gets you from `git clone` to coding in seconds. One command starts your entire project — HTTPS, routing, shared services, and all.
 
 ```bash
 cd my-project
@@ -136,6 +136,16 @@ scdev setup migrate  # runs specific recipe
 ### Project Isolation
 
 Each project runs in its own Docker network. Services within a project communicate via DNS names (`db`, `redis`, `app`), but projects can't see each other's services. The shared router bridges them to the outside.
+
+## Built for Coding Agents
+
+scdev gives AI coding agents (Claude Code, Cursor, Copilot) exactly what they need: deterministic environments with zero ambiguity.
+
+- **One command** — `scdev start` is all the agent needs. No multi-step setup to get wrong.
+- **Predictable URLs** — The app is always at `https://{name}.scalecommerce.site`. No port guessing.
+- **Single config file** — `.scdev/config.yaml` is the complete source of truth. One file to read, not five.
+- **Discoverable commands** — `ls .scdev/commands/` reveals all project-specific tasks. No guessing.
+- **`scdev exec app <cmd>`** — Run anything in any container. No container name lookup needed.
 
 ## Commands
 
