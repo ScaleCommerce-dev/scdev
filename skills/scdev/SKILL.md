@@ -184,48 +184,244 @@ mutagen:
 
 ### Routing
 
-- `protocol: http` - HTTP/HTTPS via Traefik (default). Project gets `https://{name}.scalecommerce.site`
-- `protocol: tcp` - Raw TCP passthrough. Requires `port` (container) and `host_port` (host)
-- `protocol: udp` - UDP passthrough. Same as TCP
+**HTTP/HTTPS (default)** - Traefik routes by hostname. Project gets `https://{name}.scalecommerce.site`:
 
-Services within a project reach each other by container name: `db`, `redis`, `app`, etc.
+```yaml
+routing:
+  protocol: http   # default
+  port: 3000       # container port
+```
 
-### Named Volumes
+**TCP passthrough** - Exposes a raw TCP port on the host via Traefik. This is powerful because
+it lets you connect to a database inside Docker from host tools (DBeaver, pgAdmin, `psql`) or
+even from another scdev project:
 
-Named volumes are auto-discovered from service volume mounts. No separate declaration needed.
-A volume like `db_data:/var/lib/postgresql/data` is automatically created and managed.
-`scdev down -v` removes all project volumes.
+```yaml
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_PASSWORD: postgres
+    routing:
+      protocol: tcp
+      port: 5432        # container port
+      host_port: 5432   # exposed on localhost:5432
+```
+
+Now you can connect from your host machine:
+
+```bash
+psql -h localhost -p 5432 -U postgres    # connect from host
+```
+
+Or from another scdev project's container (via the shared router):
+
+```bash
+# From project B, connect to project A's database
+scdev exec app psql -h scdev_router -p 5432 -U postgres
+```
+
+This also works for MySQL, Redis, RabbitMQ, or any TCP service. Multiple projects can expose
+different ports without conflicts:
+
+```yaml
+# Project A: PostgreSQL on 5432
+routing: { protocol: tcp, port: 5432, host_port: 5432 }
+
+# Project B: MySQL on 3306
+routing: { protocol: tcp, port: 3306, host_port: 3306 }
+```
+
+**UDP passthrough** - Same as TCP but for UDP (e.g., DNS, game servers, QUIC):
+
+```yaml
+routing:
+  protocol: udp
+  port: 53
+  host_port: 5353
+```
+
+**Internal-only services** - Services without `routing` are only reachable within their
+project's network. This is the default for databases, caches, and workers - they don't need
+external access.
+
+Services within a project always reach each other by name: `db`, `redis`, `app`, etc.
+
+### Volumes: Bind Mounts vs Named Volumes
+
+There are two types of volume mounts in scdev. Use the right one for the job:
+
+**Bind mounts** - sync a host directory into the container. Starts with `/`, `.`, or `${...}`:
+
+```yaml
+volumes:
+  - ${PROJECTPATH}:/app              # your source code
+  - ./config/nginx.conf:/etc/nginx/nginx.conf  # single file mount
+```
+
+Use for: **source code and config files** - anything you edit on the host and want reflected
+inside the container immediately. On macOS, bind mounts are automatically synced via Mutagen
+for performance.
+
+**Named volumes** - Docker-managed storage that lives inside Docker. Just a name, no path prefix:
+
+```yaml
+volumes:
+  - node_modules:/app/node_modules   # dependencies
+  - db_data:/var/lib/postgresql/data  # database files
+  - composer_cache:/root/.composer    # package cache
+```
+
+Use for: **generated data that should NOT sync to the host** - dependencies (`node_modules`,
+`vendor`), database files, caches. These are often huge, change constantly, and would destroy
+file sync performance if they were bind mounts. They persist across `scdev stop`/`scdev start`
+but are removed with `scdev down -v`.
+
+**Common pattern** - bind mount the project, named volume for dependencies:
+
+```yaml
+volumes:
+  - ${PROJECTPATH}:/app              # source code (synced)
+  - node_modules:/app/node_modules   # deps (NOT synced, lives in Docker)
+```
+
+This is important: `node_modules` as a named volume "masks" the host's `node_modules` inside
+the container. The container has its own copy of dependencies, compiled for its own OS/arch.
+Your IDE still sees the host `node_modules` for autocomplete.
+
+Named volumes are auto-discovered from service definitions - no separate declaration needed.
+scdev creates them on `start` and removes them on `down -v`.
 
 ## Custom Commands (Justfiles)
 
-Projects can define custom commands in `.scdev/commands/`:
+### Why justfiles?
+
+Every project has recurring tasks: install dependencies, run migrations, seed data, run tests,
+create an admin user. Without scdev, these live in READMEs, Makefiles, or tribal knowledge.
+Developers (and agents) have to figure out which commands to run, in which container, in which
+order.
+
+scdev solves this with [just](https://github.com/casey/just) - a command runner like `make`
+but simpler. Each `.just` file in `.scdev/commands/` becomes a top-level scdev command. The
+filename IS the command name. This means:
+
+- `scdev setup` - everyone runs the same setup steps
+- `scdev test` - no guessing how to run tests
+- `scdev seed` - one command to populate the database
+- Agents can `ls .scdev/commands/` to discover all available project tasks
+
+### How it works
 
 ```
 .scdev/commands/
   setup.just       # scdev setup
   test.just        # scdev test
-  deploy.just      # scdev deploy
+  seed.just        # scdev seed
+  admin.just       # scdev admin
 ```
 
-Example `.scdev/commands/setup.just`:
+Each file contains recipes (like Makefile targets). The `default` recipe runs when no
+recipe is specified. Additional recipes are passed as arguments.
+
+### Examples
+
+**setup.just** - First-time project setup:
 
 ```just
 default:
     scdev exec app npm ci
-    scdev exec app npm run db:migrate
+    scdev exec app npx prisma db push
+    scdev exec app npm run build
 
-seed:
+clean:
+    scdev exec app rm -rf node_modules
+    scdev down -v
+```
+
+```bash
+scdev setup          # install deps, push schema, build
+scdev setup clean    # nuke everything and start fresh
+```
+
+**test.just** - Run tests:
+
+```just
+default:
+    scdev exec app npm test
+
+watch:
+    scdev exec app npm test -- --watch
+
+coverage:
+    scdev exec app npm test -- --coverage
+```
+
+```bash
+scdev test           # run tests once
+scdev test watch     # watch mode
+scdev test coverage  # with coverage report
+```
+
+**seed.just** - Database seeding and user management:
+
+```just
+default:
+    scdev exec app npm run db:seed
+
+admin:
+    scdev exec app npm run create-admin -- --email admin@example.com
+
+reset:
+    scdev exec app npx prisma migrate reset --force
     scdev exec app npm run db:seed
 ```
 
 ```bash
-scdev setup          # runs default recipe
-scdev setup seed     # runs 'seed' recipe
-scdev test           # runs default recipe in test.just
+scdev seed           # seed test data
+scdev seed admin     # create admin user
+scdev seed reset     # wipe DB, re-migrate, re-seed
 ```
 
-Use this for: running tests, database migrations, seeding data, creating admin users,
-building assets, or any project-specific workflow.
+**migrate.just** - Database migrations:
+
+```just
+default:
+    scdev exec app npx prisma migrate dev
+
+status:
+    scdev exec app npx prisma migrate status
+
+reset:
+    scdev exec app npx prisma migrate reset --force
+```
+
+### Environment variables available in justfiles
+
+Justfiles automatically receive these variables:
+
+| Variable | Value |
+|----------|-------|
+| `PROJECTNAME` | Project name from config |
+| `PROJECTPATH` | Absolute path to project |
+| `PROJECTDIR` | Directory basename |
+| `SCDEV_DOMAIN` | Base domain |
+| `SCDEV_HOME` | `~/.scdev` path |
+| All `environment:` vars | From project config |
+
+### Key pattern: always use `scdev exec`
+
+Commands in justfiles should use `scdev exec` to run inside containers, not bare commands.
+This ensures the command runs in the right environment with the right dependencies:
+
+```just
+# Good - runs inside the container
+default:
+    scdev exec app npm test
+
+# Bad - runs on the host, which might not have node/npm
+default:
+    npm test
+```
 
 ## Setting Up scdev for an Existing Project
 

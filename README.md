@@ -16,7 +16,7 @@ scdev start
 
 ## How It Works
 
-Every project runs in its own isolated Docker network. A shared Traefik router gives each project its own HTTPS subdomain - no port conflicts, no SSL setup. Shared services like mail catching, database browsing, and Redis inspection are available to all projects automatically.
+Every project runs in its own isolated network. scdev gives each project its own HTTPS subdomain - no port conflicts, no SSL setup. Shared services like mail catching, database browsing, and Redis inspection are available to all projects automatically.
 
 ![scdev architecture](docs/architecture.png)
 
@@ -38,7 +38,7 @@ scdev gives AI coding agents (Claude Code, Cursor, Copilot) exactly what they ne
 | Each project configures its own mail, DB tools | Shared services run once, work for all projects |
 | New developer spends a day setting up | Clone, `scdev start`, done |
 | Complex Docker Compose with 100+ lines | Simple config with sensible defaults |
-| Slow file sync on macOS with Docker | Mutagen sync at native speed, zero config |
+| Slow file sync on macOS | Native-speed file sync, zero config |
 
 ## Quick Start
 
@@ -83,7 +83,7 @@ cd my-app
 scdev start
 ```
 
-Open https://my-app.scalecommerce.site - that's it. HTTPS works out of the box via [mkcert](https://github.com/FiloSottile/mkcert).
+Open https://my-app.scalecommerce.site - that's it. HTTPS works out of the box with locally-trusted certificates.
 
 ## Shared Services
 
@@ -91,7 +91,7 @@ These run once and are shared across all your projects. No per-project configura
 
 | Service | URL | What it does |
 |---------|-----|--------------|
-| Router | `https://router.shared.scalecommerce.site` | Traefik dashboard - see all routes |
+| Router | `https://router.shared.scalecommerce.site` | Routing dashboard - see all routes |
 | Mail | `https://mail.shared.scalecommerce.site` | Catches all outgoing email ([Mailpit](https://github.com/axllent/mailpit)) |
 | DB | `https://db.shared.scalecommerce.site` | Browse any project's database ([Adminer](https://www.adminer.org/)) |
 | Redis | `https://redis.shared.scalecommerce.site` | Inspect Redis keys and data ([Redis Insights](https://redis.io/insight/)) |
@@ -112,7 +112,7 @@ Every project and shared service gets locally-trusted HTTPS certificates. Your b
 
 ### Fast File Sync (macOS)
 
-Docker Desktop's file sharing is notoriously slow on macOS. scdev automatically uses [Mutagen](https://mutagen.io/) for fast bidirectional sync - no configuration needed. On Linux, native bind mounts are used (already fast).
+File sharing between your host and containers is notoriously slow on macOS. scdev automatically syncs files at native speed - no configuration needed. On Linux this isn't needed (already fast).
 
 Exclude paths you don't need synced:
 
@@ -124,28 +124,79 @@ mutagen:
     - var/cache
 ```
 
+### TCP/UDP Routing
+
+Beyond HTTPS, scdev can expose raw TCP and UDP ports. This lets you connect to a database inside a project from your host using tools like DBeaver, pgAdmin, or `psql`:
+
+```yaml
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_PASSWORD: postgres
+    routing:
+      protocol: tcp
+      port: 5432        # container port
+      host_port: 5432   # exposed on localhost:5432
+```
+
+```bash
+psql -h localhost -p 5432 -U postgres   # connect from your host
+```
+
+Multiple projects can expose different ports without conflicts. Works for MySQL, Redis, RabbitMQ, or any TCP/UDP service.
+
+### Volumes
+
+**Bind mounts** (`${PROJECTPATH}:/app`) sync your source code into the container. Edits on the host are reflected immediately. On macOS, scdev handles fast sync automatically.
+
+**Named volumes** (`node_modules:/app/node_modules`) are persistent storage managed by scdev. Use these for dependencies, database files, and caches - things that are huge, change constantly, and would kill sync performance:
+
+```yaml
+volumes:
+  - ${PROJECTPATH}:/app              # your source code (synced to host)
+  - node_modules:/app/node_modules   # dependencies (stays in container, fast)
+  - db_data:/var/lib/postgresql/data  # database files (persists across restarts)
+```
+
+Named volumes persist across `scdev stop`/`scdev start` and are removed with `scdev down -v`. No separate declaration needed - scdev discovers them automatically.
+
 ### Custom Commands
 
-Define project-specific commands using [just](https://github.com/casey/just):
+Every project has recurring tasks: install deps, run migrations, seed data, run tests. Instead of documenting these in a README, define them as [just](https://github.com/casey/just) files in `.scdev/commands/`. The filename becomes the command:
+
+```
+.scdev/commands/
+  setup.just     ->  scdev setup
+  test.just      ->  scdev test
+  seed.just      ->  scdev seed
+```
 
 ```bash
 # .scdev/commands/setup.just
 default:
-    scdev exec app npm install
-    scdev exec app npm run build
+    scdev exec app npm ci
+    scdev exec app npx prisma db push
 
-migrate:
-    scdev exec app npm run db:migrate
+# .scdev/commands/test.just
+default:
+    scdev exec app npm test
+
+watch:
+    scdev exec app npm test -- --watch
 ```
 
 ```bash
-scdev setup          # runs default recipe
-scdev setup migrate  # runs specific recipe
+scdev setup          # install deps + push schema
+scdev test           # run tests
+scdev test watch     # run tests in watch mode
 ```
+
+Agents can `ls .scdev/commands/` to discover all available project tasks.
 
 ### Project Isolation
 
-Each project runs in its own Docker network. Services within a project communicate via DNS names (`db`, `redis`, `app`), but projects can't see each other's services. The shared router bridges them to the outside.
+Each project runs in its own isolated network. Services within a project reach each other by name (`db`, `redis`, `app`), but projects can't see each other's services. The shared router bridges them to the outside.
 
 ## Commands
 
@@ -375,6 +426,21 @@ scdev uses ports 80 and 443 for the shared router. Check what's using them:
 lsof -i :80
 lsof -i :443
 ```
+
+## Standing on the Shoulders of Giants
+
+scdev doesn't reinvent the wheel. It orchestrates proven open-source tools into a seamless experience - so you get the power without the configuration.
+
+| Technology | What scdev uses it for | Link |
+|------------|----------------------|------|
+| [Docker](https://www.docker.com/) | Container runtime, network isolation | docker.com |
+| [Traefik](https://traefik.io/) | Reverse proxy - HTTPS routing, subdomains, TCP/UDP | traefik.io |
+| [mkcert](https://github.com/FiloSottile/mkcert) | Locally-trusted SSL certificates | github.com/FiloSottile/mkcert |
+| [Mutagen](https://mutagen.io/) | Fast file sync on macOS | mutagen.io |
+| [just](https://github.com/casey/just) | Command runner for project tasks | github.com/casey/just |
+| [Mailpit](https://github.com/axllent/mailpit) | Email testing - catches all outgoing mail | github.com/axllent/mailpit |
+| [Adminer](https://www.adminer.org/) | Database browser - MySQL, PostgreSQL, SQLite | adminer.org |
+| [Redis Insights](https://redis.io/insight/) | Redis browser - keys, queries, memory analysis | redis.io/insight |
 
 ## License
 
