@@ -30,6 +30,16 @@ scdev gives AI coding agents (Claude Code, Cursor, Copilot) exactly what they ne
 - **Discoverable commands** - `ls .scdev/commands/` reveals all project-specific tasks. No guessing.
 - **`scdev exec app <cmd>`** - Run anything in any container. No container name lookup needed.
 
+### Agent Integration
+
+Install the scdev skill so your agent knows how to use the dev environment:
+
+```bash
+npx skills add scalecommerce-dev/scdev
+```
+
+This teaches your agent the full scdev CLI, config format, debugging workflows, and project setup patterns.
+
 ## Why scdev?
 
 | Without scdev | With scdev |
