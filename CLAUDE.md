@@ -57,6 +57,10 @@ When adding a new shared service (easy to miss steps):
 - Only directory bind mounts are synced via Mutagen. Single-file mounts stay as regular bind mounts.
 - The docs page (`docs.shared.<domain>`) doubles as a 404 catch-all via Traefik - unmatched URLs redirect there.
 
+## README
+
+The README doubles as the project's main documentation and marketing page. It contains config examples, command references, and architecture explanations that must stay in sync with the code. Check README.md for needed updates on every user-facing change (new commands, config options, shared services, CLI flags).
+
 ## Completo Briefing
 
 `Completo-Briefing.md` provides project context to Completo's AI features. Use `/completo-briefing` to regenerate.
