@@ -1,6 +1,6 @@
 # Binary
-scdev
-scdev-*
+/scdev
+/scdev-*
 
 # IDE
 .idea/
