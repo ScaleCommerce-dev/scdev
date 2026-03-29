@@ -79,7 +79,7 @@ func TestManager_RouterLifecycle(t *testing.T) {
 	})
 
 	// Test: Connect to project network
-	t.Run("ConnectToProject", func(t *testing.T) {
+	t.Run("ConnectRouterToProject", func(t *testing.T) {
 		// Create a test network
 		testNetwork := "scdev_test_project"
 		_ = docker.RemoveNetwork(ctx, testNetwork)
@@ -88,18 +88,18 @@ func TestManager_RouterLifecycle(t *testing.T) {
 		}
 		defer docker.RemoveNetwork(ctx, testNetwork)
 
-		if err := mgr.ConnectToProject(ctx, testNetwork); err != nil {
-			t.Fatalf("ConnectToProject failed: %v", err)
+		if err := mgr.ConnectRouterToProject(ctx, testNetwork); err != nil {
+			t.Fatalf("ConnectRouterToProject failed: %v", err)
 		}
 
 		// Connect again should not error
-		if err := mgr.ConnectToProject(ctx, testNetwork); err != nil {
-			t.Fatalf("ConnectToProject (second time) failed: %v", err)
+		if err := mgr.ConnectRouterToProject(ctx, testNetwork); err != nil {
+			t.Fatalf("ConnectRouterToProject (second time) failed: %v", err)
 		}
 
 		// Disconnect
-		if err := mgr.DisconnectFromProject(ctx, testNetwork); err != nil {
-			t.Fatalf("DisconnectFromProject failed: %v", err)
+		if err := mgr.DisconnectRouterFromProject(ctx, testNetwork); err != nil {
+			t.Fatalf("DisconnectRouterFromProject failed: %v", err)
 		}
 	})
 

@@ -210,50 +210,15 @@ func GetScdevDomain() string {
 
 // LoadGlobalConfig loads the global config from ~/.scdev/global-config.yaml
 // Returns default config if file doesn't exist
-func LoadGlobalConfig() (*GlobalConfig, error) {
-	globalConfigPath := filepath.Join(getScdevHome(), GlobalConfigFilename)
-
-	data, err := os.ReadFile(globalConfigPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			// Return defaults if file doesn't exist
-			return &GlobalConfig{
-				Version: 1,
-				Domain:  DefaultDomain,
-				Runtime: "docker",
-				SSL: SSLConfig{
-					Enabled: true,
-				},
-				Shared: SharedConfig{
-					Router: RouterConfig{
-						Image:     RouterImage,
-						Dashboard: true,
-					},
-					Mail: MailConfig{
-						Image: MailImage,
-					},
-					DBUI: DBUIConfig{
-						Image: DBUIImage,
-					},
-					Observability: ObservabilityConfig{
-						Image: ObservabilityImage,
-					},
-				},
-				Terminal: TerminalConfig{
-					Plain: false,
-				},
-			}, nil
-		}
-		return nil, fmt.Errorf("failed to read global config: %w", err)
-	}
-
-	// Start with defaults, then let YAML override
-	cfg := GlobalConfig{
+// defaultGlobalConfig returns a GlobalConfig with all defaults populated.
+// Single source of truth — used for both "file missing" and "file exists" paths.
+func newDefaultGlobalConfig() GlobalConfig {
+	return GlobalConfig{
 		Version: 1,
 		Domain:  DefaultDomain,
 		Runtime: "docker",
 		SSL: SSLConfig{
-			Enabled: true, // SSL enabled by default
+			Enabled: true,
 		},
 		Shared: SharedConfig{
 			Router: RouterConfig{
@@ -266,6 +231,9 @@ func LoadGlobalConfig() (*GlobalConfig, error) {
 			DBUI: DBUIConfig{
 				Image: DBUIImage,
 			},
+			RedisInsights: RedisInsightsConfig{
+				Image: RedisInsightsImage,
+			},
 			Observability: ObservabilityConfig{
 				Image: ObservabilityImage,
 			},
@@ -274,6 +242,22 @@ func LoadGlobalConfig() (*GlobalConfig, error) {
 			Plain: false,
 		},
 	}
+}
+
+func LoadGlobalConfig() (*GlobalConfig, error) {
+	globalConfigPath := filepath.Join(getScdevHome(), GlobalConfigFilename)
+
+	data, err := os.ReadFile(globalConfigPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			cfg := newDefaultGlobalConfig()
+			return &cfg, nil
+		}
+		return nil, fmt.Errorf("failed to read global config: %w", err)
+	}
+
+	// Start with defaults, then let YAML override
+	cfg := newDefaultGlobalConfig()
 
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return nil, fmt.Errorf("failed to parse global config: %w", err)

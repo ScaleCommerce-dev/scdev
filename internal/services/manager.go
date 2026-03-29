@@ -191,15 +191,10 @@ func (m *Manager) disconnectServiceFromProject(ctx context.Context, containerNam
 // Router (special handling for ports)
 // =============================================================================
 
-// StartRouter starts the Traefik router container with no additional ports
+// StartRouter starts the Traefik router container.
+// TCP/UDP ports are aggregated from the state file to ensure the router
+// has all ports needed by all registered projects.
 func (m *Manager) StartRouter(ctx context.Context) error {
-	return m.StartRouterWithPorts(ctx, nil, nil)
-}
-
-// StartRouterWithPorts starts the Traefik router container with specified TCP/UDP ports
-// The passed ports are ignored - instead, all ports are aggregated from the state file
-// This ensures the router has all ports needed by all registered projects
-func (m *Manager) StartRouterWithPorts(ctx context.Context, _, _ []int) error {
 	// Aggregate all ports from all projects in state
 	stateMgr, err := state.DefaultManager()
 	if err != nil {
@@ -393,25 +388,15 @@ func (m *Manager) StopRouter(ctx context.Context) error {
 }
 
 func (m *Manager) RouterStatus(ctx context.Context) (*ServiceStatus, error) {
-	return m.getServiceStatus(ctx, RouterContainerName, "router")
+	return m.getServiceStatus(ctx, RouterContainerName, "Router")
 }
 
 func (m *Manager) ConnectRouterToProject(ctx context.Context, projectNetwork string) error {
 	return m.connectServiceToProject(ctx, RouterContainerName, "Router", projectNetwork, m.RouterStatus)
 }
 
-// ConnectToProject connects the router to a project's network (alias for ConnectRouterToProject)
-func (m *Manager) ConnectToProject(ctx context.Context, projectNetwork string) error {
-	return m.ConnectRouterToProject(ctx, projectNetwork)
-}
-
 func (m *Manager) DisconnectRouterFromProject(ctx context.Context, projectNetwork string) error {
-	return m.disconnectServiceFromProject(ctx, RouterContainerName, "router", projectNetwork)
-}
-
-// DisconnectFromProject disconnects the router from a project's network (alias for DisconnectRouterFromProject)
-func (m *Manager) DisconnectFromProject(ctx context.Context, projectNetwork string) error {
-	return m.DisconnectRouterFromProject(ctx, projectNetwork)
+	return m.disconnectServiceFromProject(ctx, RouterContainerName, "Router", projectNetwork)
 }
 
 // =============================================================================
@@ -433,7 +418,7 @@ func (m *Manager) StopMail(ctx context.Context) error {
 }
 
 func (m *Manager) MailStatus(ctx context.Context) (*ServiceStatus, error) {
-	return m.getServiceStatus(ctx, MailContainerName, "mail")
+	return m.getServiceStatus(ctx, MailContainerName, "Mail")
 }
 
 func (m *Manager) ConnectMailToProject(ctx context.Context, projectNetwork string) error {
@@ -441,7 +426,7 @@ func (m *Manager) ConnectMailToProject(ctx context.Context, projectNetwork strin
 }
 
 func (m *Manager) DisconnectMailFromProject(ctx context.Context, projectNetwork string) error {
-	return m.disconnectServiceFromProject(ctx, MailContainerName, "mail", projectNetwork)
+	return m.disconnectServiceFromProject(ctx, MailContainerName, "Mail", projectNetwork)
 }
 
 // =============================================================================

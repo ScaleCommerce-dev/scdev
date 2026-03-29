@@ -105,7 +105,7 @@ func showProjectInfo(ctx context.Context, proj *project.Project) error {
 	fmt.Println()
 
 	// Shared services
-	if proj.Config.Shared.Router || proj.Config.Shared.Mail || proj.Config.Shared.DBUI || proj.Config.Shared.Observability {
+	if proj.Config.Shared.Router || proj.Config.Shared.Mail || proj.Config.Shared.DBUI || proj.Config.Shared.RedisInsights || proj.Config.Shared.Observability {
 		fmt.Println("Shared Services:")
 		// Always show docs URL when router is enabled
 		if proj.Config.Shared.Router {

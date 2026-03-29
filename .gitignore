@@ -11,6 +11,9 @@ scdev-*
 # OS
 .DS_Store
 
+# Code reviews
+CODE_REVIEW*.md
+
 # Test artifacts
 coverage.out
 

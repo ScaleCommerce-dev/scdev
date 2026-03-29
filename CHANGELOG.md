@@ -1,3 +1,14 @@
+## v0.2.0
+
+### Improvements
+
+- Shared service registry pattern — adding a new shared service is now one entry instead of editing 6+ locations
+- Split `project.go` god file (1400→868 lines) into `shared_services.go` and `mutagen_sync.go`
+- Single source of truth for global config defaults (`newDefaultGlobalConfig()`) — fixes RedisInsights image missing bug
+- Removed unused `StartRouterWithPorts` parameters and unnecessary `ConnectToProject`/`DisconnectFromProject` aliases
+- Fixed `scdev info` not showing shared services section when only `redis_insights` is enabled
+- Consistent display names across all shared service methods
+
 ## v0.1.1
 
 ### Improvements
