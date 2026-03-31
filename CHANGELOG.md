@@ -1,3 +1,21 @@
+## v0.3.0
+
+### Features
+
+- **Sync-ready gate** - containers wait for Mutagen sync automatically, no more `while [ ! -f ... ]` workarounds
+- **Default protocol** - `routing.protocol` defaults to `http` when `port` is set
+- **Default domain** - `domain` defaults to `{name}.scalecommerce.site` when not set
+- **scdev skill** - installable agent skill (`npx skills add scalecommerce-dev/scdev`) with full CLI reference, config templates for Node/PHP/Python, debugging guides, and setup workflows
+
+### Documentation
+
+- Complete README rewrite with architecture diagram, benchmark data, and coding agents section
+- New tagline: "Ever seen a developer and an AI agent fall in love with a dev environment?"
+- File sync benchmark: 5x faster cold start vs Docker bind mounts on macOS
+- "Standing on the Shoulders of Giants" section crediting all underlying technologies
+- TCP/UDP routing, volumes, and custom commands documented in detail
+- `.pnpm-store` must be in Mutagen ignore for pnpm projects (prevents native binary corruption across image changes)
+
 ## v0.2.0
 
 ### Improvements
