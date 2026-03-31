@@ -57,7 +57,7 @@ scdev update             # Recreate containers that changed in config
 ```bash
 scdev exec <service> <command>     # Run a command in a container
 scdev exec app bash                # Interactive shell
-scdev exec app npm test            # Run tests
+scdev exec app pnpm test            # Run tests
 scdev exec app php artisan migrate # Run migrations
 scdev exec app npx prisma db push  # Push DB schema
 ```
@@ -118,15 +118,27 @@ name: my-app
 services:
   app:
     image: node:22-alpine
-    command: npm run dev
+    command: corepack enable && pnpm install && pnpm dev --host 0.0.0.0
     working_dir: /app
     volumes:
       - ${PROJECTPATH}:/app
     routing:
       port: 3000
+
+mutagen:
+  ignore:
+    - node_modules
+    - .pnpm-store
+    - .nuxt
 ```
 
 This gives you: `https://my-app.scalecommerce.site` with HTTPS, isolated network, shared services.
+
+**Notes:**
+- `version` and `domain` are optional - scdev defaults to `version: 1` and `{name}.scalecommerce.site`
+- `protocol` defaults to `http` when `port` is set
+- On macOS, scdev's sync-ready gate automatically holds the command until files are synced -
+  no need for `while [ ! -f ... ]` workarounds
 
 ### Available Variables
 
@@ -142,7 +154,6 @@ This gives you: `https://my-app.scalecommerce.site` with HTTPS, isolated network
 
 ```yaml
 name: my-project
-domain: custom.scalecommerce.site  # optional, defaults to {name}.scalecommerce.site
 
 shared:
   router: true          # connect to Traefik (default: true)
@@ -156,11 +167,10 @@ environment:            # global env vars for all services
 services:
   app:
     image: node:22-alpine
-    command: npm run dev
+    command: corepack enable && pnpm install && pnpm dev --host 0.0.0.0
     working_dir: /app
     volumes:
       - ${PROJECTPATH}:/app        # bind mount (auto-synced via Mutagen on macOS)
-      - node_modules:/app/node_modules  # named volume (persists across restarts)
     environment:
       DATABASE_URL: postgres://postgres:postgres@db:5432/app
     routing:
@@ -178,17 +188,18 @@ services:
 mutagen:
   ignore:               # paths excluded from file sync (macOS)
     - node_modules
+    - .pnpm-store       # pnpm's package store - platform-specific, must not sync
     - .nuxt
-    - var/cache
+    - .output
 ```
 
 ### Routing
 
-**HTTP/HTTPS (default)** - Traefik routes by hostname. Project gets `https://{name}.scalecommerce.site`:
+**HTTP/HTTPS** - Traefik routes by hostname. Project gets `https://{name}.scalecommerce.site`:
 
 ```yaml
 routing:
-  protocol: http   # default
+  protocol: http   # default when port is set
   port: 3000       # container port
 ```
 
@@ -329,9 +340,9 @@ recipe is specified. Additional recipes are passed as arguments.
 
 ```just
 default:
-    scdev exec app npm ci
+    scdev exec app pnpm ci
     scdev exec app npx prisma db push
-    scdev exec app npm run build
+    scdev exec app pnpm run build
 
 clean:
     scdev exec app rm -rf node_modules
@@ -347,13 +358,13 @@ scdev setup clean    # nuke everything and start fresh
 
 ```just
 default:
-    scdev exec app npm test
+    scdev exec app pnpm test
 
 watch:
-    scdev exec app npm test -- --watch
+    scdev exec app pnpm test -- --watch
 
 coverage:
-    scdev exec app npm test -- --coverage
+    scdev exec app pnpm test -- --coverage
 ```
 
 ```bash
@@ -366,14 +377,14 @@ scdev test coverage  # with coverage report
 
 ```just
 default:
-    scdev exec app npm run db:seed
+    scdev exec app pnpm run db:seed
 
 admin:
-    scdev exec app npm run create-admin -- --email admin@example.com
+    scdev exec app pnpm run create-admin -- --email admin@example.com
 
 reset:
     scdev exec app npx prisma migrate reset --force
-    scdev exec app npm run db:seed
+    scdev exec app pnpm run db:seed
 ```
 
 ```bash
@@ -416,11 +427,11 @@ This ensures the command runs in the right environment with the right dependenci
 ```just
 # Good - runs inside the container
 default:
-    scdev exec app npm test
+    scdev exec app pnpm test
 
 # Bad - runs on the host, which might not have node/npm
 default:
-    npm test
+    pnpm test
 ```
 
 ## Setting Up scdev for an Existing Project
@@ -492,7 +503,7 @@ This project uses [scdev](https://github.com/ScaleCommerce-dev/scdev) for local 
 - Mail catcher: `scdev mail`
 - Database browser: `scdev db`
 
-Run tests with `scdev exec app npm test` (or `scdev test` if a test.just exists).
+Run tests with `scdev exec app pnpm test` (or `scdev test` if a test.just exists).
 ```
 
 ## Debugging
@@ -526,11 +537,38 @@ scdev mutagen flush       # wait for sync to complete
 - Ensure `shared.mail: true` in config
 - Configure your app's SMTP to: host `scdev_mail`, port `1025`
 
+## macOS / Mutagen Best Practices
+
+On macOS, scdev uses Mutagen for file sync instead of Docker bind mounts. scdev's sync-ready
+gate automatically holds the container's command until files are synced - no manual workarounds
+needed. Just write a plain command like `pnpm dev`.
+
+**Always add these to `mutagen.ignore` for Node.js/pnpm projects:**
+
+```yaml
+mutagen:
+  ignore:
+    - node_modules     # dependencies - stay in container, native speed
+    - .pnpm-store      # pnpm's package store - platform-specific native binaries
+    - .nuxt            # build cache
+    - .output          # build output
+```
+
+**Why `.pnpm-store` matters:** pnpm creates a ~500MB content-addressable store inside the project
+directory when running in a container. If this syncs to the host, it carries platform-specific
+native binaries (glibc vs musl). When you switch images (e.g., `node:22` to `node:22-alpine`),
+the wrong binaries get synced back into the new container, causing crashes like
+`Error relocating ... fcntl64: symbol not found`.
+
+**Performance:** With proper ignores, a Nuxt app with ~1000 dependencies installs in ~7s cold,
+~2.5s warm. Without ignores, the same install takes 35s+ due to sync overhead.
+
 ## Tips
 
+- `version` and `domain` are optional - scdev defaults sensibly
+- `routing.protocol` defaults to `http` when `port` is set
 - Service names in `scdev exec` match the keys in `.scdev/config.yaml`
 - The project URL is always `https://{name}.scalecommerce.site` where `{name}` is from config
 - `scdev exec` runs inside the container's `working_dir` by default
 - Named volumes persist across `scdev stop`/`scdev start` but are removed with `scdev down -v`
-- On macOS, add build artifacts and dependency dirs to `mutagen.ignore` for better sync performance
 - All shared services are accessible via HTTPS in the browser

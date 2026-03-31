@@ -77,6 +77,19 @@ func LoadProject(projectDir string) (*ProjectConfig, error) {
 		cfg.Name = projectName
 	}
 
+	// Default domain to {name}.{scdev_domain}
+	if cfg.Domain == "" {
+		cfg.Domain = cfg.Name + "." + DefaultDomain
+	}
+
+	// Default routing protocol to "http" when port is set
+	for name, svc := range cfg.Services {
+		if svc.Routing != nil && svc.Routing.Port != 0 && svc.Routing.Protocol == "" {
+			svc.Routing.Protocol = "http"
+			cfg.Services[name] = svc
+		}
+	}
+
 	return &cfg, nil
 }
 

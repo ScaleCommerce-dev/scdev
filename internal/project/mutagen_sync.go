@@ -294,3 +294,16 @@ func (p *Project) transformVolumesForMutagen(serviceName string, volumes []strin
 
 	return result
 }
+
+// signalSyncReady writes a marker file into each container that has a Mutagen sync mount,
+// unblocking the sync-ready gate in the container's entrypoint wrapper.
+func (p *Project) signalSyncReady(ctx context.Context, mounts []MutagenSyncMount) {
+	for _, mount := range mounts {
+		containerName := p.ContainerName(mount.ServiceName)
+		err := p.Runtime.Exec(ctx, containerName,
+			[]string{"sh", "-c", "touch /.scdev-sync-ready"}, false, runtime.ExecOptions{})
+		if err != nil {
+			fmt.Printf("Warning: could not signal sync-ready for %s: %v\n", mount.ServiceName, err)
+		}
+	}
+}

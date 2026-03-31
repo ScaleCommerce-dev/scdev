@@ -75,13 +75,19 @@ name: my-app
 
 services:
   app:
-    image: node:20-alpine
-    command: npm run dev
+    image: node:22-alpine
+    command: corepack enable && pnpm install && pnpm dev --host 0.0.0.0
     working_dir: /app
     volumes:
-      - ${PROJECTPATH}:/app    # mounts your project directory into the container
+      - ${PROJECTPATH}:/app
     routing:
       port: 3000
+
+mutagen:
+  ignore:
+    - node_modules
+    - .pnpm-store
+    - .nuxt
 ```
 
 `${PROJECTPATH}` is resolved automatically to your project's absolute path. Other available variables: `${PROJECTNAME}`, `${PROJECTDIR}`, `${SCDEV_DOMAIN}`.
@@ -124,24 +130,29 @@ Every project and shared service gets locally-trusted HTTPS certificates. Your b
 
 File sharing between your host and containers is notoriously slow on macOS. scdev automatically syncs files at native speed - no configuration needed. On Linux this isn't needed (already fast).
 
-How much difference does it make? We benchmarked `pnpm install` on a Nuxt app:
+How much difference does it make? We benchmarked a Nuxt 4 app with ~1000 dependencies:
 
-| Approach | pnpm install | Dev server ready |
-|----------|-------------|-----------------|
-| Docker bind mount (default macOS) | **34.6s** | 7s |
-| scdev with file sync | **4.9s** | 4s |
+| Approach | pnpm install | Cold start to app ready |
+|----------|-------------|------------------------|
+| Docker bind mount (default macOS) | **34.6s** | ~42s |
+| scdev with file sync | **6.7s** | ~17s |
+| scdev warm restart (stop + start) | **2.4s** | ~2s |
 
-That's a **7x speedup** on dependency installation. The trick: scdev syncs your source code via fast file sync, while keeping `node_modules` inside the container where filesystem operations are native speed.
+That's a **5x speedup** on cold start and **instant** warm restarts. The trick: scdev syncs your source code via fast file sync, while keeping `node_modules` and other generated files inside the container where filesystem operations are native speed.
 
-Exclude paths you don't need synced:
+Exclude paths you don't need synced back to the host:
 
 ```yaml
 mutagen:
   ignore:
     - node_modules
+    - .pnpm-store    # pnpm's content-addressable store - platform-specific, don't sync
     - .nuxt
+    - .output
     - var/cache
 ```
+
+**Important:** Always add `.pnpm-store` to the ignore list for pnpm projects. pnpm creates its package store inside the project directory when running in a container. Without ignoring it, ~500MB of platform-specific binaries sync to the host, causing slow syncs and broken native modules when switching images.
 
 ### TCP/UDP Routing
 
@@ -167,18 +178,18 @@ Multiple projects can expose different ports without conflicts. Works for MySQL,
 
 ### Volumes
 
-**Bind mounts** (`${PROJECTPATH}:/app`) sync your source code into the container. Edits on the host are reflected immediately. On macOS, scdev handles fast sync automatically.
+**Bind mounts** (`${PROJECTPATH}:/app`) sync your source code into the container. Edits on the host are reflected immediately. On macOS, scdev handles fast sync automatically via Mutagen. Add `node_modules`, `.pnpm-store`, and build caches to `mutagen.ignore` so they stay inside the container (fast) and don't sync back to the host.
 
-**Named volumes** (`node_modules:/app/node_modules`) are persistent storage managed by scdev. Use these for dependencies, database files, and caches - things that are huge, change constantly, and would kill sync performance:
+**Named volumes** (`db_data:/var/lib/postgresql/data`) are persistent storage managed by scdev. Use these for data that must survive `scdev down` - database files, uploaded assets, SQLite databases:
 
 ```yaml
 volumes:
   - ${PROJECTPATH}:/app              # your source code (synced to host)
-  - node_modules:/app/node_modules   # dependencies (stays in container, fast)
-  - db_data:/var/lib/postgresql/data  # database files (persists across restarts)
+  - db_data:/var/lib/postgresql/data  # database files (persists across down)
+  - data:/app/data                   # SQLite, uploads, etc.
 ```
 
-Named volumes persist across `scdev stop`/`scdev start` and are removed with `scdev down -v`. No separate declaration needed - scdev discovers them automatically.
+Named volumes persist across `scdev stop`/`scdev start` AND `scdev down`. Only removed with `scdev down -v`. No separate declaration needed - scdev discovers them automatically.
 
 ### Custom Commands
 
@@ -194,15 +205,15 @@ Every project has recurring tasks: install deps, run migrations, seed data, run 
 ```bash
 # .scdev/commands/setup.just
 default:
-    scdev exec app npm ci
+    scdev exec app pnpm ci
     scdev exec app npx prisma db push
 
 # .scdev/commands/test.just
 default:
-    scdev exec app npm test
+    scdev exec app pnpm test
 
 watch:
-    scdev exec app npm test -- --watch
+    scdev exec app pnpm test -- --watch
 ```
 
 ```bash
@@ -233,7 +244,7 @@ scdev down -v     # Remove everything including volumes
 
 ```bash
 scdev exec app bash              # Shell into a container
-scdev exec app npm test          # Run a command
+scdev exec app pnpm test         # Run a command
 scdev logs                       # View logs
 scdev logs -f app                # Follow logs for a service
 ```
@@ -299,12 +310,11 @@ name: my-api
 
 services:
   app:
-    image: node:20-alpine
-    command: npm run dev
+    image: node:22-alpine
+    command: corepack enable && pnpm install && pnpm dev --host 0.0.0.0
     working_dir: /app
     volumes:
       - ${PROJECTPATH}:/app
-      - node_modules:/app/node_modules
     environment:
       DATABASE_URL: postgres://postgres:postgres@db:5432/app
     routing:
@@ -317,6 +327,12 @@ services:
     environment:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: app
+
+mutagen:
+  ignore:
+    - node_modules
+    - .pnpm-store
+    - .nuxt
 ```
 
 ### Static Site / Frontend
@@ -326,13 +342,18 @@ name: my-docs
 
 services:
   app:
-    image: node:20-alpine
-    command: npm run dev
+    image: node:22-alpine
+    command: corepack enable && pnpm install && pnpm dev --host 0.0.0.0
     working_dir: /app
     volumes:
       - ${PROJECTPATH}:/app
     routing:
       port: 5173
+
+mutagen:
+  ignore:
+    - node_modules
+    - .pnpm-store
 ```
 
 ## Configuration Reference
@@ -344,13 +365,18 @@ name: my-app
 
 services:
   app:
-    image: node:20-alpine
-    command: npm run dev
+    image: node:22-alpine
+    command: corepack enable && pnpm install && pnpm dev --host 0.0.0.0
     working_dir: /app
     volumes:
       - ${PROJECTPATH}:/app
     routing:
       port: 3000
+
+mutagen:
+  ignore:
+    - node_modules
+    - .pnpm-store
 ```
 
 ### Full config with all options

@@ -53,9 +53,11 @@ When adding a new shared service (easy to miss steps):
 
 ## Gotchas
 
-- Mutagen ignored paths are NOT synced in either direction. This breaks IDE autocomplete if `vendor/` or `node_modules/` are ignored.
+- Mutagen ignored paths are NOT synced in either direction. `node_modules` and `.pnpm-store` should always be ignored for Node.js projects - they stay inside the container for native speed. IDE autocomplete still works because `pnpm install` also runs on the host (or the IDE uses the host's own node_modules).
+- For pnpm projects, `.pnpm-store` MUST be in the mutagen ignore list. pnpm creates a ~500MB content-addressable store inside the project dir when running in a container. Without ignoring it, platform-specific native binaries (glibc vs musl) sync to the host and break when the container image changes.
 - Only directory bind mounts are synced via Mutagen. Single-file mounts stay as regular bind mounts.
 - The docs page (`docs.shared.<domain>`) doubles as a 404 catch-all via Traefik - unmatched URLs redirect there.
+- The sync-ready gate (`/.scdev-sync-ready` marker) automatically holds the container's command until Mutagen sync completes. No need for `while [ ! -f ... ]` workarounds in commands.
 
 ## README
 

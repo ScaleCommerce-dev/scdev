@@ -64,6 +64,11 @@ func (p *Project) NetworkName() string {
 	return fmt.Sprintf("%s.scdev", p.Config.Name)
 }
 
+// shellQuote wraps a string in single quotes, escaping any embedded single quotes.
+func shellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
+}
+
 // VolumeName returns the full volume name for a project volume
 // Format: <volume>.<project>.scdev (e.g., db_data.myproject.scdev)
 func (p *Project) VolumeName(volume string) string {
@@ -282,6 +287,9 @@ func (p *Project) Start(ctx context.Context) error {
 
 		// Wait for initial sync (60 second timeout)
 		p.waitForInitialSync(ctx, m, mutagenMounts, 60*time.Second)
+
+		// Signal containers that sync is ready (unblocks the sync-ready gate)
+		p.signalSyncReady(ctx, mutagenMounts)
 	}
 
 	// Register project with routing info in state
@@ -404,7 +412,17 @@ func (p *Project) startServiceWithMutagen(ctx context.Context, name string, svc 
 
 	// Parse command if specified
 	if svc.Command != "" {
-		cfg.Command = []string{"sh", "-c", svc.Command}
+		// When Mutagen is enabled for this service, wrap the command with a sync-ready gate.
+		// Files arrive via sync AFTER the container starts, so the command would fail immediately
+		// without this gate. The marker file is written by signalSyncReady() after initial sync.
+		_, hasMutagenMount := mutagenMounts[name]
+		if mutagenEnabled && hasMutagenMount {
+			cfg.Command = []string{"sh", "-c",
+				"while [ ! -f /.scdev-sync-ready ]; do sleep 0.2; done; exec sh -c " + shellQuote(svc.Command),
+			}
+		} else {
+			cfg.Command = []string{"sh", "-c", svc.Command}
+		}
 	}
 
 	// Create and start
