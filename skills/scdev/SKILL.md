@@ -438,14 +438,27 @@ default:
 
 ### Step 1: Create the config
 
-Create `.scdev/config.yaml` with the project's services. Use `${PROJECTPATH}:/app` for the
-source code mount.
+Analyze the project to build the right config:
 
-### Step 2: Add to .gitignore (optional)
+1. **Check the tech stack** - look at `package.json`, `composer.json`, `requirements.txt`, `go.mod`
+2. **Pick the base image**:
+   - Node.js: `node:22-alpine` (or `node:22` if native modules need glibc)
+   - PHP: `webdevops/php-nginx:8.3` (with nginx) or `php:8.3-fpm` (FPM only)
+   - Python: `python:3.12-slim`
+3. **Find the dev command** - check `package.json` scripts, `Makefile`, README
+4. **Find the port** - check dev server output or framework defaults (Nuxt: 3000, Vite: 5173, Laravel: 80, Django: 8000)
+5. **Add database services** if needed - check for connection strings in `.env` or config
+6. **Add mutagen ignores** for the detected stack (see table below)
+
+Create `.scdev/config.yaml`. See "Config Templates by Stack" below for ready-to-use templates.
+
+### Step 2: Add to .gitignore
 
 ```
 # scdev local state
 .scdev/local/
+# pnpm store (created inside container, platform-specific)
+.pnpm-store/
 ```
 
 ### Step 3: Start
@@ -508,19 +521,25 @@ Run tests with `scdev exec app pnpm test` (or `scdev test` if a test.just exists
 
 ## Debugging
 
-**Container won't start:**
+**Container won't start or keeps crashing:**
 ```bash
 scdev logs -f <service>   # check what's failing
-scdev down && scdev start # clean restart
+scdev restart             # quick restart (fixes most transient issues)
+scdev down && scdev start # full clean restart if restart didn't help
 scdev config              # verify resolved config looks right
 ```
+Containers can crash for many reasons - Docker Desktop updates, resource limits, bad commands.
+Don't over-investigate. `scdev restart` fixes most cases.
 
-**Can't reach the app in the browser:**
+**Can't reach the app in the browser (redirects to docs page):**
 ```bash
 scdev info                # check the URL and routing config
 scdev services status     # ensure shared router is running
 scdev services recreate   # rebuild router if config changed
 ```
+If the app redirects to `docs.shared.scalecommerce.site`, the router can't reach your container.
+Check that the container is running (`scdev status`) and that `routing.port` matches the port
+your app actually listens on.
 
 **File changes not reflected (macOS):**
 ```bash
@@ -535,7 +554,11 @@ scdev mutagen flush       # wait for sync to complete
 
 **Email not showing up in Mailpit:**
 - Ensure `shared.mail: true` in config
-- Configure your app's SMTP to: host `scdev_mail`, port `1025`
+- Configure your app's SMTP to:
+  - Host: `scdev_mail`, Port: `1025`, no auth, no TLS
+  - Node.js (nodemailer): `{ host: 'scdev_mail', port: 1025, secure: false }`
+  - PHP (Laravel): `MAIL_HOST=scdev_mail MAIL_PORT=1025 MAIL_ENCRYPTION=null`
+  - Python (Django): `EMAIL_HOST='scdev_mail' EMAIL_PORT=1025`
 
 ## macOS / Mutagen Best Practices
 
@@ -562,6 +585,104 @@ the wrong binaries get synced back into the new container, causing crashes like
 
 **Performance:** With proper ignores, a Nuxt app with ~1000 dependencies installs in ~7s cold,
 ~2.5s warm. Without ignores, the same install takes 35s+ due to sync overhead.
+
+### Mutagen Ignore by Stack
+
+| Stack | Always ignore |
+|-------|--------------|
+| Node.js/pnpm | `node_modules`, `.pnpm-store`, `.nuxt`, `.next`, `.output` |
+| Node.js/npm | `node_modules` |
+| PHP/Composer | `vendor`, `var/cache`, `var/log` |
+| Python | `__pycache__`, `.venv`, `*.pyc` |
+| General | Build output dirs, cache dirs, log dirs |
+
+## Config Templates by Stack
+
+### Node.js (Nuxt/Next/Vite)
+
+```yaml
+name: my-app
+
+services:
+  app:
+    image: node:22-alpine
+    command: corepack enable && pnpm install && pnpm dev --host 0.0.0.0
+    working_dir: /app
+    volumes:
+      - ${PROJECTPATH}:/app
+    routing:
+      port: 3000
+
+mutagen:
+  ignore:
+    - node_modules
+    - .pnpm-store
+    - .nuxt
+    - .output
+```
+
+### PHP + MySQL (Laravel/Symfony/Shopware)
+
+```yaml
+name: my-shop
+
+services:
+  app:
+    image: webdevops/php-nginx:8.3
+    working_dir: /app
+    volumes:
+      - ${PROJECTPATH}:/app
+    environment:
+      WEB_DOCUMENT_ROOT: /app/public
+      DATABASE_URL: mysql://root:root@db:3306/app
+    routing:
+      port: 80
+
+  db:
+    image: mysql:8.0
+    volumes:
+      - db_data:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: app
+
+mutagen:
+  ignore:
+    - vendor
+    - var/cache
+    - var/log
+```
+
+### Python + PostgreSQL (Django/FastAPI)
+
+```yaml
+name: my-api
+
+services:
+  app:
+    image: python:3.12-slim
+    command: pip install -r requirements.txt && python manage.py runserver 0.0.0.0:8000
+    working_dir: /app
+    volumes:
+      - ${PROJECTPATH}:/app
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/app
+    routing:
+      port: 8000
+
+  db:
+    image: postgres:16-alpine
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: postgres
+
+mutagen:
+  ignore:
+    - __pycache__
+    - .venv
+    - "*.pyc"
+```
 
 ## Tips
 
