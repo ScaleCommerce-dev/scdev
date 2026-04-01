@@ -1,15 +1,20 @@
 package cmd
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/ScaleCommerce-DEV/scdev/internal/config"
 	"github.com/ScaleCommerce-DEV/scdev/internal/services"
+	"github.com/ScaleCommerce-DEV/scdev/internal/state"
 	"github.com/ScaleCommerce-DEV/scdev/internal/ui"
+	"github.com/spf13/cobra"
 )
 
 // openSharedServiceURL opens a shared service URL in the browser
@@ -50,6 +55,39 @@ func openSharedServiceURL(
 	fmt.Printf("Opening %s\n", ui.Hyperlink(url, url, plainMode))
 
 	return openBrowser(url)
+}
+
+// confirm prompts the user with a message and returns true if they answer y/yes.
+func confirm(msg string) bool {
+	fmt.Print(msg)
+	reader := bufio.NewReader(os.Stdin)
+	response, err := reader.ReadString('\n')
+	if err != nil {
+		fmt.Printf("failed to read response: %v\n", err)
+		return false
+	}
+	response = strings.TrimSpace(strings.ToLower(response))
+	return response == "y" || response == "yes"
+}
+
+// completeProjectNames provides shell completion for registered project names.
+func completeProjectNames(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	if len(args) > 0 {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	stateMgr, err := state.DefaultManager()
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveError
+	}
+	projects, err := stateMgr.ListProjects()
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveError
+	}
+	var names []string
+	for name := range projects {
+		names = append(names, name)
+	}
+	return names, cobra.ShellCompDirectiveNoFileComp
 }
 
 // openBrowser opens the given URL in the default browser

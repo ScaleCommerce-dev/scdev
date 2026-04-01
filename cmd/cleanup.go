@@ -1,12 +1,9 @@
 package cmd
 
 import (
-	"bufio"
 	"context"
 	"fmt"
-	"os"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/ScaleCommerce-DEV/scdev/internal/project"
@@ -179,16 +176,7 @@ func confirmCleanup(count int) bool {
 		return true
 	}
 
-	fmt.Printf("Delete %d volume(s)? [y/N]: ", count)
-	reader := bufio.NewReader(os.Stdin)
-	response, err := reader.ReadString('\n')
-	if err != nil {
-		fmt.Printf("failed to read response: %v\n", err)
-		return false
-	}
-
-	response = strings.TrimSpace(strings.ToLower(response))
-	if response != "y" && response != "yes" {
+	if !confirm(fmt.Sprintf("Delete %d volume(s)? [y/N]: ", count)) {
 		fmt.Println("Aborted.")
 		return false
 	}

@@ -14,6 +14,7 @@ import (
 
 var (
 	downRemoveVolumes bool
+	downForce         bool
 )
 
 var downCmd = &cobra.Command{
@@ -25,6 +26,7 @@ var downCmd = &cobra.Command{
 
 func init() {
 	downCmd.Flags().BoolVarP(&downRemoveVolumes, "volumes", "v", false, "Also remove volumes (respects persist_on_delete)")
+	downCmd.Flags().BoolVarP(&downForce, "force", "f", false, "Skip confirmation prompt when removing volumes")
 	rootCmd.AddCommand(downCmd)
 }
 
@@ -35,6 +37,14 @@ func runDown(cmd *cobra.Command, args []string) error {
 	proj, err := project.Load()
 	if err != nil {
 		return err
+	}
+
+	if downRemoveVolumes && !downForce {
+		msg := fmt.Sprintf("This will remove all containers, networks, and volumes for project %q.\nData stored in volumes will be permanently deleted. Continue? [y/N]: ", proj.Config.Name)
+		if !confirm(msg) {
+			fmt.Println("Aborted.")
+			return nil
+		}
 	}
 
 	fmt.Printf("Removing project %s...\n", proj.Config.Name)
