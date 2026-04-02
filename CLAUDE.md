@@ -76,6 +76,10 @@ The README doubles as the project's main documentation and marketing page. It co
 
 `templates/README.md` is the template authoring guide. It documents config.yaml options, the setup lifecycle, scaffolding patterns, and framework-specific notes. When changing config options, variables, Mutagen behavior, or the create/setup workflow, update both `README.md` and `templates/README.md`.
 
+## Contributing Guide
+
+`CONTRIBUTING.md` is the developer onboarding doc - project structure, testing strategy, architecture decisions, and how to add commands/services. Update it when adding new packages, changing test patterns, or making architectural decisions that affect how developers work on the project.
+
 ## Completo Briefing
 
 `Completo-Briefing.md` provides project context to Completo's AI features. Use `/completo-briefing` to regenerate.
