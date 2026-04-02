@@ -482,6 +482,12 @@ func (p *Project) Down(ctx context.Context, removeVolumes bool) error {
 		}
 	}
 
+	// Unregister from global state
+	stateMgr, err := state.DefaultManager()
+	if err == nil {
+		_ = stateMgr.UnregisterProject(p.Config.Name)
+	}
+
 	return nil
 }
 

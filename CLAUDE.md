@@ -8,9 +8,11 @@ Local development environment framework for web applications. Single command sta
 
 ```bash
 make build           # Build binary
-make test            # Run unit tests
-make test-integration # Run integration tests (requires Docker)
+make test            # Run unit tests (always run before committing)
+make test-integration # Run integration tests (requires Docker, run before releases or after refactors)
 ```
+
+**When to run which:** `make test` is fast and should run on every change. `make test-integration` spins up real Docker containers and takes minutes - run it before releases, after refactoring core logic (project lifecycle, routing, Mutagen), or when changing code that unit tests can't cover.
 
 ## Releases
 

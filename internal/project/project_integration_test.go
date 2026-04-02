@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/ScaleCommerce-DEV/scdev/internal/runtime"
+	"github.com/ScaleCommerce-DEV/scdev/internal/state"
 )
 
 func TestProject_FullLifecycle(t *testing.T) {
@@ -105,6 +106,19 @@ func TestProject_FullLifecycle(t *testing.T) {
 	}
 	if exists {
 		t.Error("expected container to not exist after Down")
+	}
+
+	// Verify project is unregistered from state
+	stateMgr, err := state.DefaultManager()
+	if err != nil {
+		t.Fatalf("failed to get state manager: %v", err)
+	}
+	entry, err := stateMgr.GetProject(proj.Config.Name)
+	if err != nil {
+		t.Fatalf("GetProject failed: %v", err)
+	}
+	if entry != nil {
+		t.Error("expected project to be unregistered from state after Down")
 	}
 }
 

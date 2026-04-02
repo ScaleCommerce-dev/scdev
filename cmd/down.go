@@ -8,7 +8,6 @@ import (
 	"github.com/ScaleCommerce-DEV/scdev/internal/config"
 	"github.com/ScaleCommerce-DEV/scdev/internal/project"
 	"github.com/ScaleCommerce-DEV/scdev/internal/services"
-	"github.com/ScaleCommerce-DEV/scdev/internal/state"
 	"github.com/spf13/cobra"
 )
 
@@ -55,16 +54,6 @@ func runDown(cmd *cobra.Command, args []string) error {
 
 	if err := proj.Down(ctx, downRemoveVolumes); err != nil {
 		return err
-	}
-
-	// Unregister project from global state
-	stateMgr, err := state.DefaultManager()
-	if err != nil {
-		fmt.Printf("Warning: could not update project registry: %v\n", err)
-	} else {
-		if err := stateMgr.UnregisterProject(proj.Config.Name); err != nil {
-			fmt.Printf("Warning: could not unregister project: %v\n", err)
-		}
 	}
 
 	// Refresh router to remove unused ports
