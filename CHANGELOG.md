@@ -1,3 +1,11 @@
+## v0.4.1
+
+### Improvements
+
+- `Down()` now handles state unregistration (previously only done in `cmd/down.go`), fixing stale entries left by integration tests
+- Added integration tests for exec `--` separator, config variables in running containers, per-service routing domain, and Down() state cleanup
+- Added CONTRIBUTING.md with developer guide, architecture decisions, and test strategy
+
 ## v0.4.0
 
 ### Features
