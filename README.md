@@ -542,6 +542,12 @@ scdev doesn't reinvent the wheel. It orchestrates proven open-source tools into 
 | [Adminer](https://www.adminer.org/) | Database browser - MySQL, PostgreSQL, SQLite | adminer.org |
 | [Redis Insights](https://redis.io/insight/) | Redis browser - keys, queries, memory analysis | redis.io/insight |
 
+## Contributing
+
+Want to help improve scdev? See [CONTRIBUTING.md](CONTRIBUTING.md) for the developer guide - project structure, testing strategy, architecture decisions, and how to add new features.
+
+Want to create a project template? See the [Template Authoring Guide](templates/README.md).
+
 ## License
 
 MIT
