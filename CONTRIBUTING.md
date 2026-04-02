@@ -1,0 +1,193 @@
+# Contributing to scdev
+
+## Getting Started
+
+```bash
+git clone https://github.com/ScaleCommerce-DEV/scdev.git
+cd scdev
+make build    # Build binary
+make test     # Run unit tests
+```
+
+Requirements: Go 1.25+, Docker Desktop (for integration tests)
+
+## Project Structure
+
+```
+cmd/                     # Cobra commands (one file per command)
+internal/
+  config/                # Config parsing, defaults, variable substitution
+  create/                # Template resolution, download, copy (scdev create)
+  project/               # Project lifecycle (start, stop, down, exec, routing)
+  runtime/               # Docker abstraction (interface + DockerCLI implementation)
+  services/              # Shared infrastructure (router, mail, adminer, redis)
+  mutagen/               # Mutagen binary wrapper
+  state/                 # Global project registry (~/.scdev/state.yaml)
+  tools/                 # External tool management (mkcert, just, mutagen)
+  firstrun/              # First-time setup (certs, shared network)
+  ssl/                   # Certificate management
+  ui/                    # Terminal output (colors, hyperlinks, markdown)
+skills/scdev/            # AI agent skill (SKILL.md + references/)
+templates/               # Template authoring guide
+testdata/projects/       # Test fixtures (minimal, full, variables, mutagen)
+```
+
+## Testing
+
+### Unit tests (`make test`)
+
+Run on every change before committing. Fast (seconds), no external dependencies.
+
+```bash
+make test                           # All unit tests
+go test ./internal/create/ -v       # Single package
+go test ./... -run TestValidateName # Single test
+```
+
+Unit tests use the mock runtime (`internal/runtime/mock.go`) for Docker operations and test fixtures in `testdata/projects/`.
+
+### Integration tests (`make test-integration`)
+
+Run before releases, after refactoring core logic (project lifecycle, routing, Mutagen), or when changing code that unit tests can't cover. Requires Docker - spins up real containers.
+
+```bash
+make test-integration                                      # All integration tests
+go test -v -tags=integration -count=1 ./internal/project/  # Single package
+```
+
+Integration tests are tagged with `//go:build integration` so they don't run during `make test`. They create real Docker containers, networks, and volumes, and clean up after themselves (including state registry).
+
+### Writing tests
+
+- **Unit tests:** Use the mock runtime. Test config parsing, variable substitution, name validation, label generation, etc.
+- **Integration tests:** Use real Docker. Test full lifecycle (start/stop/down), exec, routing, Mutagen sync. Always defer `proj.Down(ctx, false)` for cleanup. `Down()` handles state unregistration automatically.
+- **Test fixtures:** Add to `testdata/projects/` for config loading tests. Keep fixtures minimal.
+
+## Adding a New Command
+
+1. Create `cmd/<name>.go` with a Cobra command
+2. Register with `rootCmd.AddCommand()` in `init()`
+3. If the command needs Docker, call `requireDocker(ctx)` at the top of `RunE`
+4. Follow the existing pattern: context with timeout, `project.Load()`, return errors
+
+```go
+var myCmd = &cobra.Command{
+    Use:   "mycommand",
+    Short: "Brief description",
+    RunE:  runMyCommand,
+}
+
+func init() {
+    rootCmd.AddCommand(myCmd)
+}
+
+func runMyCommand(cmd *cobra.Command, args []string) error {
+    ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+    defer cancel()
+
+    if err := requireDocker(ctx); err != nil {
+        return err
+    }
+
+    proj, err := project.Load()
+    if err != nil {
+        return err
+    }
+    // ...
+}
+```
+
+## Adding a New Shared Service
+
+This has multiple touch points that are easy to miss:
+
+1. Create `internal/services/<service>.go` with container name constant and config function
+2. Add `Start<Service>`, `Stop<Service>`, `<Service>Status`, `Connect<Service>ToProject`, `Disconnect<Service>FromProject` methods to `manager.go`
+3. Add entry to `sharedServiceRegistry()` in `cmd/services.go` (handles start/stop/status/recreate)
+4. Add connect/disconnect methods to `internal/project/shared_services.go` using `connectSharedService` helper
+5. Add image constant to `internal/config/defaults.go`
+6. Add to `ProjectSharedConfig` in `internal/config/config.go`
+7. Update `cmd/info.go` to display the service status
+
+## Key Architecture Decisions
+
+### Why shell out to Docker CLI (not the SDK)?
+
+Enables future Podman support. The `Runtime` interface (`internal/runtime/runtime.go`) abstracts all container operations. The `DockerCLI` implementation shells out to `docker`. Swapping to Podman means implementing the same interface with `podman` commands.
+
+### Why justfiles for custom commands?
+
+Each `.scdev/commands/<name>.just` file becomes a `scdev <name>` command. We chose [just](https://github.com/casey/just) over Makefiles because:
+- No build system baggage (no implicit rules, no tab sensitivity issues)
+- Multiple recipes per file (e.g., `scdev test` runs default, `scdev test watch` runs the `watch` recipe)
+- Justfiles are discoverable - agents and developers can `ls .scdev/commands/` to see all available commands
+- Just supports arguments, dependencies, and conditional logic
+
+Commands run on the **host**, not in containers. Use `scdev exec app <cmd>` inside justfiles to run commands in containers.
+
+### Why auto-discover named volumes?
+
+Unlike Docker Compose, scdev does not require a top-level `volumes:` section. Named volumes are detected automatically from service `volumes:` entries - if the source doesn't start with `/`, `.`, or `${`, it's a named volume. This reduces config boilerplate and eliminates a common source of "volume not declared" errors.
+
+### Why variables AND environment?
+
+`variables:` defines `${VAR}` placeholders substituted throughout the config file (e.g., sharing a DB password between app and db services). They are NOT passed to containers. `environment:` defines actual env vars passed to containers. This separation prevents config-internal values from leaking into the container runtime.
+
+### Why Mutagen for file sync?
+
+Docker bind mounts on macOS are slow - `pnpm install` takes 5x longer than native. Mutagen syncs files bidirectionally at native speed. It's auto-enabled on macOS and disabled on Linux (where bind mounts are already fast). The `mutagen.ignore` list keeps dependency dirs (`node_modules`, `vendor`) inside the container.
+
+### Why the Runtime interface uses a mock for tests?
+
+`internal/runtime/mock.go` implements the `Runtime` interface with in-memory state. This lets unit tests verify project lifecycle logic (start, stop, down, volume discovery, label generation) without Docker. Integration tests use the real `DockerCLI` implementation.
+
+## Config System
+
+Two-pass variable substitution in `internal/config/loader.go`:
+1. First pass: substitute built-in variables (`${PROJECTDIR}`, `${PROJECTPATH}`, `${SCDEV_DOMAIN}`, etc.) to resolve the `name:` field
+2. Second pass: add `${PROJECTNAME}` + user-defined `variables:` to the map, re-substitute everything
+
+User variables can reference built-in vars (e.g., `DB_NAME: ${PROJECTNAME}_db`) but not other user variables (map iteration order is undefined in Go).
+
+`buildContainerConfig()` in `project.go` is the single source of truth for container configuration. Both `startServiceWithMutagen()` (creating containers) and `serviceNeedsRecreate()` (comparing against running containers) use it.
+
+## Documentation
+
+Three docs must stay in sync with the code:
+
+| File | Purpose | Update when |
+|------|---------|-------------|
+| `README.md` | User-facing docs and marketing | New commands, config options, features |
+| `templates/README.md` | Template authoring guide | Config changes, scaffolding patterns, new framework notes |
+| `CLAUDE.md` | Agent guidance (decisions, gotchas) | Architecture changes, new conventions, non-obvious patterns |
+
+Don't duplicate information across docs. README has config reference and examples. `templates/README.md` has template-specific patterns. CLAUDE.md has decisions and gotchas only.
+
+## Creating Templates
+
+Templates enable `scdev create <template> <name>` for one-command project scaffolding. See the [Template Authoring Guide](templates/README.md) for the full reference.
+
+Key patterns:
+- **`.setup-complete` marker** solves the container startup vs setup circular dependency
+- **Scaffold in-place** (`--force`) for frameworks that support non-empty dirs (Nuxt)
+- **Scaffold in /tmp** for frameworks that require empty dirs (Symfony) - safe for PHP, not for Node.js
+- **`setup.just`** runs on host with interactive terminal - framework prompts work here but not in the container entrypoint
+
+## Style
+
+- Never use em-dashes (-). Use regular hyphens (-) everywhere.
+- Error messages: `fmt.Errorf("failed to <action>: %w", err)` - wrap with context
+- User-facing output: `fmt.Printf` for status, `fmt.Println` for section headers
+- Commands return errors (Cobra handles display with `SilenceUsage: true`)
+
+## Release Process
+
+1. Update `CHANGELOG.md` - add new `## vX.Y.Z` section at top
+2. Run `make test` and `make test-integration`
+3. Commit, tag, push:
+   ```bash
+   git add -A && git commit -m "Release vX.Y.Z"
+   git tag vX.Y.Z && git push origin main && git push origin vX.Y.Z
+   ```
+4. CI builds binaries for darwin/linux (arm64/amd64) and creates a GitHub Release with changelog
+5. Users update via `scdev self-update`
