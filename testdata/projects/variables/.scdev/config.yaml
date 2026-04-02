@@ -1,0 +1,29 @@
+version: 1
+name: ${PROJECTDIR}
+
+variables:
+  DB_PASSWORD: secret123
+  DB_NAME: ${PROJECTNAME}_db
+
+services:
+  app:
+    image: node:22-alpine
+    command: sleep infinity
+    working_dir: /app
+    volumes:
+      - ${PROJECTPATH}:/app
+    environment:
+      DATABASE_URL: mysql://root:${DB_PASSWORD}@db:3306/${DB_NAME}
+
+  backend:
+    image: node:22-alpine
+    command: sleep infinity
+    routing:
+      port: 4000
+      domain: api.${PROJECTNAME}.scalecommerce.site
+
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}

@@ -110,6 +110,10 @@ func runServicesStart(cmd *cobra.Command, args []string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
+	if err := requireDocker(ctx); err != nil {
+		return err
+	}
+
 	cfg, err := config.LoadGlobalConfig()
 	if err != nil {
 		return fmt.Errorf("failed to load global config: %w", err)
@@ -130,6 +134,10 @@ func runServicesStart(cmd *cobra.Command, args []string) error {
 func runServicesStop(cmd *cobra.Command, args []string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
+
+	if err := requireDocker(ctx); err != nil {
+		return err
+	}
 
 	cfg, err := config.LoadGlobalConfig()
 	if err != nil {
@@ -154,6 +162,10 @@ func runServicesStop(cmd *cobra.Command, args []string) error {
 func runServicesStatus(cmd *cobra.Command, args []string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
+
+	if err := requireDocker(ctx); err != nil {
+		return err
+	}
 
 	cfg, err := config.LoadGlobalConfig()
 	if err != nil {
@@ -201,6 +213,10 @@ func runServicesStatus(cmd *cobra.Command, args []string) error {
 func runServicesRecreate(cmd *cobra.Command, args []string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
+
+	if err := requireDocker(ctx); err != nil {
+		return err
+	}
 
 	cfg, err := config.LoadGlobalConfig()
 	if err != nil {

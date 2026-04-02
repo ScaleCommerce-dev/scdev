@@ -11,11 +11,19 @@ import (
 	"time"
 
 	"github.com/ScaleCommerce-DEV/scdev/internal/config"
+	runtimePkg "github.com/ScaleCommerce-DEV/scdev/internal/runtime"
 	"github.com/ScaleCommerce-DEV/scdev/internal/services"
 	"github.com/ScaleCommerce-DEV/scdev/internal/state"
 	"github.com/ScaleCommerce-DEV/scdev/internal/ui"
 	"github.com/spf13/cobra"
 )
+
+// requireDocker checks that Docker is running and returns an error if not.
+// Call this at the top of any command that needs Docker.
+func requireDocker(ctx context.Context) error {
+	docker := runtimePkg.NewDockerCLI()
+	return docker.CheckAvailable(ctx)
+}
 
 // openSharedServiceURL opens a shared service URL in the browser
 // serviceName is used for error messages (e.g., "mail", "db", "router")

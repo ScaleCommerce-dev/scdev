@@ -30,6 +30,8 @@ make test-integration # Run integration tests (requires Docker)
 - **Tests:** Unit tests from start, integration tests tagged `//go:build integration`
 - **Default Domain:** `scalecommerce.site` - wildcard DNS resolving to 127.0.0.1
 - **Named Volumes:** Auto-discovered from service volume mounts - no top-level `volumes:` section needed (unlike Docker Compose). `parseVolumeMount()` detects named vs bind volumes.
+- **Config variables:** `variables:` in project config defines reusable `${VAR}` placeholders. Substituted in the second pass of `LoadProject()` after PROJECTNAME is resolved. NOT passed to containers (that's what `environment:` is for).
+- **Project templates:** `scdev create` scaffolds from GitHub repos or local dirs. Template logic in `internal/create/`, command in `cmd/create.go`. Template repos follow the naming convention `scdev-template-<name>`.
 
 ## Style
 
@@ -40,6 +42,11 @@ make test-integration # Run integration tests (requires Docker)
 - **No top-level `volumes:` in project config.** Unlike Docker Compose, named volumes don't need separate declaration. They're discovered automatically from service `volumes:` entries. If it doesn't start with `/` or `.`, it's a named volume.
 - **Justfile commands** live in `.scdev/commands/<name>.just`, not a single Justfile. Command resolution: built-in > justfile > error.
 - **Mutagen auto-detection:** Enabled on macOS, disabled on Linux. Controlled by `~/.scdev/global-config.yaml`, not project config.
+- **`routing.domain`** on services allows per-service custom domains (HTTP/HTTPS only). Without it, all services share the project domain. Useful for frontend + backend setups.
+
+## Adding New Commands
+
+All Docker-dependent commands must call `requireDocker(ctx)` at the top of their `RunE` function (defined in `cmd/shared.go`). This gives users a clear error if Docker isn't running instead of a confusing low-level failure.
 
 ## Adding New Shared Services
 
@@ -63,11 +70,11 @@ When adding a new shared service (easy to miss steps):
 
 The README doubles as the project's main documentation and marketing page. It contains config examples, command references, and architecture explanations that must stay in sync with the code. Check README.md for needed updates on every user-facing change (new commands, config options, shared services, CLI flags).
 
+## Templates Docs
+
+`templates/README.md` is the template authoring guide. It documents config.yaml options, the setup lifecycle, scaffolding patterns, and framework-specific notes. When changing config options, variables, Mutagen behavior, or the create/setup workflow, update both `README.md` and `templates/README.md`.
+
 ## Completo Briefing
 
 `Completo-Briefing.md` provides project context to Completo's AI features. Use `/completo-briefing` to regenerate.
 
-## Detailed Docs
-
-- `planning/implementation-plan.md` - Full milestone details, acceptance criteria
-- `planning/scdev-project-briefing.md` - Original design doc

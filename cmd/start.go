@@ -10,6 +10,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var startQuiet bool
+
 var startCmd = &cobra.Command{
 	Use:   "start",
 	Short: "Start the project",
@@ -18,6 +20,7 @@ var startCmd = &cobra.Command{
 }
 
 func init() {
+	startCmd.Flags().BoolVarP(&startQuiet, "quiet", "q", false, "Skip project info display after start")
 	rootCmd.AddCommand(startCmd)
 }
 
@@ -29,6 +32,10 @@ func runStart(cmd *cobra.Command, args []string) error {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
+
+	if err := requireDocker(ctx); err != nil {
+		return err
+	}
 
 	proj, err := project.Load()
 	if err != nil {
@@ -49,24 +56,26 @@ func runStart(cmd *cobra.Command, args []string) error {
 	// Update docs page with current project info
 	updateDocsWithProjects(ctx)
 
-	fmt.Println()
-	fmt.Println("Project Info:")
-	fmt.Println()
-	if err := showProjectInfo(ctx, proj); err != nil {
-		return err
-	}
+	if !startQuiet {
+		fmt.Println()
+		fmt.Println("Project Info:")
+		fmt.Println()
+		if err := showProjectInfo(ctx, proj); err != nil {
+			return err
+		}
 
-	// Auto-open project URL in browser if configured
-	if proj.Config.AutoOpenAtStart {
-		globalCfg, err := config.LoadGlobalConfig()
-		if err == nil {
-			protocol := "http"
-			if globalCfg.SSL.Enabled {
-				protocol = "https"
+		// Auto-open project URL in browser if configured
+		if proj.Config.AutoOpenAtStart {
+			globalCfg, err := config.LoadGlobalConfig()
+			if err == nil {
+				protocol := "http"
+				if globalCfg.SSL.Enabled {
+					protocol = "https"
+				}
+				url := fmt.Sprintf("%s://%s", protocol, proj.Config.Domain)
+				fmt.Printf("\nOpening %s\n", url)
+				_ = openBrowser(url)
 			}
-			url := fmt.Sprintf("%s://%s", protocol, proj.Config.Domain)
-			fmt.Printf("\nOpening %s\n", url)
-			_ = openBrowser(url)
 		}
 	}
 

@@ -10,13 +10,16 @@ scdev start
 # Your project is running at https://my-project.scalecommerce.site
 ```
 
-> `scalecommerce.site` is a wildcard DNS pointing to `127.0.0.1` - everything runs locally on your machine. No cloud, no accounts. You can use your own domain.
+> `scalecommerce.site` is a wildcard DNS pointing to `127.0.0.1` - everything runs locally on your machine. No cloud, no accounts. You can use your own domain too.
 
 **Requires:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) (macOS/Windows) or Docker Engine (Linux)
 
 ## How It Works
 
 Every project runs in its own isolated network. scdev gives each project its own HTTPS subdomain - no port conflicts, no SSL setup. Shared services like mail catching, database browsing, and Redis inspection are available to all projects automatically.
+
+> [!IMPORTANT]
+> **Your code runs in containers, not on your machine.** Every `pnpm install`, `composer install`, and dev server runs inside an isolated Docker container. If a malicious npm package tries to steal your SSH keys, read your browser cookies, or encrypt your files - it can't. It's trapped in a throwaway container with no access to your host. In an era where supply chain attacks on npm, PyPI, and Packagist are increasingly common, this isn't just convenience - it's protection.
 
 ![scdev architecture](docs/architecture.png)
 
@@ -38,7 +41,7 @@ Install the scdev skill so your agent knows how to use the dev environment:
 npx skills add scalecommerce-dev/scdev
 ```
 
-This teaches your agent the full scdev CLI, config format, debugging workflows, and project setup patterns.
+This teaches your agent the full scdev CLI, config format, debugging workflows, and project setup patterns. Your agent can also help you create custom scdev [templates](#templates).
 
 ## Why scdev?
 
@@ -49,6 +52,7 @@ This teaches your agent the full scdev CLI, config format, debugging workflows, 
 | New developer spends a day setting up | Clone, `scdev start`, done |
 | Complex Docker Compose with 100+ lines | Simple config with sensible defaults |
 | Slow file sync on macOS | Native-speed file sync, zero config |
+| Malicious packages can access your entire machine | Code runs in isolated containers - supply chain attacks stay sandboxed |
 
 ## Quick Start
 
@@ -68,7 +72,17 @@ scdev systemcheck
 
 ### 3. Create a project
 
-Create a file at `my-app/.scdev/config.yaml`:
+The fastest way is to use a template:
+
+```bash
+scdev create express my-app
+cd my-app
+scdev setup
+```
+
+Open https://my-app.scalecommerce.site - that's it. HTTPS works out of the box.
+
+Or create a project manually with a config file at `my-app/.scdev/config.yaml`:
 
 ```yaml
 name: my-app
@@ -92,14 +106,25 @@ mutagen:
 
 `${PROJECTPATH}` is resolved automatically to your project's absolute path. Other available variables: `${PROJECTNAME}`, `${PROJECTDIR}`, `${SCDEV_DOMAIN}`.
 
-### 4. Start
-
 ```bash
 cd my-app
 scdev start
 ```
 
-Open https://my-app.scalecommerce.site - that's it. HTTPS works out of the box with locally-trusted certificates.
+## Templates
+
+Create new projects from starter templates with `scdev create`:
+
+```bash
+scdev create express my-app            # Express.js
+scdev create nuxt4 my-app              # Nuxt 4
+scdev create symfony my-app            # Symfony
+scdev create myorg/my-template my-app  # Any GitHub repo
+```
+
+Browse all available templates on GitHub: [ScaleCommerce-DEV repositories matching `scdev-template-`](https://github.com/orgs/ScaleCommerce-DEV/repositories?q=scdev-template-). Each template's README explains what it includes and how to use it.
+
+Want to create your own template? See the [Template Authoring Guide](templates/README.md).
 
 ## Shared Services
 
@@ -153,6 +178,38 @@ mutagen:
 ```
 
 **Important:** Always add `.pnpm-store` to the ignore list for pnpm projects. pnpm creates its package store inside the project directory when running in a container. Without ignoring it, ~500MB of platform-specific binaries sync to the host, causing slow syncs and broken native modules when switching images.
+
+### Multi-Service Routing
+
+By default, all HTTP services in a project share the project's domain. For projects with multiple web services (frontend + backend, app + admin), you can assign each service its own domain using `routing.domain`:
+
+```yaml
+name: my-app
+
+services:
+  frontend:
+    image: node:22-alpine
+    command: pnpm dev --host 0.0.0.0
+    working_dir: /app
+    volumes:
+      - ${PROJECTPATH}/frontend:/app
+    routing:
+      port: 3000
+      # Uses project domain: my-app.scalecommerce.site
+
+  backend:
+    image: node:22-alpine
+    command: pnpm dev --host 0.0.0.0
+    working_dir: /app
+    volumes:
+      - ${PROJECTPATH}/backend:/app
+    routing:
+      port: 4000
+      domain: api.${PROJECTNAME}.${SCDEV_DOMAIN}
+      # Uses custom domain: api.my-app.scalecommerce.site
+```
+
+The `domain` field supports variable substitution and only applies to HTTP/HTTPS routing (not TCP/UDP).
 
 ### TCP/UDP Routing
 
@@ -282,6 +339,10 @@ scdev mutagen reset   # Recreate sync sessions (if stuck)
 ```yaml
 name: my-shop
 
+variables:
+  DB_PASSWORD: root
+  DB_NAME: ${PROJECTNAME}
+
 services:
   app:
     image: webdevops/php-nginx:8.2
@@ -290,7 +351,7 @@ services:
       - ${PROJECTPATH}:/app
     environment:
       WEB_DOCUMENT_ROOT: /app/public
-      DATABASE_URL: mysql://root:root@db:3306/app
+      DATABASE_URL: mysql://root:${DB_PASSWORD}@db:3306/${DB_NAME}
     routing:
       port: 80
 
@@ -299,8 +360,8 @@ services:
     volumes:
       - db_data:/var/lib/mysql
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: app
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
 ```
 
 ### Node.js + PostgreSQL
@@ -379,63 +440,57 @@ mutagen:
     - .pnpm-store
 ```
 
-### Full config with all options
+### Project Configuration Reference (`.scdev/config.yaml`)
 
-```yaml
-name: my-shopware-shop
-domain: shop.scalecommerce.site  # defaults to {name}.scalecommerce.site
+#### Project-level fields
 
-shared:
-  router: true          # connect to shared router (default: true)
-  mail: true            # connect to shared Mailpit
-  db: true              # connect to shared Adminer
-  redis_insights: true  # connect to shared Redis Insights
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `name` | string | directory name | Project name, used in domain and container names |
+| `domain` | string | `{name}.scalecommerce.site` | Project domain for HTTP routing |
+| `variables` | map | - | Reusable `${VAR}` placeholders substituted throughout the config (not passed to containers) |
+| `environment` | map | - | Environment variables passed to ALL containers |
+| `shared.router` | bool | `true` | Connect to shared Traefik router |
+| `shared.mail` | bool | `false` | Connect to shared Mailpit |
+| `shared.db` | bool | `false` | Connect to shared Adminer |
+| `shared.redis` | bool | `false` | Connect to shared Redis Insights |
+| `mutagen.ignore` | list | - | Paths excluded from file sync (macOS). Mutagen itself is configured globally, see below |
 
-environment:            # available to all services
-  APP_ENV: dev
-  APP_DEBUG: "true"
+#### Service fields (`services.<name>.`)
 
-services:
-  app:
-    image: php:8.2-fpm
-    working_dir: /var/www
-    command: php-fpm
-    volumes:
-      - ${PROJECTPATH}:/var/www
-      - composer_cache:/root/.composer
-    environment:
-      DATABASE_URL: mysql://root:root@db:3306/shopware
-    routing:
-      protocol: http    # http, https, tcp, udp
-      port: 9000
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `image` | string | required | Docker image |
+| `command` | string | - | Container command |
+| `working_dir` | string | - | Working directory inside container |
+| `volumes` | list | - | Volume mounts (bind mounts and named volumes) |
+| `environment` | map | - | Env vars for this container (overrides project-level) |
+| `routing.protocol` | string | `http` | `http`, `https`, `tcp`, `udp` |
+| `routing.port` | int | 80 (http), 443 (https) | Container port to route to |
+| `routing.host_port` | int | - | Host port for TCP/UDP (required for tcp/udp) |
+| `routing.domain` | string | project domain | Custom domain for this service (http/https only) |
+| `pre_start` | list | - | Commands to run before container starts |
+| `labels` | map | - | Docker labels |
 
-  db:
-    image: mysql:8.0
-    volumes:
-      - db_data:/var/lib/mysql
-    environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: shopware
+#### Variables and environment
 
-  redis:
-    image: redis:7-alpine
+**`variables`** define `${VAR}` placeholders substituted throughout the config file. They are NOT passed to containers. Use them to avoid duplicating values like database passwords across services.
 
-mutagen:
-  ignore:
-    - var/cache
-    - var/log
-```
+**`environment`** (project-level) is passed to ALL containers. **`services.<name>.environment`** is passed to that specific container and overrides project-level values with the same name.
 
-### Global config (`~/.scdev/global-config.yaml`)
+**Built-in variables:** `${PROJECTNAME}`, `${PROJECTPATH}`, `${PROJECTDIR}`, `${SCDEV_DOMAIN}`, `${SCDEV_HOME}`, `${USER}`, `${HOME}`, plus all host environment variables. User-defined `variables` can reference built-in ones (e.g. `DB_NAME: ${PROJECTNAME}_db`).
 
-Auto-created on first run. Usually you don't need to touch this.
+### Global Configuration Reference (`~/.scdev/global-config.yaml`)
+
+Applies to all projects. Auto-created on first run. Usually you don't need to touch this.
 
 ```yaml
 domain: scalecommerce.site
 ssl:
   enabled: true
 mutagen:
-  enabled: auto  # enabled on macOS, disabled on Linux
+  enabled: auto       # "auto" (macOS only), "true" (always), "false" (never)
+  sync_mode: two-way-safe  # default sync mode
 ```
 
 ## Troubleshooting

@@ -123,8 +123,6 @@ func (p *Project) createMutagenVolumes(ctx context.Context, mounts []MutagenSync
 
 // startMutagenSessions creates or resumes Mutagen sync sessions
 func (p *Project) startMutagenSessions(ctx context.Context, m *mutagen.Mutagen, mounts []MutagenSyncMount) error {
-	globalCfg, _ := config.LoadGlobalConfig()
-
 	for _, mount := range mounts {
 		exists, err := m.SessionExists(ctx, mount.SessionName)
 		if err != nil {
@@ -153,11 +151,6 @@ func (p *Project) startMutagenSessions(ctx context.Context, m *mutagen.Mutagen, 
 				Alpha:   mount.HostPath,
 				Beta:    beta,
 				Ignores: ignores,
-			}
-
-			// Use sync mode from global config if set
-			if globalCfg != nil && globalCfg.Mutagen.SyncMode != "" {
-				// SessionConfig doesn't have SyncMode yet, it's hardcoded in CreateSession
 			}
 
 			if err := m.CreateSession(ctx, cfg); err != nil {

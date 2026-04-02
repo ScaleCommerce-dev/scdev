@@ -38,6 +38,10 @@ func runCleanup(cmd *cobra.Command, args []string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
+	if err := requireDocker(ctx); err != nil {
+		return err
+	}
+
 	if cleanupGlobal {
 		return runGlobalCleanup(ctx)
 	}
@@ -163,7 +167,9 @@ func runGlobalCleanup(ctx context.Context) error {
 		fmt.Println()
 	}
 
-	allVolumes := append(projectVolumes, orphanVolumes...)
+	allVolumes := make([]string, 0, len(projectVolumes)+len(orphanVolumes))
+	allVolumes = append(allVolumes, projectVolumes...)
+	allVolumes = append(allVolumes, orphanVolumes...)
 	if !confirmCleanup(len(allVolumes)) {
 		return nil
 	}

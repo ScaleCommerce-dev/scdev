@@ -27,6 +27,10 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
+	if err := requireDocker(ctx); err != nil {
+		return err
+	}
+
 	proj, err := project.Load()
 	if err != nil {
 		return err
@@ -67,9 +71,10 @@ func runStatus(cmd *cobra.Command, args []string) error {
 
 	// Shared services
 	fmt.Println("Shared Services:")
+	mgr := services.NewManager(cfg)
 
 	// Router status (includes docs)
-	routerStatus := getRouterStatus(ctx)
+	routerStatus := getSharedServiceStatus(ctx, mgr, mgr.RouterStatus)
 	if proj.Config.Shared.Router {
 		fmt.Printf("  %-15s %s\n", "router", ui.StatusColor(routerStatus, plainMode))
 		if routerStatus == "running" {
@@ -82,7 +87,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 
 	// Mail status
 	if proj.Config.Shared.Mail {
-		mailStatus := getMailStatus(ctx)
+		mailStatus := getSharedServiceStatus(ctx, mgr, mgr.MailStatus)
 		fmt.Printf("  %-15s %s\n", "mail", ui.StatusColor(mailStatus, plainMode))
 		if mailStatus == "running" {
 			url := fmt.Sprintf("%s://mail.shared.%s", protocol, domain)
@@ -92,7 +97,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 
 	// DB status
 	if proj.Config.Shared.DBUI {
-		dbStatus := getDBStatus(ctx)
+		dbStatus := getSharedServiceStatus(ctx, mgr, mgr.DBUIStatus)
 		fmt.Printf("  %-15s %s\n", "db", ui.StatusColor(dbStatus, plainMode))
 		if dbStatus == "running" {
 			url := fmt.Sprintf("%s://db.shared.%s", protocol, domain)
@@ -110,54 +115,11 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func getMailStatus(ctx context.Context) string {
-	cfg, err := config.LoadGlobalConfig()
+func getSharedServiceStatus(ctx context.Context, mgr *services.Manager, statusFn func(context.Context) (*services.ServiceStatus, error)) string {
+	status, err := statusFn(ctx)
 	if err != nil {
 		return "unknown"
 	}
-
-	mgr := services.NewManager(cfg)
-	status, err := mgr.MailStatus(ctx)
-	if err != nil {
-		return "unknown"
-	}
-
-	if status.Running {
-		return "running"
-	}
-	return "stopped"
-}
-
-func getDBStatus(ctx context.Context) string {
-	cfg, err := config.LoadGlobalConfig()
-	if err != nil {
-		return "unknown"
-	}
-
-	mgr := services.NewManager(cfg)
-	status, err := mgr.DBUIStatus(ctx)
-	if err != nil {
-		return "unknown"
-	}
-
-	if status.Running {
-		return "running"
-	}
-	return "stopped"
-}
-
-func getRouterStatus(ctx context.Context) string {
-	cfg, err := config.LoadGlobalConfig()
-	if err != nil {
-		return "unknown"
-	}
-
-	mgr := services.NewManager(cfg)
-	status, err := mgr.RouterStatus(ctx)
-	if err != nil {
-		return "unknown"
-	}
-
 	if status.Running {
 		return "running"
 	}

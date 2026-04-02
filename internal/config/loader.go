@@ -60,8 +60,15 @@ func LoadProject(projectDir string) (*ProjectConfig, error) {
 		projectName = dirName
 	}
 
-	// Second pass: now substitute PROJECTNAME with the actual project name
+	// Second pass: add PROJECTNAME, resolve user-defined variables, then substitute
 	vars["PROJECTNAME"] = projectName
+	for k, v := range cfg.Variables {
+		// User variables don't override built-in variables
+		if _, exists := vars[k]; !exists {
+			// Resolve references in variable values (e.g. DB_NAME: ${PROJECTNAME}_db)
+			vars[k] = substituteVariables(v, vars)
+		}
+	}
 	content = substituteVariables(string(data), vars)
 
 	// Re-parse with full variable substitution

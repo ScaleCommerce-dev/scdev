@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/ScaleCommerce-DEV/scdev/internal/config"
 	"github.com/ScaleCommerce-DEV/scdev/internal/project"
+	"github.com/ScaleCommerce-DEV/scdev/internal/services"
 	"github.com/ScaleCommerce-DEV/scdev/internal/ui"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -64,6 +64,13 @@ func showProjectInfo(ctx context.Context, proj *project.Project) error {
 			hint = " " + hint
 		}
 		fmt.Printf("URL:  %s%s\n", ui.Hyperlink(projectURL, projectURL, plainMode), hint)
+	}
+	// Show additional service-level custom domains
+	for _, svc := range proj.Config.Services {
+		if svc.Routing != nil && svc.Routing.Domain != "" && svc.Routing.Domain != proj.Config.Domain {
+			svcURL := fmt.Sprintf("%s://%s", protocol, svc.Routing.Domain)
+			fmt.Printf("      %s\n", ui.Hyperlink(svcURL, svcURL, plainMode))
+		}
 	}
 	fmt.Println()
 
@@ -160,14 +167,6 @@ func renderInfo(content string, plainMode bool) error {
 }
 
 // isDBService checks if a service name suggests it's a database service
-// Only includes databases supported by Adminer (MySQL, MariaDB, PostgreSQL, SQLite)
 func isDBService(name string) bool {
-	dbNames := []string{"db", "database", "mysql", "mariadb", "postgres", "postgresql", "sqlite"}
-	nameLower := strings.ToLower(name)
-	for _, dbName := range dbNames {
-		if nameLower == dbName || strings.HasPrefix(nameLower, dbName+"-") || strings.HasSuffix(nameLower, "-"+dbName) {
-			return true
-		}
-	}
-	return false
+	return services.IsDBServiceByName(name)
 }

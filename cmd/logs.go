@@ -45,6 +45,10 @@ func runLogs(cmd *cobra.Command, args []string) error {
 		cancel()
 	}()
 
+	if err := requireDocker(ctx); err != nil {
+		return err
+	}
+
 	proj, err := project.Load()
 	if err != nil {
 		return err

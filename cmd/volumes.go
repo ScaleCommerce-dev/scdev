@@ -35,6 +35,10 @@ func runVolumes(cmd *cobra.Command, args []string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
+	if err := requireDocker(ctx); err != nil {
+		return err
+	}
+
 	// --global: list volumes for all registered projects
 	if volumesGlobal {
 		return listGlobalVolumes(ctx)

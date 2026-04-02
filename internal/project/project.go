@@ -350,80 +350,8 @@ func (p *Project) startServiceWithMutagen(ctx context.Context, name string, svc 
 		}
 	}
 
-	// Build container config
-	cfg := runtime.ContainerConfig{
-		Name:        containerName,
-		Image:       svc.Image,
-		WorkingDir:  svc.WorkingDir,
-		NetworkName: p.NetworkName(),
-		Aliases:     []string{name}, // Service name as DNS alias
-		Labels: map[string]string{
-			"scdev.managed": "true",
-			"scdev.project": p.Config.Name,
-			"scdev.service": name,
-		},
-	}
-
-	// Merge global and service environment
-	cfg.Env = make(map[string]string)
-	for k, v := range p.Config.Environment {
-		cfg.Env[k] = v
-	}
-	for k, v := range svc.Environment {
-		cfg.Env[k] = v
-	}
-
-	// Add USER_ID and GROUP_ID for bind mount permission handling
-	if _, exists := cfg.Env["USER_ID"]; !exists {
-		cfg.Env["USER_ID"] = fmt.Sprintf("%d", os.Getuid())
-	}
-	if _, exists := cfg.Env["GROUP_ID"]; !exists {
-		cfg.Env["GROUP_ID"] = fmt.Sprintf("%d", os.Getgid())
-	}
-
-	// Add service labels (for Traefik, etc.)
-	for k, v := range svc.Labels {
-		cfg.Labels[k] = v
-	}
-
-	// Configure Traefik routing if specified and project uses shared router
-	if svc.Routing != nil && p.Config.Shared.Router {
-		p.configureRouting(&cfg, name, svc.Routing, isTLSAvailable())
-	}
-
-	// Parse and add volume mounts, transforming for Mutagen if enabled
-	if mutagenEnabled && mutagenMounts != nil {
-		cfg.Volumes = p.transformVolumesForMutagen(name, svc.Volumes, mutagenMounts)
-	} else {
-		for _, vol := range svc.Volumes {
-			source, target, isNamedVolume := parseVolumeMount(vol)
-
-			// For named volumes, prefix with project name
-			if isNamedVolume {
-				source = p.VolumeName(source)
-			}
-
-			cfg.Volumes = append(cfg.Volumes, runtime.VolumeMount{
-				Source: source,
-				Target: target,
-			})
-		}
-	}
-
-	// Parse command if specified
-	if svc.Command != "" {
-		// When Mutagen is enabled for this service, wrap the command with a sync-ready gate.
-		// Files arrive via sync AFTER the container starts, so the command would fail immediately
-		// without this gate. The marker file is written by signalSyncReady() after initial sync.
-		_, hasMutagenMount := mutagenMounts[name]
-		if mutagenEnabled && hasMutagenMount {
-			cfg.Command = []string{"sh", "-c",
-				"while [ ! -f /.scdev-sync-ready ]; do sleep 0.2; done; exec sh -c " + shellQuote(svc.Command),
-			}
-		} else {
-			cfg.Command = []string{"sh", "-c", svc.Command}
-		}
-	}
+	// Build container config (single source of truth)
+	cfg := p.buildContainerConfig(name, svc, mutagenEnabled, mutagenMounts)
 
 	// Create and start
 	fmt.Printf("Creating service %s...\n", name)
@@ -676,8 +604,16 @@ func (p *Project) serviceNeedsRecreate(ctx context.Context, serviceName string, 
 		return true, nil // If we can't read labels, recreate to be safe
 	}
 
-	// Build expected labels for comparison
-	expectedCfg := p.buildContainerConfig(serviceName, svc)
+	// Build expected config using the same logic as Start() for accurate comparison
+	mutagenEnabled := p.IsMutagenEnabled()
+	var mutagenMountMap map[string]MutagenSyncMount
+	if mutagenEnabled {
+		mutagenMountMap = make(map[string]MutagenSyncMount)
+		for _, mount := range p.GetMutagenSyncMounts() {
+			mutagenMountMap[mount.ServiceName] = mount
+		}
+	}
+	expectedCfg := p.buildContainerConfig(serviceName, svc, mutagenEnabled, mutagenMountMap)
 
 	// Compare routing-related labels
 	for key, expectedValue := range expectedCfg.Labels {
@@ -702,13 +638,17 @@ func (p *Project) serviceNeedsRecreate(ctx context.Context, serviceName string, 
 	return false, nil
 }
 
-// buildContainerConfig builds the container config for a service (without creating it)
-func (p *Project) buildContainerConfig(name string, svc config.ServiceConfig) runtime.ContainerConfig {
+// buildContainerConfig builds the full container configuration for a service.
+// This is the single source of truth for container config - used by both
+// startServiceWithMutagen (for creating containers) and serviceNeedsRecreate
+// (for comparing against running containers).
+func (p *Project) buildContainerConfig(name string, svc config.ServiceConfig, mutagenEnabled bool, mutagenMounts map[string]MutagenSyncMount) runtime.ContainerConfig {
 	containerName := p.ContainerName(name)
 
 	cfg := runtime.ContainerConfig{
 		Name:        containerName,
 		Image:       svc.Image,
+		WorkingDir:  svc.WorkingDir,
 		NetworkName: p.NetworkName(),
 		Aliases:     []string{name},
 		Env:         make(map[string]string),
@@ -730,7 +670,6 @@ func (p *Project) buildContainerConfig(name string, svc config.ServiceConfig) ru
 	}
 
 	// Add USER_ID and GROUP_ID for bind mount permission handling
-	// These can be overridden by project/service config if needed
 	if _, exists := cfg.Env["USER_ID"]; !exists {
 		cfg.Env["USER_ID"] = fmt.Sprintf("%d", os.Getuid())
 	}
@@ -738,36 +677,43 @@ func (p *Project) buildContainerConfig(name string, svc config.ServiceConfig) ru
 		cfg.Env["GROUP_ID"] = fmt.Sprintf("%d", os.Getgid())
 	}
 
-	// Add working directory
-	if svc.WorkingDir != "" {
-		cfg.WorkingDir = svc.WorkingDir
-	}
-
-	// Configure routing if specified
-	if svc.Routing != nil && p.Config.Shared.Router {
-		p.configureRouting(&cfg, name, svc.Routing, isTLSAvailable())
-	}
-
-	// Add any explicit labels from config
+	// Add any explicit labels from config (before routing, so routing labels take precedence)
 	for k, v := range svc.Labels {
 		cfg.Labels[k] = v
 	}
 
-	// Parse and add volume mounts
-	for _, vol := range svc.Volumes {
-		source, target, isNamedVolume := parseVolumeMount(vol)
-		if isNamedVolume {
-			source = p.VolumeName(source)
+	// Configure routing if specified (after user labels, so routing wins on conflict)
+	if svc.Routing != nil && p.Config.Shared.Router {
+		p.configureRouting(&cfg, name, svc.Routing, isTLSAvailable())
+	}
+
+	// Parse and add volume mounts, transforming for Mutagen if enabled
+	if mutagenEnabled && mutagenMounts != nil {
+		cfg.Volumes = p.transformVolumesForMutagen(name, svc.Volumes, mutagenMounts)
+	} else {
+		for _, vol := range svc.Volumes {
+			source, target, isNamedVolume := parseVolumeMount(vol)
+			if isNamedVolume {
+				source = p.VolumeName(source)
+			}
+			cfg.Volumes = append(cfg.Volumes, runtime.VolumeMount{
+				Source: source,
+				Target: target,
+			})
 		}
-		cfg.Volumes = append(cfg.Volumes, runtime.VolumeMount{
-			Source: source,
-			Target: target,
-		})
 	}
 
 	// Parse command
 	if svc.Command != "" {
-		cfg.Command = []string{"sh", "-c", svc.Command}
+		// When Mutagen is enabled for this service, wrap with sync-ready gate
+		_, hasMutagenMount := mutagenMounts[name]
+		if mutagenEnabled && hasMutagenMount {
+			cfg.Command = []string{"sh", "-c",
+				"while [ ! -f /.scdev-sync-ready ]; do sleep 0.2; done; exec sh -c " + shellQuote(svc.Command),
+			}
+		} else {
+			cfg.Command = []string{"sh", "-c", svc.Command}
+		}
 	}
 
 	return cfg

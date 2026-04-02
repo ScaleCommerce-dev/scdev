@@ -48,6 +48,10 @@ func runMutagenStatus(cmd *cobra.Command, args []string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
+	if err := requireDocker(ctx); err != nil {
+		return err
+	}
+
 	// Load project
 	proj, err := project.Load()
 	if err != nil {
@@ -107,6 +111,10 @@ func runMutagenStatus(cmd *cobra.Command, args []string) error {
 func runMutagenReset(cmd *cobra.Command, args []string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
+
+	if err := requireDocker(ctx); err != nil {
+		return err
+	}
 
 	// Load project
 	proj, err := project.Load()
@@ -201,6 +209,10 @@ func runMutagenReset(cmd *cobra.Command, args []string) error {
 func runMutagenFlush(cmd *cobra.Command, args []string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
+
+	if err := requireDocker(ctx); err != nil {
+		return err
+	}
 
 	// Load project
 	proj, err := project.Load()

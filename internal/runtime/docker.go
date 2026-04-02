@@ -23,6 +23,24 @@ func NewDockerCLI() *DockerCLI {
 	return &DockerCLI{Binary: "docker"}
 }
 
+// CheckAvailable verifies that the Docker daemon is reachable.
+// Returns nil if Docker is running, or a user-friendly error.
+func (d *DockerCLI) CheckAvailable(ctx context.Context) error {
+	_, err := exec.LookPath(d.Binary)
+	if err != nil {
+		return fmt.Errorf("docker not found in PATH - please install Docker Desktop or Docker Engine")
+	}
+
+	cmd := exec.CommandContext(ctx, d.Binary, "info", "--format", "{{.ServerVersion}}")
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("Docker is not running - please start Docker Desktop or the Docker daemon")
+	}
+
+	return nil
+}
+
 // CreateContainer creates a new container but does not start it
 func (d *DockerCLI) CreateContainer(ctx context.Context, cfg ContainerConfig) (string, error) {
 	args := []string{"create", "--name", cfg.Name}

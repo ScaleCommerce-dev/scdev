@@ -185,16 +185,24 @@ func getDBServersFromProjects(ctx context.Context) ([]DBServer, error) {
 	return servers, nil
 }
 
-// isDBServiceByNameOrImage checks if a service is a database by name or image
-// Only includes databases supported by Adminer (MySQL, MariaDB, PostgreSQL, SQLite)
-func isDBServiceByNameOrImage(name, image string) bool {
-	// Check by name
+// IsDBServiceByName checks if a service name suggests it's a database service.
+// Only includes databases supported by Adminer (MySQL, MariaDB, PostgreSQL, SQLite).
+func IsDBServiceByName(name string) bool {
 	dbNames := []string{"db", "database", "mysql", "mariadb", "postgres", "postgresql", "sqlite"}
 	nameLower := strings.ToLower(name)
 	for _, dbName := range dbNames {
 		if nameLower == dbName || strings.HasPrefix(nameLower, dbName+"-") || strings.HasSuffix(nameLower, "-"+dbName) {
 			return true
 		}
+	}
+	return false
+}
+
+// isDBServiceByNameOrImage checks if a service is a database by name or image
+// Only includes databases supported by Adminer (MySQL, MariaDB, PostgreSQL, SQLite)
+func isDBServiceByNameOrImage(name, image string) bool {
+	if IsDBServiceByName(name) {
+		return true
 	}
 
 	// Check by image

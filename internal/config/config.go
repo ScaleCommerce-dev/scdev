@@ -86,6 +86,7 @@ type ProjectConfig struct {
 	Domain          string                   `yaml:"domain"`
 	Info            string                   `yaml:"info"`
 	AutoOpenAtStart bool                     `yaml:"auto_open_at_start"`
+	Variables       map[string]string        `yaml:"variables"`
 	Shared          ProjectSharedConfig      `yaml:"shared"`
 	Environment     map[string]string        `yaml:"environment"`
 	Services map[string]ServiceConfig `yaml:"services"`
@@ -102,7 +103,7 @@ type ProjectSharedConfig struct {
 	Router        bool `yaml:"router"`
 	Mail          bool `yaml:"mail"`
 	DBUI          bool `yaml:"db"`
-	RedisInsights bool `yaml:"redis_insights"`
+	RedisInsights bool `yaml:"redis"`
 	Observability bool `yaml:"observability"`
 	Tunnel        bool `yaml:"tunnel"`
 }
@@ -125,5 +126,6 @@ type RoutingConfig struct {
 	Protocol string `yaml:"protocol"`  // http, https, tcp, udp
 	Port     int    `yaml:"port"`      // Container port (defaults: http=80, https=443, tcp/udp=required)
 	HostPort int    `yaml:"host_port"` // Host port for tcp/udp (required for tcp/udp, ignored for http/https)
+	Domain   string `yaml:"domain"`    // Custom domain for http/https (defaults to project domain)
 }
 

@@ -86,19 +86,12 @@ func (p *Project) disconnectSharedService(
 
 // connectRouter connects the shared router to this project's network
 func (p *Project) connectRouter(ctx context.Context) error {
-	cfg, err := config.LoadGlobalConfig()
-	if err != nil {
-		return fmt.Errorf("failed to load global config: %w", err)
-	}
-
-	mgr := services.NewManager(cfg)
-
-	fmt.Println("Ensuring shared router is running...")
-	if err := mgr.StartRouter(ctx); err != nil {
-		return fmt.Errorf("failed to start router: %w", err)
-	}
-
-	return mgr.ConnectRouterToProject(ctx, p.NetworkName())
+	return p.connectSharedService(ctx, "router",
+		func(ctx context.Context, mgr *services.Manager) error { return mgr.StartRouter(ctx) },
+		func(ctx context.Context, mgr *services.Manager, network string) error {
+			return mgr.ConnectRouterToProject(ctx, network)
+		},
+	)
 }
 
 // disconnectRouter disconnects the shared router from this project's network
@@ -160,6 +153,12 @@ func (p *Project) configureRouting(cfg *runtime.ContainerConfig, serviceName str
 	cfg.Labels["traefik.enable"] = "true"
 	cfg.Labels["traefik.docker.network"] = p.NetworkName()
 
+	// Use service-level domain if set, otherwise fall back to project domain
+	routingDomain := p.Config.Domain
+	if routing.Domain != "" {
+		routingDomain = routing.Domain
+	}
+
 	switch routing.Protocol {
 	case "http":
 		port := routing.Port
@@ -167,7 +166,7 @@ func (p *Project) configureRouting(cfg *runtime.ContainerConfig, serviceName str
 			port = 80
 		}
 		// Always configure HTTP router
-		cfg.Labels[fmt.Sprintf("traefik.http.routers.%s.rule", traefikName)] = fmt.Sprintf("Host(`%s`)", p.Config.Domain)
+		cfg.Labels[fmt.Sprintf("traefik.http.routers.%s.rule", traefikName)] = fmt.Sprintf("Host(`%s`)", routingDomain)
 		cfg.Labels[fmt.Sprintf("traefik.http.routers.%s.entrypoints", traefikName)] = "http"
 		cfg.Labels[fmt.Sprintf("traefik.http.routers.%s.service", traefikName)] = traefikName
 		cfg.Labels[fmt.Sprintf("traefik.http.services.%s.loadbalancer.server.port", traefikName)] = fmt.Sprintf("%d", port)
@@ -176,7 +175,7 @@ func (p *Project) configureRouting(cfg *runtime.ContainerConfig, serviceName str
 		// Also configure HTTPS router when TLS is enabled
 		if tlsEnabled {
 			httpsName := traefikName + "-https"
-			cfg.Labels[fmt.Sprintf("traefik.http.routers.%s.rule", httpsName)] = fmt.Sprintf("Host(`%s`)", p.Config.Domain)
+			cfg.Labels[fmt.Sprintf("traefik.http.routers.%s.rule", httpsName)] = fmt.Sprintf("Host(`%s`)", routingDomain)
 			cfg.Labels[fmt.Sprintf("traefik.http.routers.%s.entrypoints", httpsName)] = "https"
 			cfg.Labels[fmt.Sprintf("traefik.http.routers.%s.tls", httpsName)] = "true"
 			cfg.Labels[fmt.Sprintf("traefik.http.routers.%s.service", httpsName)] = traefikName // Use same service
@@ -187,7 +186,7 @@ func (p *Project) configureRouting(cfg *runtime.ContainerConfig, serviceName str
 		if port == 0 {
 			port = 443
 		}
-		cfg.Labels[fmt.Sprintf("traefik.http.routers.%s.rule", traefikName)] = fmt.Sprintf("Host(`%s`)", p.Config.Domain)
+		cfg.Labels[fmt.Sprintf("traefik.http.routers.%s.rule", traefikName)] = fmt.Sprintf("Host(`%s`)", routingDomain)
 		cfg.Labels[fmt.Sprintf("traefik.http.routers.%s.entrypoints", traefikName)] = "https"
 		cfg.Labels[fmt.Sprintf("traefik.http.routers.%s.tls", traefikName)] = "true"
 		cfg.Labels[fmt.Sprintf("traefik.http.routers.%s.service", traefikName)] = traefikName

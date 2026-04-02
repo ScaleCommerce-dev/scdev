@@ -24,6 +24,10 @@ func runRestart(cmd *cobra.Command, args []string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 7*time.Minute)
 	defer cancel()
 
+	if err := requireDocker(ctx); err != nil {
+		return err
+	}
+
 	proj, err := project.Load()
 	if err != nil {
 		return err

@@ -35,6 +35,10 @@ func runExec(cmd *cobra.Command, args []string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 	defer cancel()
 
+	if err := requireDocker(ctx); err != nil {
+		return err
+	}
+
 	proj, err := project.Load()
 	if err != nil {
 		return err
@@ -42,6 +46,15 @@ func runExec(cmd *cobra.Command, args []string) error {
 
 	service := args[0]
 	command := args[1:]
+
+	// Strip leading "--" separator if present (common pattern: scdev exec app -- cmd)
+	if len(command) > 0 && command[0] == "--" {
+		command = command[1:]
+	}
+
+	if len(command) == 0 {
+		return cmd.Help()
+	}
 
 	opts := project.ExecOptions{
 		User:    execUser,

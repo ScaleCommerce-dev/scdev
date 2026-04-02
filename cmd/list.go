@@ -26,6 +26,10 @@ func runList(cmd *cobra.Command, args []string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
+	if err := requireDocker(ctx); err != nil {
+		return err
+	}
+
 	stateMgr, err := state.DefaultManager()
 	if err != nil {
 		return fmt.Errorf("failed to load state: %w", err)

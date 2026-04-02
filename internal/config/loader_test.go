@@ -150,6 +150,44 @@ func TestLoadProjectWithVariables(t *testing.T) {
 	}
 }
 
+func TestLoadProjectWithUserVariables(t *testing.T) {
+	projectDir := filepath.Join("..", "..", "testdata", "projects", "variables")
+	absPath, err := filepath.Abs(projectDir)
+	if err != nil {
+		t.Fatalf("failed to get absolute path: %v", err)
+	}
+
+	cfg, err := LoadProject(absPath)
+	if err != nil {
+		t.Fatalf("LoadProject failed: %v", err)
+	}
+
+	// Variables should be substituted in service environments
+	appEnv := cfg.Services["app"].Environment
+	expectedURL := "mysql://root:secret123@db:3306/variables_db"
+	if appEnv["DATABASE_URL"] != expectedURL {
+		t.Errorf("expected DATABASE_URL to be %q, got %q", expectedURL, appEnv["DATABASE_URL"])
+	}
+
+	dbEnv := cfg.Services["db"].Environment
+	if dbEnv["MYSQL_ROOT_PASSWORD"] != "secret123" {
+		t.Errorf("expected MYSQL_ROOT_PASSWORD to be 'secret123', got %q", dbEnv["MYSQL_ROOT_PASSWORD"])
+	}
+	if dbEnv["MYSQL_DATABASE"] != "variables_db" {
+		t.Errorf("expected MYSQL_DATABASE to be 'variables_db', got %q", dbEnv["MYSQL_DATABASE"])
+	}
+
+	// Custom routing domain should have PROJECTNAME substituted
+	backendRouting := cfg.Services["backend"].Routing
+	if backendRouting == nil {
+		t.Fatal("expected backend service to have routing config")
+	}
+	expectedDomain := "api.variables.scalecommerce.site"
+	if backendRouting.Domain != expectedDomain {
+		t.Errorf("expected routing domain to be %q, got %q", expectedDomain, backendRouting.Domain)
+	}
+}
+
 func TestLoadProjectWithCustomName(t *testing.T) {
 	// Set SCDEV_DOMAIN for predictable test results
 	oldDomain := os.Getenv("SCDEV_DOMAIN")
