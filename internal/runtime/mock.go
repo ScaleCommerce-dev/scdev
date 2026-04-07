@@ -265,7 +265,7 @@ func (m *MockRuntime) NetworkExists(_ context.Context, name string) (bool, error
 }
 
 // NetworkConnect records the call
-func (m *MockRuntime) NetworkConnect(_ context.Context, networkName, containerName string) error {
+func (m *MockRuntime) NetworkConnect(_ context.Context, networkName, containerName string, aliases ...string) error {
 	m.record("NetworkConnect", networkName, containerName)
 	return m.err("NetworkConnect")
 }

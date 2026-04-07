@@ -5,9 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ScaleCommerce-DEV/scdev/internal/config"
 	"github.com/ScaleCommerce-DEV/scdev/internal/project"
-	"github.com/ScaleCommerce-DEV/scdev/internal/services"
 	"github.com/ScaleCommerce-DEV/scdev/internal/state"
 	"github.com/spf13/cobra"
 )
@@ -76,17 +74,6 @@ func runRemove(cmd *cobra.Command, args []string) error {
 		fmt.Printf("Removing project %s...\n", name)
 		if err := proj.Down(ctx, removeVolumes); err != nil {
 			fmt.Printf("Warning: cleanup failed: %v\n", err)
-		}
-
-		// Refresh router to remove unused ports
-		if proj.Config.Shared.Router {
-			globalCfg, err := config.LoadGlobalConfig()
-			if err == nil {
-				mgr := services.NewManager(globalCfg)
-				if err := mgr.RefreshRouter(ctx); err != nil {
-					fmt.Printf("Warning: could not refresh router: %v\n", err)
-				}
-			}
 		}
 	} else {
 		fmt.Printf("Project directory not loadable, removing stale entry...\n")

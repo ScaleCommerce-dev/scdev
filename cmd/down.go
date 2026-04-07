@@ -5,9 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ScaleCommerce-DEV/scdev/internal/config"
 	"github.com/ScaleCommerce-DEV/scdev/internal/project"
-	"github.com/ScaleCommerce-DEV/scdev/internal/services"
 	"github.com/spf13/cobra"
 )
 
@@ -54,17 +52,6 @@ func runDown(cmd *cobra.Command, args []string) error {
 
 	if err := proj.Down(ctx, downRemoveVolumes); err != nil {
 		return err
-	}
-
-	// Refresh router to remove unused ports
-	if proj.Config.Shared.Router {
-		globalCfg, err := config.LoadGlobalConfig()
-		if err == nil {
-			mgr := services.NewManager(globalCfg)
-			if err := mgr.RefreshRouter(ctx); err != nil {
-				fmt.Printf("Warning: could not refresh router: %v\n", err)
-			}
-		}
 	}
 
 	// Update docs page with current project info

@@ -46,19 +46,22 @@ make test-integration # Run integration tests (requires Docker, run before relea
 - **Mutagen auto-detection:** Enabled on macOS, disabled on Linux. Controlled by `~/.scdev/global-config.yaml`, not project config.
 - **`routing.domain`** on services allows per-service custom domains (HTTP/HTTPS only). Without it, all services share the project domain. Useful for frontend + backend setups.
 
-## Adding New Commands
+## Adding New Commands or Services
+
+**Read `CONTRIBUTING.md` first** when adding new commands, shared services, or major features. It has the full checklist, architecture context, and test patterns.
 
 All Docker-dependent commands must call `requireDocker(ctx)` at the top of their `RunE` function (defined in `cmd/shared.go`). This gives users a clear error if Docker isn't running instead of a confusing low-level failure.
 
-## Adding New Shared Services
+### Adding New Shared Services
 
 When adding a new shared service (easy to miss steps):
 
 1. Add container name constant in `internal/services/<service>.go`
 2. Add `Start<Service>`, `Stop<Service>`, `<Service>Status` methods to `manager.go`
-3. **Update `cmd/services.go` `runServicesRecreate()`** - add stop/remove/start calls
-4. Update `cmd/services.go` start/stop/status commands
-5. Add image constant to `internal/config/defaults.go`
+3. **Update `Connect<Service>ToProject`** - pass network aliases so the service is resolvable by short name from project containers
+4. **Update `cmd/services.go` `runServicesRecreate()`** - add stop/remove/start calls
+5. Update `cmd/services.go` start/stop/status commands
+6. Add image constant to `internal/config/defaults.go`
 
 ## Gotchas
 
@@ -67,6 +70,7 @@ When adding a new shared service (easy to miss steps):
 - Only directory bind mounts are synced via Mutagen. Single-file mounts stay as regular bind mounts.
 - The docs page (`docs.shared.<domain>`) doubles as a 404 catch-all via Traefik - unmatched URLs redirect there.
 - The sync-ready gate (`/.scdev-sync-ready` marker) automatically holds the container's command until Mutagen sync completes. No need for `while [ ! -f ... ]` workarounds in commands.
+- **Integration tests that tear down shared services** (router, mail, db, redis) must snapshot what's running before the test and restore it afterward. See `snapshotSharedServices`/`restoreSharedServices` helpers. Forgetting this silently breaks the developer's running environment.
 
 ## README
 

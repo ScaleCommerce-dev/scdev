@@ -1,3 +1,15 @@
+## v0.4.2
+
+### Bug Fixes
+
+- **Fix shared service hostnames not resolving from project containers** - `docker network connect` now passes `--alias` flags, so shared services (e.g., `mail`, `adminer`, `redis-insights`) are resolvable by their short names on project networks, not just on the shared network
+- **Fix `Down()` not releasing TCP/UDP host ports** - `Down()` now refreshes the router to drop ports the project was using, preventing port conflicts on subsequent starts (previously only done in CLI commands, not the library method)
+
+### Improvements
+
+- **Integration tests restore shared services** - tests that tear down shared services now snapshot what's running beforehand and restore it after, preventing silent breakage of the developer's running environment
+- Updated docs (README, SKILL.md, templates/README.md) with shared service hostname reference - container-internal hostnames and ports for accessing services from app code vs browser
+
 ## v0.4.1
 
 ### Improvements

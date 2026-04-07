@@ -28,7 +28,7 @@ type Runtime interface {
 	CreateNetwork(ctx context.Context, name string) error
 	RemoveNetwork(ctx context.Context, name string) error
 	NetworkExists(ctx context.Context, name string) (bool, error)
-	NetworkConnect(ctx context.Context, networkName, containerName string) error
+	NetworkConnect(ctx context.Context, networkName, containerName string, aliases ...string) error
 	NetworkDisconnect(ctx context.Context, networkName, containerName string) error
 
 	// Volume operations

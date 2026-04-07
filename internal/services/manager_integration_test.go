@@ -16,6 +16,61 @@ import (
 // Integration tests require Docker to be running
 // Run with: go test -tags=integration ./...
 
+// sharedServicesSnapshot records which shared services were running before a test
+// so they can be restored afterward.
+type sharedServicesSnapshot struct {
+	routerRunning bool
+	mailRunning   bool
+	dbuiRunning   bool
+	redisRunning  bool
+	networkExists bool
+}
+
+// snapshotSharedServices checks which shared services are currently running.
+func snapshotSharedServices(ctx context.Context, mgr *Manager, docker *runtime.DockerCLI) sharedServicesSnapshot {
+	var s sharedServicesSnapshot
+	if status, err := mgr.RouterStatus(ctx); err == nil {
+		s.routerRunning = status.Running
+	}
+	if status, err := mgr.MailStatus(ctx); err == nil {
+		s.mailRunning = status.Running
+	}
+	if status, err := mgr.DBUIStatus(ctx); err == nil {
+		s.dbuiRunning = status.Running
+	}
+	if status, err := mgr.RedisInsightsStatus(ctx); err == nil {
+		s.redisRunning = status.Running
+	}
+	s.networkExists, _ = docker.NetworkExists(ctx, SharedNetworkName)
+	return s
+}
+
+// restoreSharedServices restarts any shared services that were running before the test.
+// Uses the real global config so containers are created with correct settings.
+func restoreSharedServices(ctx context.Context, snap sharedServicesSnapshot) {
+	globalCfg, err := config.LoadGlobalConfig()
+	if err != nil {
+		return // Best effort
+	}
+	mgr := NewManager(globalCfg)
+
+	if snap.networkExists {
+		_ = mgr.EnsureSharedNetwork(ctx)
+	}
+	if snap.routerRunning {
+		_ = mgr.StartRouter(ctx)
+	}
+	if snap.mailRunning {
+		_ = mgr.StartMail(ctx)
+	}
+	if snap.dbuiRunning {
+		_ = mgr.StartDBUI(ctx)
+	}
+	if snap.redisRunning {
+		_ = mgr.StartRedisInsights(ctx)
+	}
+}
+
 func TestManager_RouterLifecycle(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
@@ -35,6 +90,10 @@ func TestManager_RouterLifecycle(t *testing.T) {
 
 	mgr := NewManager(cfg)
 	docker := runtime.NewDockerCLI()
+
+	// Snapshot running shared services so we can restore them after the test
+	snap := snapshotSharedServices(ctx, mgr, docker)
+	defer restoreSharedServices(ctx, snap)
 
 	// Cleanup any leftover resources from previous runs
 	_ = docker.StopContainer(ctx, RouterContainerName)
@@ -118,11 +177,6 @@ func TestManager_RouterLifecycle(t *testing.T) {
 		}
 	})
 
-	// Cleanup
-	t.Run("Cleanup", func(t *testing.T) {
-		_ = docker.RemoveContainer(ctx, RouterContainerName)
-		_ = docker.RemoveNetwork(ctx, SharedNetworkName)
-	})
 }
 
 func TestManager_NetworkConnect(t *testing.T) {
@@ -182,6 +236,11 @@ func TestManager_NetworkConnect(t *testing.T) {
 	if err := docker.NetworkDisconnect(ctx, testNetwork, testContainer); err != nil {
 		t.Fatalf("NetworkDisconnect (second time) should not error: %v", err)
 	}
+
+	// Test: Connect with aliases
+	if err := docker.NetworkConnect(ctx, testNetwork, testContainer, "myalias", "otheralias"); err != nil {
+		t.Fatalf("NetworkConnect with aliases failed: %v", err)
+	}
 }
 
 func TestManager_DocsRoutes(t *testing.T) {
@@ -203,6 +262,10 @@ func TestManager_DocsRoutes(t *testing.T) {
 
 	mgr := NewManager(cfg)
 	docker := runtime.NewDockerCLI()
+
+	// Snapshot running shared services so we can restore them after the test
+	snap := snapshotSharedServices(ctx, mgr, docker)
+	defer restoreSharedServices(ctx, snap)
 
 	// Cleanup any leftover resources from previous runs
 	_ = docker.StopContainer(ctx, RouterContainerName)
@@ -286,12 +349,6 @@ func TestManager_DocsRoutes(t *testing.T) {
 		t.Fatalf("Non-existing route check failed after retries: %v", lastErr)
 	})
 
-	// Cleanup
-	t.Run("Cleanup", func(t *testing.T) {
-		_ = docker.StopContainer(ctx, RouterContainerName)
-		_ = docker.RemoveContainer(ctx, RouterContainerName)
-		_ = docker.RemoveNetwork(ctx, SharedNetworkName)
-	})
 }
 
 func TestManager_DBUILifecycle(t *testing.T) {
@@ -316,6 +373,10 @@ func TestManager_DBUILifecycle(t *testing.T) {
 
 	mgr := NewManager(cfg)
 	docker := runtime.NewDockerCLI()
+
+	// Snapshot running shared services so we can restore them after the test
+	snap := snapshotSharedServices(ctx, mgr, docker)
+	defer restoreSharedServices(ctx, snap)
 
 	// Cleanup any leftover resources from previous runs
 	_ = docker.StopContainer(ctx, DBUIContainerName)
@@ -426,12 +487,4 @@ func TestManager_DBUILifecycle(t *testing.T) {
 		}
 	})
 
-	// Cleanup
-	t.Run("Cleanup", func(t *testing.T) {
-		_ = docker.StopContainer(ctx, DBUIContainerName)
-		_ = docker.RemoveContainer(ctx, DBUIContainerName)
-		_ = docker.StopContainer(ctx, RouterContainerName)
-		_ = docker.RemoveContainer(ctx, RouterContainerName)
-		_ = docker.RemoveNetwork(ctx, SharedNetworkName)
-	})
 }

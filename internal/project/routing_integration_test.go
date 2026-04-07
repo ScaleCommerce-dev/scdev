@@ -52,12 +52,44 @@ func updateProjectConfig(t *testing.T, projectDir string, cfg string) {
 	}
 }
 
-// cleanupRouter stops and removes the router
+// cleanupRouter stops and removes the router for a clean test slate.
 func cleanupRouter(t *testing.T, ctx context.Context) {
 	t.Helper()
 	docker := runtime.NewDockerCLI()
 	_ = docker.StopContainer(ctx, services.RouterContainerName)
 	_ = docker.RemoveContainer(ctx, services.RouterContainerName)
+}
+
+// snapshotSharedServices records which shared services are running and returns
+// a restore function that restarts them. Call at the top of each test that
+// tears down shared services.
+func snapshotSharedServices(t *testing.T, ctx context.Context) func() {
+	t.Helper()
+	globalCfg, _ := config.LoadGlobalConfig()
+	mgr := services.NewManager(globalCfg)
+
+	routerRunning := false
+	dbuiRunning := false
+	if status, err := mgr.RouterStatus(ctx); err == nil {
+		routerRunning = status.Running
+	}
+	if status, err := mgr.DBUIStatus(ctx); err == nil {
+		dbuiRunning = status.Running
+	}
+
+	return func() {
+		restoreCfg, err := config.LoadGlobalConfig()
+		if err != nil {
+			return
+		}
+		restoreMgr := services.NewManager(restoreCfg)
+		if routerRunning {
+			_ = restoreMgr.StartRouter(ctx)
+		}
+		if dbuiRunning {
+			_ = restoreMgr.StartDBUI(ctx)
+		}
+	}
 }
 
 // cleanupProject runs Down and unregisters from state
@@ -106,6 +138,7 @@ func getTestServerBinary(t *testing.T) string {
 func TestRouting_HTTP(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
+	defer snapshotSharedServices(t, ctx)()
 
 	testServerBinary := getTestServerBinary(t)
 	projectDomain := fmt.Sprintf("routing-http-test.%s", config.DefaultDomain)
@@ -183,6 +216,7 @@ services:
 func TestRouting_TCP_WithPortChange(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
+	defer snapshotSharedServices(t, ctx)()
 
 	testServerBinary := getTestServerBinary(t)
 
@@ -295,6 +329,7 @@ func TestRouting_UDP_WithPortChange(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
+	defer snapshotSharedServices(t, ctx)()
 
 	testServerBinary := getTestServerBinary(t)
 
@@ -606,6 +641,7 @@ func TestRouting_HTTPS(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
+	defer snapshotSharedServices(t, ctx)()
 
 	testServerBinary := getTestServerBinary(t)
 	projectDomain := fmt.Sprintf("routing-https-test.%s", config.DefaultDomain)

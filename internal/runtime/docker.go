@@ -305,9 +305,14 @@ func (d *DockerCLI) NetworkExists(ctx context.Context, name string) (bool, error
 	return true, nil
 }
 
-// NetworkConnect connects a container to a network
-func (d *DockerCLI) NetworkConnect(ctx context.Context, networkName, containerName string) error {
-	_, err := d.run(ctx, "network", "connect", networkName, containerName)
+// NetworkConnect connects a container to a network with optional aliases
+func (d *DockerCLI) NetworkConnect(ctx context.Context, networkName, containerName string, aliases ...string) error {
+	args := []string{"network", "connect"}
+	for _, alias := range aliases {
+		args = append(args, "--alias", alias)
+	}
+	args = append(args, networkName, containerName)
+	_, err := d.run(ctx, args...)
 	return err
 }
 

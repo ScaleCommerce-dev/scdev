@@ -60,7 +60,8 @@ Integration tests are tagged with `//go:build integration` so they don't run dur
 ### Writing tests
 
 - **Unit tests:** Use the mock runtime. Test config parsing, variable substitution, name validation, label generation, etc.
-- **Integration tests:** Use real Docker. Test full lifecycle (start/stop/down), exec, routing, Mutagen sync. Always defer `proj.Down(ctx, false)` for cleanup. `Down()` handles state unregistration automatically.
+- **Integration tests:** Use real Docker. Test full lifecycle (start/stop/down), exec, routing, Mutagen sync. Always defer `proj.Down(ctx, false)` for cleanup. `Down()` handles state unregistration and router port refresh automatically.
+- **Shared service restoration:** Integration tests that tear down shared services (router, mail, db, redis) must snapshot what's running before the test and restore it afterward. Use `snapshotSharedServices`/`restoreSharedServices` helpers. Without this, tests silently break the developer's running environment.
 - **Test fixtures:** Add to `testdata/projects/` for config loading tests. Keep fixtures minimal.
 
 ## Adding a New Command
@@ -103,11 +104,12 @@ This has multiple touch points that are easy to miss:
 
 1. Create `internal/services/<service>.go` with container name constant and config function
 2. Add `Start<Service>`, `Stop<Service>`, `<Service>Status`, `Connect<Service>ToProject`, `Disconnect<Service>FromProject` methods to `manager.go`
-3. Add entry to `sharedServiceRegistry()` in `cmd/services.go` (handles start/stop/status/recreate)
-4. Add connect/disconnect methods to `internal/project/shared_services.go` using `connectSharedService` helper
-5. Add image constant to `internal/config/defaults.go`
-6. Add to `ProjectSharedConfig` in `internal/config/config.go`
-7. Update `cmd/info.go` to display the service status
+3. **Pass network aliases in `Connect<Service>ToProject`** - without aliases, the service won't be resolvable by its short name from project containers (e.g., `mail` instead of `scdev_mail`)
+4. Add entry to `sharedServiceRegistry()` in `cmd/services.go` (handles start/stop/status/recreate)
+5. Add connect/disconnect methods to `internal/project/shared_services.go` using `connectSharedService` helper
+6. Add image constant to `internal/config/defaults.go`
+7. Add to `ProjectSharedConfig` in `internal/config/config.go`
+8. Update `cmd/info.go` to display the service status
 
 ## Key Architecture Decisions
 

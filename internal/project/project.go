@@ -12,6 +12,7 @@ import (
 	"github.com/ScaleCommerce-DEV/scdev/internal/config"
 	"github.com/ScaleCommerce-DEV/scdev/internal/mutagen"
 	"github.com/ScaleCommerce-DEV/scdev/internal/runtime"
+	"github.com/ScaleCommerce-DEV/scdev/internal/services"
 	"github.com/ScaleCommerce-DEV/scdev/internal/state"
 )
 
@@ -486,6 +487,15 @@ func (p *Project) Down(ctx context.Context, removeVolumes bool) error {
 	stateMgr, err := state.DefaultManager()
 	if err == nil {
 		_ = stateMgr.UnregisterProject(p.Config.Name)
+	}
+
+	// Refresh router to release any TCP/UDP ports this project was using
+	if p.Config.Shared.Router {
+		globalCfg, err := config.LoadGlobalConfig()
+		if err == nil {
+			mgr := services.NewManager(globalCfg)
+			_ = mgr.RefreshRouter(ctx)
+		}
 	}
 
 	return nil

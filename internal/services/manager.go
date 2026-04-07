@@ -150,8 +150,8 @@ func (m *Manager) startService(ctx context.Context, containerName, displayName, 
 	return nil
 }
 
-// connectServiceToProject connects a service to a project network
-func (m *Manager) connectServiceToProject(ctx context.Context, containerName, displayName, projectNetwork string, statusFn func(context.Context) (*ServiceStatus, error)) error {
+// connectServiceToProject connects a service to a project network with optional aliases
+func (m *Manager) connectServiceToProject(ctx context.Context, containerName, displayName, projectNetwork string, statusFn func(context.Context) (*ServiceStatus, error), aliases ...string) error {
 	status, err := statusFn(ctx)
 	if err != nil {
 		return err
@@ -161,7 +161,7 @@ func (m *Manager) connectServiceToProject(ctx context.Context, containerName, di
 		return fmt.Errorf("%s is not running (start with: scdev services start)", strings.ToLower(displayName))
 	}
 
-	if err := m.runtime.NetworkConnect(ctx, projectNetwork, containerName); err != nil {
+	if err := m.runtime.NetworkConnect(ctx, projectNetwork, containerName, aliases...); err != nil {
 		// Ignore "already connected" errors
 		errStr := err.Error()
 		if strings.Contains(strings.ToLower(errStr), "already exists") || strings.Contains(strings.ToLower(errStr), "already connected") {
@@ -392,7 +392,7 @@ func (m *Manager) RouterStatus(ctx context.Context) (*ServiceStatus, error) {
 }
 
 func (m *Manager) ConnectRouterToProject(ctx context.Context, projectNetwork string) error {
-	return m.connectServiceToProject(ctx, RouterContainerName, "Router", projectNetwork, m.RouterStatus)
+	return m.connectServiceToProject(ctx, RouterContainerName, "Router", projectNetwork, m.RouterStatus, "router")
 }
 
 func (m *Manager) DisconnectRouterFromProject(ctx context.Context, projectNetwork string) error {
@@ -422,7 +422,7 @@ func (m *Manager) MailStatus(ctx context.Context) (*ServiceStatus, error) {
 }
 
 func (m *Manager) ConnectMailToProject(ctx context.Context, projectNetwork string) error {
-	return m.connectServiceToProject(ctx, MailContainerName, "Mail", projectNetwork, m.MailStatus)
+	return m.connectServiceToProject(ctx, MailContainerName, "Mail", projectNetwork, m.MailStatus, "mail")
 }
 
 func (m *Manager) DisconnectMailFromProject(ctx context.Context, projectNetwork string) error {
@@ -460,7 +460,7 @@ func (m *Manager) DBUIStatus(ctx context.Context) (*ServiceStatus, error) {
 }
 
 func (m *Manager) ConnectDBUIToProject(ctx context.Context, projectNetwork string) error {
-	err := m.connectServiceToProject(ctx, DBUIContainerName, "DBUI", projectNetwork, m.DBUIStatus)
+	err := m.connectServiceToProject(ctx, DBUIContainerName, "DBUI", projectNetwork, m.DBUIStatus, "adminer")
 	// Update Adminer servers list on connect
 	_ = UpdateAdminerServers(ctx)
 	return err
@@ -496,7 +496,7 @@ func (m *Manager) RedisInsightsStatus(ctx context.Context) (*ServiceStatus, erro
 }
 
 func (m *Manager) ConnectRedisInsightsToProject(ctx context.Context, projectNetwork string) error {
-	return m.connectServiceToProject(ctx, RedisInsightsContainerName, "RedisInsights", projectNetwork, m.RedisInsightsStatus)
+	return m.connectServiceToProject(ctx, RedisInsightsContainerName, "RedisInsights", projectNetwork, m.RedisInsightsStatus, "redis-insights")
 }
 
 func (m *Manager) DisconnectRedisInsightsFromProject(ctx context.Context, projectNetwork string) error {
