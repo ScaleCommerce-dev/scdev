@@ -89,6 +89,31 @@ mutagen:
 
 Result: `https://my-app.scalecommerce.site` with HTTPS, isolation, shared services.
 
+### Shared services: hostnames and access
+
+Shared services have two access modes: **web UI** (browser) and **container-internal** (from app code).
+
+| Service | Web UI URL | Container hostname | Container port | Purpose |
+|---------|-----------|-------------------|----------------|---------|
+| Mailpit | `mail.shared.scalecommerce.site` | `mail` | `1025` (SMTP) | Email catching |
+| Adminer | `db.shared.scalecommerce.site` | `adminer` | `8080` (HTTP) | Database browser |
+| Redis Insights | `redis.shared.scalecommerce.site` | `redis-insights` | `5540` (HTTP) | Redis browser |
+| Traefik | `router.shared.scalecommerce.site` | `router` | - | Routing dashboard |
+
+**From app containers** (e.g., configuring mail in your app):
+- SMTP: `mail:1025` (no auth, no encryption) - all outgoing mail is caught by Mailpit
+- Database: use the project service name (e.g., `db:5432` for postgres), NOT `adminer`
+- Redis: use the project service name (e.g., `redis:6379`), NOT `redis-insights`
+
+**From browser** (web UIs):
+- URLs follow the pattern `https://{service}.shared.scalecommerce.site` (or `http://` without TLS)
+- If a shared service isn't running, the URL redirects to the docs page (this is normal)
+- `scdev mail`, `scdev db`, `scdev redis` open the web UIs directly
+
+**Important distinction:** Adminer and Redis Insights are **browsers** - they connect to your
+project's own database/Redis services. They don't provide a database or Redis themselves. Your app
+connects to its own `db` or `redis` service, not to `adminer` or `redis-insights`.
+
 ### Full config
 
 ```yaml
@@ -194,8 +219,9 @@ Justfiles run on the **host**. Always use `scdev exec` for container commands.
 **Container crashes:** `scdev logs -f app` to see why. `scdev restart` fixes most transient issues.
 `scdev down && scdev start` for a full clean restart.
 
-**Redirects to docs page:** Container not running or `routing.port` doesn't match the app's port.
-Check `scdev status` and `scdev services status`.
+**Redirects to docs page:** Either the container isn't running or `routing.port` doesn't match the
+app's port. For shared service UIs (mail, db, redis), also check `scdev services status` - the
+service needs to be running AND the project must have the corresponding `shared.*` option enabled.
 
 **File sync issues (macOS):** `scdev mutagen status` / `scdev mutagen reset`
 

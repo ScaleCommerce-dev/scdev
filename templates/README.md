@@ -90,9 +90,11 @@ variables:                    # reusable values for ${VAR} substitution in this 
   DB_PASSWORD: root
   DB_NAME: ${PROJECTNAME}
 
-shared:                       # connect shared services to projects docker network
+shared:                       # connect shared services to project's docker network
   router: true
-  mail: true
+  mail: true                  # Mailpit - catch all outgoing email (SMTP at mail:1025)
+  db: true                    # Adminer - browse databases via web UI
+  redis: true                 # Redis Insights - browse Redis keys via web UI
 
 environment:                  # env vars passed to ALL containers
   APP_ENV: dev
