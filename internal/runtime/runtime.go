@@ -36,6 +36,7 @@ type Runtime interface {
 	RemoveVolume(ctx context.Context, name string) error
 	VolumeExists(ctx context.Context, name string) (bool, error)
 	ListVolumes(ctx context.Context, filter string) ([]Volume, error)
+	CopyVolume(ctx context.Context, srcVolume, dstVolume, image string) error
 
 	// Image operations
 	PullImage(ctx context.Context, image string) error

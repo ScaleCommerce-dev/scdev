@@ -251,6 +251,43 @@ func (m *Manager) GetUDPPortOwner(port int) (string, error) {
 	return "", nil
 }
 
+// RenameProject renames a project entry in the state and updates all link memberships
+func (m *Manager) RenameProject(oldName, newName string) error {
+	st, err := m.Load()
+	if err != nil {
+		return err
+	}
+
+	entry, ok := st.Projects[oldName]
+	if !ok {
+		return fmt.Errorf("project %q not found in state", oldName)
+	}
+
+	if _, exists := st.Projects[newName]; exists {
+		return fmt.Errorf("project %q already exists in state", newName)
+	}
+
+	// Move project entry
+	st.Projects[newName] = entry
+	delete(st.Projects, oldName)
+
+	// Update link memberships
+	for linkName, link := range st.Links {
+		changed := false
+		for i, member := range link.Members {
+			if member.Project == oldName {
+				link.Members[i].Project = newName
+				changed = true
+			}
+		}
+		if changed {
+			st.Links[linkName] = link
+		}
+	}
+
+	return m.Save(st)
+}
+
 // ValidateLinkName checks that a link name is valid for use as a Docker network suffix
 func ValidateLinkName(name string) error {
 	if name == "" {

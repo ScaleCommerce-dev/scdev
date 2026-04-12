@@ -297,6 +297,7 @@ scdev stop        # Stop containers (keeps them for quick restart)
 scdev restart     # Stop + start
 scdev down        # Remove containers and network
 scdev down -v     # Remove everything including volumes
+scdev rename <n>  # Rename project, migrate volumes, restart
 ```
 
 ### Development

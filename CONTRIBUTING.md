@@ -123,6 +123,16 @@ Links are stored in the global state file (`~/.scdev/state.yaml`), not in projec
 
 On `scdev start`, a project checks if it's a member of any links and auto-connects. On `scdev down`, it disconnects. Container DNS resolution happens automatically via Docker's embedded DNS - no explicit network aliases are needed since containers are already named with the `<service>.<project>.scdev` pattern.
 
+## Project Rename
+
+`scdev rename` changes the project name and migrates all Docker resources. The implementation lives in:
+
+- **`internal/project/rename.go`** - Core `Rename()` method and `updateConfigName()` helper
+- **`internal/state/state.go`** - `RenameProject()` atomically updates the project entry and all link memberships
+- **`cmd/rename.go`** - CLI command with validation and confirmation
+
+The rename process: stop containers, migrate volumes (create new + copy data via temp alpine container + remove old), remove old network, update state, rewrite `name:` in config.yaml (preserving formatting), reload and start. Docker has no native volume rename, so `CopyVolume()` on the Runtime interface handles the data migration.
+
 ## Key Architecture Decisions
 
 ### Why shell out to Docker CLI (not the SDK)?

@@ -354,6 +354,16 @@ func (d *DockerCLI) VolumeExists(ctx context.Context, name string) (bool, error)
 	return true, nil
 }
 
+// CopyVolume copies all data from one volume to another using a temporary container.
+// The image must be locally available and must contain sh and cp.
+func (d *DockerCLI) CopyVolume(ctx context.Context, srcVolume, dstVolume, image string) error {
+	_, err := d.run(ctx, "run", "--rm",
+		"-v", srcVolume+":/from:ro",
+		"-v", dstVolume+":/to",
+		image, "sh", "-c", "cp -a /from/. /to/")
+	return err
+}
+
 // ListVolumes lists volumes matching the filter (e.g., "name=.scdev")
 func (d *DockerCLI) ListVolumes(ctx context.Context, filter string) ([]Volume, error) {
 	args := []string{"volume", "ls", "--format", "{{.Name}}"}

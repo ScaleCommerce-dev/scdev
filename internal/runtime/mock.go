@@ -313,6 +313,22 @@ func (m *MockRuntime) VolumeExists(_ context.Context, name string) (bool, error)
 	return m.VolumesExist[name], nil
 }
 
+// CopyVolume records the call
+func (m *MockRuntime) CopyVolume(_ context.Context, srcVolume, dstVolume, image string) error {
+	m.record("CopyVolume", srcVolume, dstVolume, image)
+	if err := m.err("CopyVolume"); err != nil {
+		return err
+	}
+	// Simulate the copy: if src exists, mark dst as existing too
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.VolumesExist[srcVolume] {
+		m.Volumes[dstVolume] = true
+		m.VolumesExist[dstVolume] = true
+	}
+	return nil
+}
+
 // ListVolumes returns an empty list (override by setting a custom error or extending mock)
 func (m *MockRuntime) ListVolumes(_ context.Context, filter string) ([]Volume, error) {
 	m.record("ListVolumes", filter)

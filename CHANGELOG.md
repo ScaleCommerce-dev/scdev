@@ -14,9 +14,18 @@
   - Validation: link name characters, project/service existence, duplicate prevention
 - **`scdev info` / `scdev status` / `scdev list` show link information** - links are displayed alongside services and shared services
 
+- **`scdev rename` command** - rename a project with full Docker resource migration
+  - Stops containers, migrates volume data (named + Mutagen sync), removes old network
+  - Updates state file and link memberships atomically
+  - Rewrites `name:` in `.scdev/config.yaml` (preserves formatting and comments)
+  - Restarts project with new name
+  - Confirmation prompt (skip with `--force`)
+  - Validates new name is DNS-safe and not already taken
+
 ### Improvements
 
 - Added `ContainerNameFor()` standalone helper for building container names without a loaded Project
+- Added `CopyVolume()` to Runtime interface for volume data migration
 
 ## v0.4.2
 

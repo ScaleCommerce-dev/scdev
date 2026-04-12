@@ -73,6 +73,7 @@ When adding a new shared service (easy to miss steps):
 - The sync-ready gate (`/.scdev-sync-ready` marker) automatically holds the container's command until Mutagen sync completes. No need for `while [ ! -f ... ]` workarounds in commands.
 - **Project domains don't work for inter-container communication.** `*.scalecommerce.site` resolves to `127.0.0.1`, which inside a container points to the container itself, not Traefik. Linked containers must use container names (`app.project-b.scdev`) instead. This is why `scdev link` uses Docker DNS, not domain routing.
 - **`ContainerNameFor(service, project)`** is the standalone helper for building container names without a loaded Project. Use it instead of `fmt.Sprintf("%s.%s.scdev", ...)`.
+- **`scdev rename` migrates volumes via a temp container** using a project service image (guaranteed local). Docker has no native volume rename. The `CopyVolume` method on the Runtime interface handles this. All copies happen before any old volumes are removed to minimize blast radius on failure.
 - **Integration tests that tear down shared services** (router, mail, db, redis) must snapshot what's running before the test and restore it afterward. See `snapshotSharedServices`/`restoreSharedServices` helpers. Forgetting this silently breaks the developer's running environment.
 
 ## README

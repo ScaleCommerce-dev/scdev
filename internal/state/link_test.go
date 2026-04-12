@@ -284,6 +284,99 @@ func TestGetLinksForProject(t *testing.T) {
 	}
 }
 
+func TestRenameProject(t *testing.T) {
+	mgr := newTestManager(t)
+
+	_ = mgr.RegisterProject("old-name", "/some/path")
+
+	// Rename
+	if err := mgr.RenameProject("old-name", "new-name"); err != nil {
+		t.Fatalf("RenameProject failed: %v", err)
+	}
+
+	// Old name gone
+	old, _ := mgr.GetProject("old-name")
+	if old != nil {
+		t.Error("old project should be removed")
+	}
+
+	// New name exists with same path
+	newProj, _ := mgr.GetProject("new-name")
+	if newProj == nil {
+		t.Fatal("new project should exist")
+	}
+	if newProj.Path != "/some/path" {
+		t.Errorf("path: got %q, want %q", newProj.Path, "/some/path")
+	}
+}
+
+func TestRenameProjectUpdatesLinks(t *testing.T) {
+	mgr := newTestManager(t)
+
+	_ = mgr.RegisterProject("proj-a", "/a")
+	_ = mgr.RegisterProject("proj-b", "/b")
+	_ = mgr.CreateLink("test-net")
+	_ = mgr.AddLinkMembers("test-net", []LinkMember{
+		{Project: "proj-a"},
+		{Project: "proj-b", Service: "app"},
+	})
+
+	// Rename proj-a
+	if err := mgr.RenameProject("proj-a", "proj-a-new"); err != nil {
+		t.Fatalf("RenameProject failed: %v", err)
+	}
+
+	// Link should reference new name
+	link, _ := mgr.GetLink("test-net")
+	if link == nil {
+		t.Fatal("link should still exist")
+	}
+
+	foundNew := false
+	foundOld := false
+	for _, m := range link.Members {
+		if m.Project == "proj-a-new" {
+			foundNew = true
+		}
+		if m.Project == "proj-a" {
+			foundOld = true
+		}
+	}
+	if !foundNew {
+		t.Error("link should reference proj-a-new")
+	}
+	if foundOld {
+		t.Error("link should not reference proj-a anymore")
+	}
+
+	// proj-b should be unchanged
+	foundB := false
+	for _, m := range link.Members {
+		if m.Project == "proj-b" && m.Service == "app" {
+			foundB = true
+		}
+	}
+	if !foundB {
+		t.Error("proj-b.app should be unchanged in the link")
+	}
+}
+
+func TestRenameProjectErrors(t *testing.T) {
+	mgr := newTestManager(t)
+
+	// Rename non-existent
+	if err := mgr.RenameProject("nonexistent", "new"); err == nil {
+		t.Error("expected error renaming non-existent project")
+	}
+
+	// Rename to existing name
+	_ = mgr.RegisterProject("proj-a", "/a")
+	_ = mgr.RegisterProject("proj-b", "/b")
+	if err := mgr.RenameProject("proj-a", "proj-b"); err == nil {
+		t.Error("expected error renaming to existing project name")
+	}
+}
+
 func TestLinksDoNotAffectProjects(t *testing.T) {
 	mgr := newTestManager(t)
 
