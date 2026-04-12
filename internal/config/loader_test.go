@@ -188,6 +188,28 @@ func TestLoadProjectWithUserVariables(t *testing.T) {
 	}
 }
 
+func TestLoadProjectWithVariablesInTypedFields(t *testing.T) {
+	projectDir := filepath.Join("..", "..", "testdata", "projects", "variables-typed")
+	absPath, err := filepath.Abs(projectDir)
+	if err != nil {
+		t.Fatalf("failed to get absolute path: %v", err)
+	}
+
+	cfg, err := LoadProject(absPath)
+	if err != nil {
+		t.Fatalf("LoadProject failed: %v", err)
+	}
+
+	// Variable in int field should be resolved
+	appRouting := cfg.Services["app"].Routing
+	if appRouting == nil {
+		t.Fatal("expected app service to have routing config")
+	}
+	if appRouting.Port != 3000 {
+		t.Errorf("expected routing port to be 3000, got %d", appRouting.Port)
+	}
+}
+
 func TestLoadProjectWithCustomName(t *testing.T) {
 	// Set SCDEV_DOMAIN for predictable test results
 	oldDomain := os.Getenv("SCDEV_DOMAIN")

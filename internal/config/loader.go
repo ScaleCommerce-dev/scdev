@@ -42,27 +42,29 @@ func LoadProject(projectDir string) (*ProjectConfig, error) {
 	vars := buildVariables(projectDir)
 	dirName := vars["PROJECTDIR"]
 
-	// First pass: substitute basic variables to resolve the name field
+	// First pass: substitute basic variables to resolve the name and variables fields.
+	// Use a minimal struct to avoid type errors from unresolved user variables in typed fields
+	// (e.g., ${PORT} in an int field can't be parsed until variables are substituted).
 	content := substituteVariables(string(data), vars)
 
-	// Parse to extract the name field
-	var cfg ProjectConfig
-	decoder := yaml.NewDecoder(bytes.NewReader([]byte(content)))
-	decoder.KnownFields(true)
-	if err := decoder.Decode(&cfg); err != nil {
+	var firstPass struct {
+		Name      string            `yaml:"name"`
+		Variables map[string]string `yaml:"variables"`
+	}
+	if err := yaml.Unmarshal([]byte(content), &firstPass); err != nil {
 		return nil, formatConfigError(configPath, data, err)
 	}
 
 	// Determine the project name (use parsed name, or default to PROJECTDIR)
 	// If name contains ${PROJECTNAME}, it's a circular reference - fall back to PROJECTDIR
-	projectName := cfg.Name
+	projectName := firstPass.Name
 	if projectName == "" || strings.Contains(projectName, "${PROJECTNAME}") {
 		projectName = dirName
 	}
 
 	// Second pass: add PROJECTNAME, resolve user-defined variables, then substitute
 	vars["PROJECTNAME"] = projectName
-	for k, v := range cfg.Variables {
+	for k, v := range firstPass.Variables {
 		// User variables don't override built-in variables
 		if _, exists := vars[k]; !exists {
 			// Resolve references in variable values (e.g. DB_NAME: ${PROJECTNAME}_db)
@@ -72,8 +74,8 @@ func LoadProject(projectDir string) (*ProjectConfig, error) {
 	content = substituteVariables(string(data), vars)
 
 	// Re-parse with full variable substitution
-	cfg = ProjectConfig{}
-	decoder = yaml.NewDecoder(bytes.NewReader([]byte(content)))
+	var cfg ProjectConfig
+	decoder := yaml.NewDecoder(bytes.NewReader([]byte(content)))
 	decoder.KnownFields(true)
 	if err := decoder.Decode(&cfg); err != nil {
 		return nil, formatConfigError(configPath, data, err)

@@ -1,0 +1,12 @@
+version: 1
+
+variables:
+  APP_PORT: 3000
+
+services:
+  app:
+    image: node:22-alpine
+    command: sleep infinity
+    routing:
+      protocol: http
+      port: ${APP_PORT}
