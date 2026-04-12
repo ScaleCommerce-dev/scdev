@@ -22,6 +22,10 @@
   - Confirmation prompt (skip with `--force`)
   - Validates new name is DNS-safe and not already taken
 
+### Bug Fixes
+
+- **Fix variables in typed config fields** - `${VAR}` placeholders in int/bool fields (e.g., `port: ${PORT}`, `router: ${ENABLE}`) caused "cannot unmarshal !!str into int" errors. The first config parse pass now uses a minimal struct, deferring typed field parsing until after variable substitution.
+
 ### Improvements
 
 - Added `ContainerNameFor()` standalone helper for building container names without a loaded Project
