@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/ScaleCommerce-DEV/scdev/internal/project"
@@ -59,6 +60,31 @@ func runList(cmd *cobra.Command, args []string) error {
 		entry := projects[name]
 		status := getProjectStatus(ctx, name, entry.Path)
 		fmt.Printf("%-20s %-12s %s\n", name, status, entry.Path)
+	}
+
+	// Show links if any exist
+	links, err := stateMgr.ListLinks()
+	if err == nil && len(links) > 0 {
+		fmt.Println()
+		fmt.Printf("%-20s %s\n", "LINK", "MEMBERS")
+		fmt.Printf("%-20s %s\n", "----", "-------")
+		linkNames := make([]string, 0, len(links))
+		for name := range links {
+			linkNames = append(linkNames, name)
+		}
+		sort.Strings(linkNames)
+		for _, name := range linkNames {
+			entry := links[name]
+			memberStrs := make([]string, len(entry.Members))
+			for i, m := range entry.Members {
+				memberStrs[i] = m.String()
+			}
+			members := "(no members)"
+			if len(memberStrs) > 0 {
+				members = strings.Join(memberStrs, ", ")
+			}
+			fmt.Printf("%-20s %s\n", name, members)
+		}
 	}
 
 	return nil

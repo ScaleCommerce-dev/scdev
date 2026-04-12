@@ -3,11 +3,13 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/ScaleCommerce-DEV/scdev/internal/config"
 	"github.com/ScaleCommerce-DEV/scdev/internal/project"
 	"github.com/ScaleCommerce-DEV/scdev/internal/services"
+	"github.com/ScaleCommerce-DEV/scdev/internal/state"
 	"github.com/ScaleCommerce-DEV/scdev/internal/ui"
 	"github.com/spf13/cobra"
 )
@@ -107,6 +109,33 @@ func runStatus(cmd *cobra.Command, args []string) error {
 				if svc.RegisterToDBUI || isDBService(serviceName) {
 					hostname := proj.ContainerName(serviceName)
 					fmt.Printf("                  └ %s\n", hostname)
+				}
+			}
+		}
+	}
+
+	// Links
+	if stateMgr, err := state.DefaultManager(); err == nil {
+		if links, err := stateMgr.GetLinksForProject(proj.Config.Name); err == nil && len(links) > 0 {
+			fmt.Println()
+			fmt.Println("Links:")
+			for linkName, entry := range links {
+				// Show other members (not this project)
+				var others []string
+				for _, m := range entry.Members {
+					if m.Project != proj.Config.Name {
+						others = append(others, m.String())
+					}
+				}
+				networkExists, _ := proj.Runtime.NetworkExists(ctx, entry.Network)
+				netStatus := "active"
+				if !networkExists {
+					netStatus = "network missing"
+				}
+				if len(others) > 0 {
+					fmt.Printf("  %-15s %-12s linked to: %s\n", linkName, ui.StatusColor(netStatus, plainMode), strings.Join(others, ", "))
+				} else {
+					fmt.Printf("  %-15s %s\n", linkName, ui.StatusColor(netStatus, plainMode))
 				}
 			}
 		}

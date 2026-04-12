@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/ScaleCommerce-DEV/scdev/internal/config"
 	"github.com/ScaleCommerce-DEV/scdev/internal/project"
 	"github.com/ScaleCommerce-DEV/scdev/internal/services"
+	"github.com/ScaleCommerce-DEV/scdev/internal/state"
 	"github.com/ScaleCommerce-DEV/scdev/internal/ui"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -141,6 +143,27 @@ func showProjectInfo(ctx context.Context, proj *project.Project) error {
 			fmt.Printf("  observability: %s\n", ui.Hyperlink(url, url, plainMode))
 		}
 		fmt.Println()
+	}
+
+	// Links
+	if stateMgr, err := state.DefaultManager(); err == nil {
+		if links, err := stateMgr.GetLinksForProject(proj.Config.Name); err == nil && len(links) > 0 {
+			fmt.Println("Links:")
+			for linkName, entry := range links {
+				memberStrs := make([]string, 0, len(entry.Members))
+				for _, m := range entry.Members {
+					if m.Project != proj.Config.Name {
+						memberStrs = append(memberStrs, m.String())
+					}
+				}
+				if len(memberStrs) > 0 {
+					fmt.Printf("  %-15s %s\n", linkName, strings.Join(memberStrs, ", "))
+				} else {
+					fmt.Printf("  %s\n", linkName)
+				}
+			}
+			fmt.Println()
+		}
 	}
 
 	// Project info (from config)

@@ -111,6 +111,18 @@ This has multiple touch points that are easy to miss:
 7. Add to `ProjectSharedConfig` in `internal/config/config.go`
 8. Update `cmd/info.go` to display the service status
 
+## Link Networks
+
+Link networks enable cross-project container communication. The implementation spans:
+
+- **`internal/state/state.go`** - `LinkEntry`, `LinkMember` types and CRUD methods (`CreateLink`, `DeleteLink`, `AddLinkMembers`, `RemoveLinkMembers`, `GetLinksForProject`)
+- **`internal/project/links.go`** - `connectLinks()` and `disconnectLinks()` called during Start/Down lifecycle
+- **`cmd/link.go`** - All subcommands (create, delete, join, leave, ls, status)
+
+Links are stored in the global state file (`~/.scdev/state.yaml`), not in project config. They are a runtime relationship between projects, not a property of any single project. Each link creates a dedicated Docker network (`scdev_link_<name>`) so different link groups stay isolated from each other.
+
+On `scdev start`, a project checks if it's a member of any links and auto-connects. On `scdev down`, it disconnects. Container DNS resolution happens automatically via Docker's embedded DNS - no explicit network aliases are needed since containers are already named with the `<service>.<project>.scdev` pattern.
+
 ## Key Architecture Decisions
 
 ### Why shell out to Docker CLI (not the SDK)?

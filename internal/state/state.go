@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -23,9 +24,22 @@ type ProjectEntry struct {
 	Routing     RoutingState `yaml:"routing,omitempty"`
 }
 
+// LinkMember represents a member of a link network - either a whole project or a specific service
+type LinkMember struct {
+	Project string `yaml:"project"`
+	Service string `yaml:"service,omitempty"` // Empty means all services
+}
+
+// LinkEntry represents a named link network and its members
+type LinkEntry struct {
+	Network string       `yaml:"network"`
+	Members []LinkMember `yaml:"members"`
+}
+
 // State represents the global scdev state
 type State struct {
 	Projects map[string]ProjectEntry `yaml:"projects"`
+	Links    map[string]LinkEntry    `yaml:"links,omitempty"`
 }
 
 // Manager handles reading and writing the state file
@@ -77,9 +91,12 @@ func (m *Manager) Load() (*State, error) {
 		return nil, fmt.Errorf("failed to parse state file: %w", err)
 	}
 
-	// Ensure Projects map is initialized
+	// Ensure maps are initialized
 	if state.Projects == nil {
 		state.Projects = make(map[string]ProjectEntry)
+	}
+	if state.Links == nil {
+		state.Links = make(map[string]LinkEntry)
 	}
 
 	return state, nil
@@ -232,4 +249,204 @@ func (m *Manager) GetUDPPortOwner(port int) (string, error) {
 	}
 
 	return "", nil
+}
+
+// ValidateLinkName checks that a link name is valid for use as a Docker network suffix
+func ValidateLinkName(name string) error {
+	if name == "" {
+		return fmt.Errorf("link name cannot be empty")
+	}
+	for _, c := range name {
+		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' || c == '_') {
+			return fmt.Errorf("link name %q contains invalid character %q (allowed: alphanumeric, hyphens, underscores)", name, string(c))
+		}
+	}
+	return nil
+}
+
+// LinkNetworkName returns the Docker network name for a link
+func LinkNetworkName(name string) string {
+	return fmt.Sprintf("scdev_link_%s", name)
+}
+
+// ParseMember parses a member string like "myproject" or "myproject.app"
+// into a LinkMember. If the string contains a dot, everything before the
+// last dot is the project name and everything after is the service name.
+func ParseMember(s string) LinkMember {
+	idx := strings.LastIndex(s, ".")
+	if idx == -1 {
+		return LinkMember{Project: s}
+	}
+	return LinkMember{Project: s[:idx], Service: s[idx+1:]}
+}
+
+// String returns the member as a human-readable string
+func (lm LinkMember) String() string {
+	if lm.Service == "" {
+		return lm.Project
+	}
+	return fmt.Sprintf("%s.%s", lm.Project, lm.Service)
+}
+
+// CreateLink creates a new named link
+func (m *Manager) CreateLink(name string) error {
+	st, err := m.Load()
+	if err != nil {
+		return err
+	}
+
+	if st.Links == nil {
+		st.Links = make(map[string]LinkEntry)
+	}
+
+	if _, exists := st.Links[name]; exists {
+		return fmt.Errorf("link %q already exists", name)
+	}
+
+	st.Links[name] = LinkEntry{
+		Network: LinkNetworkName(name),
+	}
+
+	return m.Save(st)
+}
+
+// DeleteLink removes a named link
+func (m *Manager) DeleteLink(name string) error {
+	st, err := m.Load()
+	if err != nil {
+		return err
+	}
+
+	if st.Links == nil {
+		return fmt.Errorf("link %q does not exist", name)
+	}
+
+	if _, exists := st.Links[name]; !exists {
+		return fmt.Errorf("link %q does not exist", name)
+	}
+
+	delete(st.Links, name)
+
+	return m.Save(st)
+}
+
+// GetLink returns a link entry by name
+func (m *Manager) GetLink(name string) (*LinkEntry, error) {
+	st, err := m.Load()
+	if err != nil {
+		return nil, err
+	}
+
+	if st.Links == nil {
+		return nil, nil
+	}
+
+	entry, ok := st.Links[name]
+	if !ok {
+		return nil, nil
+	}
+
+	return &entry, nil
+}
+
+// ListLinks returns all links
+func (m *Manager) ListLinks() (map[string]LinkEntry, error) {
+	st, err := m.Load()
+	if err != nil {
+		return nil, err
+	}
+
+	if st.Links == nil {
+		return make(map[string]LinkEntry), nil
+	}
+
+	return st.Links, nil
+}
+
+// AddLinkMembers adds members to a link
+func (m *Manager) AddLinkMembers(name string, members []LinkMember) error {
+	st, err := m.Load()
+	if err != nil {
+		return err
+	}
+
+	if st.Links == nil {
+		return fmt.Errorf("link %q does not exist", name)
+	}
+
+	entry, exists := st.Links[name]
+	if !exists {
+		return fmt.Errorf("link %q does not exist", name)
+	}
+
+	for _, newMember := range members {
+		found := false
+		for _, existing := range entry.Members {
+			if existing.Project == newMember.Project && existing.Service == newMember.Service {
+				found = true
+				break
+			}
+		}
+		if !found {
+			entry.Members = append(entry.Members, newMember)
+		}
+	}
+
+	st.Links[name] = entry
+	return m.Save(st)
+}
+
+// RemoveLinkMembers removes members from a link
+func (m *Manager) RemoveLinkMembers(name string, members []LinkMember) error {
+	st, err := m.Load()
+	if err != nil {
+		return err
+	}
+
+	if st.Links == nil {
+		return fmt.Errorf("link %q does not exist", name)
+	}
+
+	entry, exists := st.Links[name]
+	if !exists {
+		return fmt.Errorf("link %q does not exist", name)
+	}
+
+	filtered := make([]LinkMember, 0, len(entry.Members))
+	for _, existing := range entry.Members {
+		remove := false
+		for _, toRemove := range members {
+			if existing.Project == toRemove.Project && existing.Service == toRemove.Service {
+				remove = true
+				break
+			}
+		}
+		if !remove {
+			filtered = append(filtered, existing)
+		}
+	}
+
+	entry.Members = filtered
+	st.Links[name] = entry
+	return m.Save(st)
+}
+
+// GetLinksForProject returns all links that include the given project
+func (m *Manager) GetLinksForProject(projectName string) (map[string]LinkEntry, error) {
+	st, err := m.Load()
+	if err != nil {
+		return nil, err
+	}
+
+	result := make(map[string]LinkEntry)
+	for linkName, entry := range st.Links {
+		for _, member := range entry.Members {
+			if member.Project == projectName {
+				result[linkName] = entry
+				break
+			}
+		}
+	}
+
+	return result, nil
 }

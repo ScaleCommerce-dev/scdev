@@ -34,6 +34,7 @@ make test-integration # Run integration tests (requires Docker, run before relea
 - **Named Volumes:** Auto-discovered from service volume mounts - no top-level `volumes:` section needed (unlike Docker Compose). `parseVolumeMount()` detects named vs bind volumes.
 - **Config variables:** `variables:` in project config defines reusable `${VAR}` placeholders. Substituted in the second pass of `LoadProject()` after PROJECTNAME is resolved. NOT passed to containers (that's what `environment:` is for).
 - **Project templates:** `scdev create` scaffolds from GitHub repos or local dirs. Template logic in `internal/create/`, command in `cmd/create.go`. Template repos follow the naming convention `scdev-template-<name>`.
+- **Link networks:** Runtime relationships between projects, stored in global state (`~/.scdev/state.yaml`), not project config. Each link creates a dedicated Docker network (`scdev_link_<name>`). Containers resolve each other by container name via Docker's embedded DNS - no explicit network aliases needed.
 
 ## Style
 
@@ -70,6 +71,8 @@ When adding a new shared service (easy to miss steps):
 - Only directory bind mounts are synced via Mutagen. Single-file mounts stay as regular bind mounts.
 - The docs page (`docs.shared.<domain>`) doubles as a 404 catch-all via Traefik - unmatched URLs redirect there.
 - The sync-ready gate (`/.scdev-sync-ready` marker) automatically holds the container's command until Mutagen sync completes. No need for `while [ ! -f ... ]` workarounds in commands.
+- **Project domains don't work for inter-container communication.** `*.scalecommerce.site` resolves to `127.0.0.1`, which inside a container points to the container itself, not Traefik. Linked containers must use container names (`app.project-b.scdev`) instead. This is why `scdev link` uses Docker DNS, not domain routing.
+- **`ContainerNameFor(service, project)`** is the standalone helper for building container names without a loaded Project. Use it instead of `fmt.Sprintf("%s.%s.scdev", ...)`.
 - **Integration tests that tear down shared services** (router, mail, db, redis) must snapshot what's running before the test and restore it afterward. See `snapshotSharedServices`/`restoreSharedServices` helpers. Forgetting this silently breaks the developer's running environment.
 
 ## README

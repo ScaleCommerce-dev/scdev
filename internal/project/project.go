@@ -53,10 +53,17 @@ func LoadFromDir(dir string) (*Project, error) {
 	}, nil
 }
 
+// ContainerNameFor returns the full container name for a service in a given project.
+// Format: <service>.<project>.scdev (e.g., app.myproject.scdev)
+// This standalone function can be used without a loaded Project.
+func ContainerNameFor(service, projectName string) string {
+	return fmt.Sprintf("%s.%s.scdev", service, projectName)
+}
+
 // ContainerName returns the full container name for a service
 // Format: <service>.<project>.scdev (e.g., app.myproject.scdev)
 func (p *Project) ContainerName(service string) string {
-	return fmt.Sprintf("%s.%s.scdev", service, p.Config.Name)
+	return ContainerNameFor(service, p.Config.Name)
 }
 
 // NetworkName returns the project network name
@@ -306,6 +313,9 @@ func (p *Project) Start(ctx context.Context) error {
 	// Connect shared services
 	p.connectEnabledSharedServices(ctx)
 
+	// Connect to link networks
+	p.connectLinks(ctx)
+
 	return nil
 }
 
@@ -408,6 +418,9 @@ func (p *Project) Down(ctx context.Context, removeVolumes bool) error {
 	if p.IsMutagenEnabled() {
 		p.terminateMutagenSessions(ctx)
 	}
+
+	// Disconnect from link networks (before removing containers)
+	p.disconnectLinks(ctx)
 
 	// Disconnect shared services (do this first, before removing network)
 	p.disconnectEnabledSharedServices(ctx)
@@ -606,6 +619,9 @@ func (p *Project) Update(ctx context.Context) (bool, error) {
 
 	// Connect shared services
 	p.connectEnabledSharedServices(ctx)
+
+	// Connect to link networks
+	p.connectLinks(ctx)
 
 	return updated, nil
 }

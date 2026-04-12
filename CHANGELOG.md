@@ -1,3 +1,23 @@
+## v0.5.0
+
+### Features
+
+- **`scdev link` command** - create named link networks for direct container-to-container communication between separate projects
+  - `scdev link create <name>` / `scdev link delete <name>` - manage named link networks
+  - `scdev link join <name> <member>...` / `scdev link leave <name> <member>...` - add/remove projects or individual services
+  - `scdev link ls` - list all links and their members
+  - `scdev link status <name>` - show members and connection state
+  - Members can be whole projects (`sec-scan`) or specific services (`redis-debug.app`)
+  - Each link creates a dedicated Docker network (`scdev_link_<name>`) for isolation between link groups
+  - Containers resolve each other by container name via Docker's embedded DNS (e.g., `app.project-b.scdev`)
+  - Links persist in global state and auto-reconnect on `scdev start`
+  - Validation: link name characters, project/service existence, duplicate prevention
+- **`scdev info` / `scdev status` / `scdev list` show link information** - links are displayed alongside services and shared services
+
+### Improvements
+
+- Added `ContainerNameFor()` standalone helper for building container names without a loaded Project
+
 ## v0.4.2
 
 ### Bug Fixes
