@@ -35,6 +35,12 @@ jobs:
       - name: Build release body
         run: |
           cat > release-body.md << 'HEADER'
+          ## Update
+
+          ```bash
+          scdev self-update
+          ```
+
           ## Install
 
           **macOS / Linux:**
