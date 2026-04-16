@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"os"
 	"runtime"
-	"strconv"
 	"strings"
 
+	"github.com/ScaleCommerce-DEV/scdev/internal/updatecheck"
 	"github.com/spf13/cobra"
 )
 
@@ -58,7 +58,7 @@ func runSelfUpdate() error {
 		return nil
 	}
 
-	cmp, err := compareSemver(currentVersion, latestVersion)
+	cmp, err := updatecheck.CompareSemver(currentVersion, latestVersion)
 	if err == nil && cmp >= 0 {
 		fmt.Printf("Already up to date (%s, latest: %s)\n", Version, release.TagName)
 		return nil
@@ -186,44 +186,3 @@ func resolveExecPath(path string) (string, error) {
 	return path, nil
 }
 
-// compareSemver compares two semver strings (without "v" prefix).
-// Returns -1 if a < b, 0 if a == b, 1 if a > b.
-func compareSemver(a, b string) (int, error) {
-	partsA, err := parseSemver(a)
-	if err != nil {
-		return 0, err
-	}
-	partsB, err := parseSemver(b)
-	if err != nil {
-		return 0, err
-	}
-
-	for i := 0; i < 3; i++ {
-		if partsA[i] < partsB[i] {
-			return -1, nil
-		}
-		if partsA[i] > partsB[i] {
-			return 1, nil
-		}
-	}
-	return 0, nil
-}
-
-// parseSemver parses "major.minor.patch" into [3]int.
-func parseSemver(v string) ([3]int, error) {
-	// Strip pre-release suffix
-	if idx := strings.IndexByte(v, '-'); idx >= 0 {
-		v = v[:idx]
-	}
-
-	parts := strings.Split(v, ".")
-	var result [3]int
-	for i := 0; i < len(parts) && i < 3; i++ {
-		n, err := strconv.Atoi(parts[i])
-		if err != nil {
-			return result, fmt.Errorf("invalid version component %q in %q", parts[i], v)
-		}
-		result[i] = n
-	}
-	return result, nil
-}

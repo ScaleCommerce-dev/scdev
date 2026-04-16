@@ -11,6 +11,7 @@ import (
 	"github.com/ScaleCommerce-DEV/scdev/internal/project"
 	"github.com/ScaleCommerce-DEV/scdev/internal/tools"
 	"github.com/ScaleCommerce-DEV/scdev/internal/ui"
+	"github.com/ScaleCommerce-DEV/scdev/internal/updatecheck"
 	"github.com/spf13/cobra"
 )
 
@@ -93,6 +94,10 @@ func runRoot(cmd *cobra.Command, args []string) error {
 // Execute runs the root command
 // It intercepts unknown commands and tries to route them to justfiles
 func Execute() error {
+	// Non-blocking: prints a banner if a newer release is cached and
+	// kicks off a background refresh when the cache is stale.
+	updatecheck.MaybeNotify(Version)
+
 	// Parse --config flag early so it applies to justfile commands too
 	parseConfigFlag()
 
