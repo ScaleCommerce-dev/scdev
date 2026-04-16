@@ -1,3 +1,13 @@
+## v0.5.5
+
+### Features
+
+- **`scdev step <message>` subcommand** - prints a visually distinct progress marker (two leading blank lines, cyan `▶`, bold text) for use inside `.scdev/commands/*.just` recipes. During `scdev setup`, top-level status messages like "Installing PHP extensions" previously got buried in the wall of apk/composer/npm output; `@scdev step "..."` replaces `@echo` for phase headers so they pop against the noise. Auto-plain on non-TTY, `NO_COLOR`, or global plain mode. `scdev start`'s own "Starting project ..." line now uses the same helper.
+
+### Improvements
+
+- **Template authoring docs updated** - `templates/README.md`, `skills/scdev/references/templates.md`, and the scdev skill now recommend `@scdev step` for setup.just phase headers and explain why, with the base/Nuxt/Symfony examples rewritten to use it.
+
 ## v0.5.4
 
 ### Bug Fixes
