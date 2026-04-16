@@ -1,3 +1,14 @@
+## v0.5.4
+
+### Bug Fixes
+
+- **Fix `scdev update` ignoring env/image/volume/command changes** - `serviceNeedsRecreate` only compared Traefik labels and bailed out with "Project is up to date" on any other change, leaving stale containers running. It now compares a deterministic `scdev.config-hash` label stamped on each container, covering image, env, volumes, command, working dir, routing, published ports, and network aliases. Containers created before the label existed are recreated once on first update after upgrade.
+
+### Improvements
+
+- **Skill updates for template creation and existing-project setup** - expanded `skills/scdev/` references (new stack-gotchas reference, richer config examples and template authoring notes, updated SKILL.md with rename/link commands and per-service `routing.domain` guidance) to help agents scaffold new templates and onboard scdev into existing projects.
+- **README and template docs: Symfony/Sylius/Laravel trusted-proxies troubleshooting** - documented the mixed-content / stuck debug toolbar / broken admin login failure mode caused by Traefik terminating HTTPS without a trusted-proxy env var, plus PHP template authoring tips (memory_limit drop-in, install-php-extensions, asset-pipeline builds).
+
 ## v0.5.3
 
 ### Bug Fixes
