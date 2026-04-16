@@ -1,3 +1,9 @@
+## v0.5.6
+
+### Improvements
+
+- **`scdev step` styling refinement** - the whole header line is now bold cyan (not just the `▶`), and a trailing blank line separates the header from the command output that follows. Each phase reads as a framed section, not a single colored glyph next to white text.
+
 ## v0.5.5
 
 ### Features
