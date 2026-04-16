@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"syscall"
 
 	"github.com/ScaleCommerce-DEV/scdev/internal/updatecheck"
 	"github.com/spf13/cobra"
@@ -43,7 +44,7 @@ func init() {
 }
 
 func runSelfUpdate() error {
-	canonical, err := canonicalBinaryPath()
+	canonical, err := updatecheck.CanonicalPath()
 	if err != nil {
 		return fmt.Errorf("cannot determine install dir: %w", err)
 	}
@@ -115,6 +116,13 @@ func runSelfUpdate() error {
 	}
 
 	fmt.Printf("Updated to %s\n", release.TagName)
+
+	// Re-exec into the new binary to verify it starts and show the user
+	// the confirmed version. syscall.Exec replaces the current process,
+	// so we don't return on success.
+	if err := syscall.Exec(canonical, []string{"scdev", "version"}, os.Environ()); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: could not exec new binary: %v\n", err)
+	}
 	return nil
 }
 
@@ -149,16 +157,6 @@ func migrateIfNeeded(execPath, canonical string) error {
 	return migrateToSymlink(execPath, canonical)
 }
 
-// canonicalBinaryPath returns the user-owned location where the real scdev
-// binary should live.
-func canonicalBinaryPath() (string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(home, ".scdev", "bin", "scdev"), nil
-}
-
 // migrateToSymlink replaces linkPath with a symlink to target. Tries without
 // sudo first; falls back to `sudo ln -sfn` if the parent dir isn't writable.
 func migrateToSymlink(linkPath, target string) error {
@@ -169,6 +167,11 @@ func migrateToSymlink(linkPath, target string) error {
 	if err := atomicSymlink(linkPath, target); err == nil {
 		return nil
 	}
+
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "One-time migration: converting scdev to a symlinked layout.")
+	fmt.Fprintln(os.Stderr, "Future updates will not require sudo.")
+	fmt.Fprintln(os.Stderr)
 
 	cmd := exec.Command("sudo", "ln", "-sfn", target, linkPath)
 	cmd.Stdin = os.Stdin

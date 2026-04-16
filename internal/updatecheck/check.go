@@ -1,51 +1,73 @@
 // Package updatecheck implements a lightweight, non-blocking background
-// check for new scdev releases on GitHub.
+// update mechanism for scdev.
 //
 // Design:
-//   - MaybeNotify runs on every CLI invocation.
-//   - It reads a cached result from ~/.scdev/update-check.json and, if the
-//     cached latest version is newer than the running binary, prints a
-//     single-line banner to stderr.
+//   - MaybeAutoUpdate runs on every CLI invocation.
+//   - It reads a cached result from ~/.scdev/update-check.json. If a prior
+//     background install has already landed a newer version at the canonical
+//     path, it prints a one-line banner to stderr informing the user that
+//     the next invocation will pick it up.
 //   - If the cache is older than cacheTTL (or missing), it fires a
-//     background goroutine that performs a conditional GET against the
-//     GitHub API (using If-None-Match with the stored ETag) with a short
-//     timeout. The goroutine is fire-and-forget: the process may exit
-//     before it completes, and that's fine. The cache gets refreshed
-//     opportunistically over many runs.
+//     fire-and-forget goroutine that does a conditional GET (ETag) against
+//     the GitHub API; if a newer release exists AND the running binary is
+//     in the symlink layout, the goroutine downloads the matching asset
+//     and atomically replaces ~/.scdev/bin/scdev. No sudo. No re-exec.
+//     The current process keeps running its in-memory code; the NEXT scdev
+//     invocation transparently uses the new binary via the symlink.
 //
-// Network cost: at most one conditional HTTP request per 24h per machine.
-// Most responses are 304 Not Modified with an empty body.
+// The goroutine is not joined - if the user's command exits before the
+// download finishes, we just try again next time. That's fine. At most one
+// API hit per 24h per machine, and download traffic only when a new release
+// actually exists.
 package updatecheck
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 )
 
 const (
 	cacheTTL    = 24 * time.Hour
-	httpTimeout = 2 * time.Second
+	httpTimeout = 60 * time.Second // generous: covers API call + binary download
 )
 
 // apiURL is a var (not a const) so tests can point it at an httptest server.
 var apiURL = "https://api.github.com/repos/ScaleCommerce-DEV/scdev/releases/latest"
 
+// canInstallFn is the predicate that decides whether we're in a layout
+// where atomic install is safe (symlink layout with canonical target).
+// Overridden in tests.
+var canInstallFn = defaultCanInstall
+
 type cache struct {
-	LastChecked time.Time `json:"last_checked"`
-	ETag        string    `json:"etag,omitempty"`
-	LatestTag   string    `json:"latest_tag,omitempty"`
+	LastChecked  time.Time `json:"last_checked"`
+	ETag         string    `json:"etag,omitempty"`
+	LatestTag    string    `json:"latest_tag,omitempty"`
+	InstalledTag string    `json:"installed_tag,omitempty"`
 }
 
-// MaybeNotify prints a one-line banner to stderr if the cached latest
-// release is newer than currentVersion. It also triggers a background
-// refresh if the cache is stale. Safe to call on every invocation and
-// never blocks. All failures are silent.
-func MaybeNotify(currentVersion string) {
+type release struct {
+	TagName string         `json:"tag_name"`
+	Assets  []releaseAsset `json:"assets"`
+}
+
+type releaseAsset struct {
+	Name               string `json:"name"`
+	BrowserDownloadURL string `json:"browser_download_url"`
+}
+
+// MaybeAutoUpdate prints a one-line banner to stderr if a background install
+// completed in a prior invocation, and kicks off a new background refresh
+// (check + download + install) if the cache is stale. Safe to call on every
+// invocation; never blocks; all failures are silent.
+func MaybeAutoUpdate(currentVersion string) {
 	if shouldSkip(currentVersion) {
 		return
 	}
@@ -55,17 +77,195 @@ func MaybeNotify(currentVersion string) {
 		return
 	}
 
-	c, _ := loadCache(path) // nil on first run - that's fine
+	c, _ := loadCache(path) // nil on first run - fine
 
-	if c != nil && c.LatestTag != "" && IsNewer(c.LatestTag, currentVersion) {
-		fmt.Fprintf(os.Stderr,
-			"\x1b[33m→ scdev %s is available (current: %s). Run `scdev self-update`.\x1b[0m\n",
-			c.LatestTag, currentVersion)
+	if c != nil {
+		switch {
+		case c.InstalledTag != "" && IsNewer(c.InstalledTag, currentVersion):
+			fmt.Fprintf(os.Stderr,
+				"\x1b[33m✓ scdev updated to %s in background; next run will use it.\x1b[0m\n",
+				c.InstalledTag)
+		case c.LatestTag != "" && IsNewer(c.LatestTag, currentVersion):
+			// Seen a newer release but haven't installed it (likely on a
+			// legacy layout that needs migration). Fall back to a notify.
+			fmt.Fprintf(os.Stderr,
+				"\x1b[33m→ scdev %s is available. Run `scdev self-update` to migrate.\x1b[0m\n",
+				c.LatestTag)
+		}
 	}
 
 	if c == nil || time.Since(c.LastChecked) > cacheTTL {
-		go refresh(path, c)
+		go refreshAndInstall(path, c, currentVersion)
 	}
+}
+
+// refreshAndInstall performs the conditional GET, writes the cache, and (if
+// a newer release exists and the running binary is in canonical layout)
+// downloads the asset and installs it. Runs in a goroutine; process may
+// exit before it completes.
+func refreshAndInstall(path string, prev *cache, currentVersion string) {
+	ctx, cancel := context.WithTimeout(context.Background(), httpTimeout)
+	defer cancel()
+
+	rel, etag, err := fetchLatest(ctx, prev)
+	if err != nil {
+		return
+	}
+
+	next := cache{LastChecked: time.Now()}
+	if prev != nil {
+		next.InstalledTag = prev.InstalledTag
+	}
+
+	if rel == nil {
+		// 304 Not Modified. Keep prev metadata, just bump LastChecked.
+		if prev == nil {
+			return
+		}
+		next.ETag = prev.ETag
+		next.LatestTag = prev.LatestTag
+	} else {
+		next.ETag = etag
+		next.LatestTag = rel.TagName
+
+		if IsNewer(rel.TagName, currentVersion) && canInstallFn() {
+			if err := installAsset(ctx, rel); err == nil {
+				next.InstalledTag = rel.TagName
+			}
+		}
+	}
+
+	_ = saveCache(path, &next)
+}
+
+// fetchLatest performs a conditional GET against the GitHub API. Returns
+// (nil, "", nil) on 304 Not Modified - caller must fall back to prev values.
+func fetchLatest(ctx context.Context, prev *cache) (*release, string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
+	if err != nil {
+		return nil, "", err
+	}
+	req.Header.Set("Accept", "application/vnd.github+json")
+	if prev != nil && prev.ETag != "" {
+		req.Header.Set("If-None-Match", prev.ETag)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, "", err
+	}
+	defer resp.Body.Close()
+
+	switch resp.StatusCode {
+	case http.StatusNotModified:
+		return nil, "", nil
+	case http.StatusOK:
+		var rel release
+		if err := json.NewDecoder(resp.Body).Decode(&rel); err != nil {
+			return nil, "", err
+		}
+		return &rel, resp.Header.Get("ETag"), nil
+	default:
+		return nil, "", fmt.Errorf("unexpected status %d", resp.StatusCode)
+	}
+}
+
+// installAsset finds the asset matching this OS/arch, downloads it to
+// canonical+".update", chmods, and atomically renames into place. Overwrites
+// the currently-running binary's canonical target; on Unix this is safe
+// because the running process has the file open and keeps executing its
+// in-memory copy.
+func installAsset(ctx context.Context, rel *release) error {
+	assetName := "scdev-" + runtime.GOOS + "-" + runtime.GOARCH
+	var downloadURL string
+	for _, a := range rel.Assets {
+		if a.Name == assetName {
+			downloadURL = a.BrowserDownloadURL
+			break
+		}
+	}
+	if downloadURL == "" {
+		return fmt.Errorf("no asset for %s/%s", runtime.GOOS, runtime.GOARCH)
+	}
+
+	canonical, err := CanonicalPath()
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(canonical), 0o755); err != nil {
+		return err
+	}
+
+	tmpPath := canonical + ".update"
+	if err := downloadTo(ctx, downloadURL, tmpPath); err != nil {
+		os.Remove(tmpPath)
+		return err
+	}
+	if err := os.Chmod(tmpPath, 0o755); err != nil {
+		os.Remove(tmpPath)
+		return err
+	}
+	return os.Rename(tmpPath, canonical)
+}
+
+func downloadTo(ctx context.Context, url, dest string) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return err
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("download returned %d", resp.StatusCode)
+	}
+
+	f, err := os.Create(dest)
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(f, resp.Body); err != nil {
+		f.Close()
+		return err
+	}
+	return f.Close()
+}
+
+// defaultCanInstall returns true iff the running binary resolves (via
+// symlinks) to CanonicalPath. When false, the user is on a legacy plain-file
+// install and atomic replacement of canonical would have no effect on
+// subsequent invocations - so we skip the install and let the banner prompt
+// them to migrate.
+func defaultCanInstall() bool {
+	canonical, err := CanonicalPath()
+	if err != nil {
+		return false
+	}
+	execPath, err := os.Executable()
+	if err != nil {
+		return false
+	}
+	realPath, err := filepath.EvalSymlinks(execPath)
+	if err != nil {
+		return false
+	}
+	realCanonical, err := filepath.EvalSymlinks(canonical)
+	if err != nil {
+		return false
+	}
+	return realPath == realCanonical
+}
+
+// CanonicalPath returns the user-owned location where the real scdev binary
+// should live. Callers typically pair this with a symlink in a PATH dir.
+func CanonicalPath() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(home, ".scdev", "bin", "scdev"), nil
 }
 
 // shouldSkip returns true for cases where an update check is unwanted:
@@ -78,51 +278,6 @@ func shouldSkip(v string) bool {
 		return true
 	}
 	return false
-}
-
-// refresh performs a conditional GET and writes the cache. Called in a
-// goroutine; the process may exit before this returns.
-func refresh(path string, prev *cache) {
-	ctx, cancel := context.WithTimeout(context.Background(), httpTimeout)
-	defer cancel()
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
-	if err != nil {
-		return
-	}
-	req.Header.Set("Accept", "application/vnd.github+json")
-	if prev != nil && prev.ETag != "" {
-		req.Header.Set("If-None-Match", prev.ETag)
-	}
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return
-	}
-	defer resp.Body.Close()
-
-	next := cache{LastChecked: time.Now()}
-	switch resp.StatusCode {
-	case http.StatusNotModified:
-		if prev == nil {
-			return
-		}
-		next.ETag = prev.ETag
-		next.LatestTag = prev.LatestTag
-	case http.StatusOK:
-		var rel struct {
-			TagName string `json:"tag_name"`
-		}
-		if err := json.NewDecoder(resp.Body).Decode(&rel); err != nil {
-			return
-		}
-		next.ETag = resp.Header.Get("ETag")
-		next.LatestTag = rel.TagName
-	default:
-		return
-	}
-
-	_ = saveCache(path, &next)
 }
 
 func cachePath() (string, error) {

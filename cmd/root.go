@@ -94,9 +94,10 @@ func runRoot(cmd *cobra.Command, args []string) error {
 // Execute runs the root command
 // It intercepts unknown commands and tries to route them to justfiles
 func Execute() error {
-	// Non-blocking: prints a banner if a newer release is cached and
-	// kicks off a background refresh when the cache is stale.
-	updatecheck.MaybeNotify(Version)
+	// Non-blocking: prints a banner if a prior background install landed
+	// a newer binary, and kicks off a new background refresh + install
+	// when the cache is stale.
+	updatecheck.MaybeAutoUpdate(Version)
 
 	// Parse --config flag early so it applies to justfile commands too
 	parseConfigFlag()

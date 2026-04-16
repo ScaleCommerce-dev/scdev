@@ -62,7 +62,7 @@ This teaches your agent the full scdev CLI, config format, debugging workflows, 
 curl -fsSL https://raw.githubusercontent.com/ScaleCommerce-DEV/scdev/main/install.sh | sh
 ```
 
-The installer places the real binary at `~/.scdev/bin/scdev` and symlinks it into `/usr/local/bin` (one-time sudo prompt). Subsequent `scdev self-update` runs rewrite the user-owned file in place and never prompt for sudo. Installs done with earlier versions migrate to this layout automatically the first time `scdev self-update` runs.
+The installer places the real binary at `~/.scdev/bin/scdev` and symlinks it into `/usr/local/bin` (one-time sudo prompt). After that, scdev keeps itself up to date: a background task on every invocation (at most once per 24h) checks GitHub for a new release and, if found, silently downloads and installs it into the user-owned canonical path - the current command keeps running on the old in-memory binary, the next invocation uses the new one. Set `SCDEV_NO_UPDATE_CHECK=1` to disable. `scdev self-update` still works for on-demand updates and auto-migrates legacy installs to the symlink layout.
 
 ### 2. First-time setup
 

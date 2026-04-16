@@ -1,10 +1,12 @@
 package updatecheck
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 )
@@ -43,15 +45,15 @@ func TestCacheLoadSave(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "cache.json")
 
-	// Missing file -> error, nil cache
 	if c, err := loadCache(path); err == nil || c != nil {
 		t.Fatalf("expected error for missing cache, got cache=%v err=%v", c, err)
 	}
 
 	want := &cache{
-		LastChecked: time.Now().UTC().Truncate(time.Second),
-		ETag:        `W/"abc123"`,
-		LatestTag:   "v0.5.7",
+		LastChecked:  time.Now().UTC().Truncate(time.Second),
+		ETag:         `W/"abc123"`,
+		LatestTag:    "v0.5.7",
+		InstalledTag: "v0.5.7",
 	}
 	if err := saveCache(path, want); err != nil {
 		t.Fatalf("saveCache: %v", err)
@@ -61,7 +63,7 @@ func TestCacheLoadSave(t *testing.T) {
 	if err != nil {
 		t.Fatalf("loadCache: %v", err)
 	}
-	if got.ETag != want.ETag || got.LatestTag != want.LatestTag {
+	if got.ETag != want.ETag || got.LatestTag != want.LatestTag || got.InstalledTag != want.InstalledTag {
 		t.Errorf("round-trip mismatch: got %+v, want %+v", got, want)
 	}
 	if !got.LastChecked.Equal(want.LastChecked) {
@@ -80,34 +82,147 @@ func TestSaveCacheCreatesParentDir(t *testing.T) {
 	}
 }
 
-func TestRefreshHandles200(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("ETag", `W/"fresh"`)
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"tag_name":"v9.9.9"}`))
-	}))
-	defer srv.Close()
-
-	prev := apiURL
-	apiURL = srv.URL
-	defer func() { apiURL = prev }()
-
-	path := filepath.Join(t.TempDir(), "cache.json")
-	refresh(path, nil)
-
-	got, err := loadCache(path)
+func TestCanonicalPath(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	got, err := CanonicalPath()
 	if err != nil {
-		t.Fatalf("cache not written: %v", err)
+		t.Fatalf("CanonicalPath: %v", err)
 	}
-	if got.LatestTag != "v9.9.9" {
-		t.Errorf("LatestTag = %q, want v9.9.9", got.LatestTag)
-	}
-	if got.ETag != `W/"fresh"` {
-		t.Errorf("ETag = %q, want fresh", got.ETag)
+	want := filepath.Join(home, ".scdev", "bin", "scdev")
+	if got != want {
+		t.Errorf("CanonicalPath() = %q, want %q", got, want)
 	}
 }
 
-func TestRefreshHandles304(t *testing.T) {
+// testEnv points apiURL, HOME, and canInstallFn at a scratch setup and
+// restores the originals on cleanup.
+type testEnv struct {
+	home    string
+	apiSrv  *httptest.Server
+	dlSrv   *httptest.Server
+	binBody []byte
+}
+
+func newTestEnv(t *testing.T, tag string, installable bool) *testEnv {
+	t.Helper()
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	binBody := []byte("#!/bin/sh\necho " + tag + "\n")
+
+	dlSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/octet-stream")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(binBody)
+	}))
+	t.Cleanup(dlSrv.Close)
+
+	assetName := "scdev-" + runtime.GOOS + "-" + runtime.GOARCH
+	apiSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("ETag", `W/"`+tag+`"`)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = fmt.Fprintf(w, `{"tag_name":%q,"assets":[{"name":%q,"browser_download_url":%q}]}`,
+			tag, assetName, dlSrv.URL+"/"+assetName)
+	}))
+	t.Cleanup(apiSrv.Close)
+
+	prevAPI := apiURL
+	apiURL = apiSrv.URL
+	t.Cleanup(func() { apiURL = prevAPI })
+
+	prevCan := canInstallFn
+	canInstallFn = func() bool { return installable }
+	t.Cleanup(func() { canInstallFn = prevCan })
+
+	return &testEnv{home: home, apiSrv: apiSrv, dlSrv: dlSrv, binBody: binBody}
+}
+
+func TestRefreshAndInstallDownloadsAndInstalls(t *testing.T) {
+	env := newTestEnv(t, "v9.9.9", true)
+
+	path := filepath.Join(env.home, "cache.json")
+	refreshAndInstall(path, nil, "v0.1.0")
+
+	c, err := loadCache(path)
+	if err != nil {
+		t.Fatalf("cache not written: %v", err)
+	}
+	if c.LatestTag != "v9.9.9" {
+		t.Errorf("LatestTag = %q, want v9.9.9", c.LatestTag)
+	}
+	if c.InstalledTag != "v9.9.9" {
+		t.Errorf("InstalledTag = %q, want v9.9.9", c.InstalledTag)
+	}
+
+	canonical, _ := CanonicalPath()
+	got, err := os.ReadFile(canonical)
+	if err != nil {
+		t.Fatalf("canonical binary not installed: %v", err)
+	}
+	if string(got) != string(env.binBody) {
+		t.Errorf("installed binary content mismatch")
+	}
+	info, err := os.Stat(canonical)
+	if err != nil {
+		t.Fatalf("stat canonical: %v", err)
+	}
+	if info.Mode().Perm()&0o100 == 0 {
+		t.Errorf("installed binary not executable: mode=%v", info.Mode())
+	}
+}
+
+func TestRefreshAndInstallSkipsWhenNotNewer(t *testing.T) {
+	env := newTestEnv(t, "v0.1.0", true)
+
+	path := filepath.Join(env.home, "cache.json")
+	refreshAndInstall(path, nil, "v0.1.0")
+
+	c, err := loadCache(path)
+	if err != nil {
+		t.Fatalf("cache not written: %v", err)
+	}
+	if c.LatestTag != "v0.1.0" {
+		t.Errorf("LatestTag = %q", c.LatestTag)
+	}
+	if c.InstalledTag != "" {
+		t.Errorf("InstalledTag = %q, want empty (not newer)", c.InstalledTag)
+	}
+
+	canonical, _ := CanonicalPath()
+	if _, err := os.Stat(canonical); !os.IsNotExist(err) {
+		t.Errorf("canonical binary should not exist when not newer, err=%v", err)
+	}
+}
+
+func TestRefreshAndInstallSkipsInstallWhenNotInCanonicalLayout(t *testing.T) {
+	env := newTestEnv(t, "v9.9.9", false) // canInstallFn returns false
+
+	path := filepath.Join(env.home, "cache.json")
+	refreshAndInstall(path, nil, "v0.1.0")
+
+	c, err := loadCache(path)
+	if err != nil {
+		t.Fatalf("cache not written: %v", err)
+	}
+	if c.LatestTag != "v9.9.9" {
+		t.Errorf("LatestTag = %q, want v9.9.9", c.LatestTag)
+	}
+	if c.InstalledTag != "" {
+		t.Errorf("InstalledTag = %q, want empty (legacy layout)", c.InstalledTag)
+	}
+
+	canonical, _ := CanonicalPath()
+	if _, err := os.Stat(canonical); !os.IsNotExist(err) {
+		t.Errorf("canonical binary should not exist when canInstallFn false")
+	}
+}
+
+func TestRefreshAndInstall304PreservesPrev(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
 	var sawIfNoneMatch string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		sawIfNoneMatch = r.Header.Get("If-None-Match")
@@ -119,13 +234,14 @@ func TestRefreshHandles304(t *testing.T) {
 	apiURL = srv.URL
 	defer func() { apiURL = prev }()
 
-	path := filepath.Join(t.TempDir(), "cache.json")
+	path := filepath.Join(home, "cache.json")
 	old := &cache{
-		LastChecked: time.Now().Add(-48 * time.Hour),
-		ETag:        `W/"cached"`,
-		LatestTag:   "v0.5.7",
+		LastChecked:  time.Now().Add(-48 * time.Hour),
+		ETag:         `W/"cached"`,
+		LatestTag:    "v0.5.7",
+		InstalledTag: "v0.5.7",
 	}
-	refresh(path, old)
+	refreshAndInstall(path, old, "v0.5.6")
 
 	if sawIfNoneMatch != `W/"cached"` {
 		t.Errorf("If-None-Match header = %q, want cached", sawIfNoneMatch)
@@ -134,15 +250,18 @@ func TestRefreshHandles304(t *testing.T) {
 	if err != nil {
 		t.Fatalf("cache not written: %v", err)
 	}
-	if got.LatestTag != "v0.5.7" || got.ETag != `W/"cached"` {
-		t.Errorf("304 should keep prev values, got %+v", got)
+	if got.LatestTag != "v0.5.7" || got.ETag != `W/"cached"` || got.InstalledTag != "v0.5.7" {
+		t.Errorf("304 should preserve prev values, got %+v", got)
 	}
 	if time.Since(got.LastChecked) > time.Minute {
 		t.Errorf("LastChecked not refreshed: %v", got.LastChecked)
 	}
 }
 
-func TestRefreshDoesNotWriteOnServerError(t *testing.T) {
+func TestRefreshAndInstallServerErrorSkipsWrite(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
@@ -152,8 +271,8 @@ func TestRefreshDoesNotWriteOnServerError(t *testing.T) {
 	apiURL = srv.URL
 	defer func() { apiURL = prev }()
 
-	path := filepath.Join(t.TempDir(), "cache.json")
-	refresh(path, nil)
+	path := filepath.Join(home, "cache.json")
+	refreshAndInstall(path, nil, "v0.1.0")
 
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
 		t.Errorf("expected no cache file on 500, got err=%v", err)

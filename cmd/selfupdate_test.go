@@ -3,7 +3,6 @@ package cmd
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
@@ -14,18 +13,6 @@ func TestSelfUpdateBinaryName(t *testing.T) {
 	}
 	if name[:6] != "scdev-" {
 		t.Errorf("selfUpdateBinaryName() = %q, want prefix 'scdev-'", name)
-	}
-}
-
-func TestCanonicalBinaryPath(t *testing.T) {
-	t.Setenv("HOME", "/tmp/fake-home")
-	got, err := canonicalBinaryPath()
-	if err != nil {
-		t.Fatalf("canonicalBinaryPath: %v", err)
-	}
-	want := "/tmp/fake-home/.scdev/bin/scdev"
-	if got != want {
-		t.Errorf("canonicalBinaryPath() = %q, want %q", got, want)
 	}
 }
 
@@ -223,17 +210,3 @@ func TestMigrateIfNeededConvertsLegacyLayout(t *testing.T) {
 	}
 }
 
-func TestCanonicalBinaryPathEmbedsHome(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	got, err := canonicalBinaryPath()
-	if err != nil {
-		t.Fatalf("canonicalBinaryPath: %v", err)
-	}
-	if !strings.HasPrefix(got, home) {
-		t.Errorf("canonicalBinaryPath = %q, expected prefix %q", got, home)
-	}
-	if !strings.HasSuffix(got, filepath.Join(".scdev", "bin", "scdev")) {
-		t.Errorf("canonicalBinaryPath = %q, expected suffix .scdev/bin/scdev", got)
-	}
-}
