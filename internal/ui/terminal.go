@@ -143,11 +143,18 @@ func Bold(text string, plainMode bool) string {
 // StatusStep prints a visually distinct framework status message to stdout.
 // Used during multi-step flows (setup, start) to make scdev's own progress
 // markers stand out against verbose nested command output. Leads with two
-// blank lines, then a cyan "▶" prefix and a bold message.
+// blank lines, the full line in bold cyan, and a trailing blank line so
+// the header sits apart from the command output that follows.
 func StatusStep(message string, plainMode bool) {
 	fmt.Println()
 	fmt.Println()
-	fmt.Printf("%s %s\n", Color("▶", "cyan", plainMode), Bold(message, plainMode))
+	if plainMode || !SupportsColors() {
+		fmt.Printf("▶ %s\n", message)
+	} else {
+		// Bold + cyan in one escape so the whole line reads as a single visual unit.
+		fmt.Printf("\x1b[1;36m▶ %s\x1b[0m\n", message)
+	}
+	fmt.Println()
 }
 
 // StatusColor returns colored status text based on the status value.
