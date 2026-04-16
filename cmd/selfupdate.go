@@ -6,6 +6,8 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -41,12 +43,25 @@ func init() {
 }
 
 func runSelfUpdate() error {
+	canonical, err := canonicalBinaryPath()
+	if err != nil {
+		return fmt.Errorf("cannot determine install dir: %w", err)
+	}
+	execPath, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("cannot determine executable path: %w", err)
+	}
+	// Silently migrate legacy installs (plain file at /usr/local/bin/scdev)
+	// to the symlink layout so subsequent updates don't need sudo.
+	if err := migrateIfNeeded(execPath, canonical); err != nil {
+		return err
+	}
+
 	currentVersion := strings.TrimPrefix(Version, "v")
 
 	fmt.Printf("Current version: %s\n", Version)
 	fmt.Printf("Checking for updates...\n")
 
-	// Fetch latest release from GitHub
 	release, err := fetchLatestRelease()
 	if err != nil {
 		return fmt.Errorf("failed to check for updates: %w", err)
@@ -66,7 +81,6 @@ func runSelfUpdate() error {
 
 	fmt.Printf("New version available: %s\n", release.TagName)
 
-	// Find the right asset for this OS/arch
 	assetName := selfUpdateBinaryName()
 	var downloadURL string
 	for _, asset := range release.Assets {
@@ -79,50 +93,122 @@ func runSelfUpdate() error {
 		return fmt.Errorf("no binary found for %s/%s (looked for %s)", runtime.GOOS, runtime.GOARCH, assetName)
 	}
 
-	// Get path to current executable
-	execPath, err := os.Executable()
-	if err != nil {
-		return fmt.Errorf("cannot determine executable path: %w", err)
-	}
-	// Resolve symlinks so we replace the actual binary, not the symlink
-	execPath, err = resolveExecPath(execPath)
-	if err != nil {
-		return fmt.Errorf("cannot resolve executable path: %w", err)
-	}
-
 	fmt.Printf("Downloading %s...\n", assetName)
 
-	// Download to a temp file next to the current binary
-	tmpPath := execPath + ".update"
+	if err := os.MkdirAll(filepath.Dir(canonical), 0o755); err != nil {
+		return fmt.Errorf("cannot create install dir: %w", err)
+	}
+	tmpPath := canonical + ".update"
 	if err := downloadFile(downloadURL, tmpPath); err != nil {
 		os.Remove(tmpPath)
 		return fmt.Errorf("download failed: %w", err)
 	}
-
-	// Make executable
 	if err := os.Chmod(tmpPath, 0o755); err != nil {
 		os.Remove(tmpPath)
 		return fmt.Errorf("chmod failed: %w", err)
 	}
 
-	// Replace current binary: rename old to .old, rename new to current, remove old
-	oldPath := execPath + ".old"
-	os.Remove(oldPath) // clean up any previous .old file
-
-	if err := os.Rename(execPath, oldPath); err != nil {
+	// Atomic replace of the canonical binary. Dir is user-owned, no sudo.
+	if err := os.Rename(tmpPath, canonical); err != nil {
 		os.Remove(tmpPath)
-		return fmt.Errorf("cannot replace binary (try running with sudo): %w", err)
+		return fmt.Errorf("install failed: %w", err)
 	}
-
-	if err := os.Rename(tmpPath, execPath); err != nil {
-		// Try to restore the old binary
-		os.Rename(oldPath, execPath)
-		return fmt.Errorf("cannot install new binary: %w", err)
-	}
-
-	os.Remove(oldPath)
 
 	fmt.Printf("Updated to %s\n", release.TagName)
+	return nil
+}
+
+// migrateIfNeeded ensures execPath resolves to canonical. If not, it copies
+// the current binary to canonical and replaces execPath with a symlink.
+// Emits no output on the happy path; a sudo password prompt may appear when
+// execPath lives in a root-owned dir.
+func migrateIfNeeded(execPath, canonical string) error {
+	realPath, err := filepath.EvalSymlinks(execPath)
+	if err != nil {
+		realPath = execPath
+	}
+	// Also evaluate canonical so /tmp vs /private/tmp (macOS) doesn't
+	// cause a spurious mismatch.
+	realCanonical, err := filepath.EvalSymlinks(canonical)
+	if err != nil {
+		realCanonical = canonical
+	}
+	if realPath == realCanonical {
+		return nil // already migrated
+	}
+
+	if err := os.MkdirAll(filepath.Dir(canonical), 0o755); err != nil {
+		return err
+	}
+	if err := copyFile(realPath, canonical); err != nil {
+		return err
+	}
+	if err := os.Chmod(canonical, 0o755); err != nil {
+		return err
+	}
+	return migrateToSymlink(execPath, canonical)
+}
+
+// canonicalBinaryPath returns the user-owned location where the real scdev
+// binary should live.
+func canonicalBinaryPath() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(home, ".scdev", "bin", "scdev"), nil
+}
+
+// migrateToSymlink replaces linkPath with a symlink to target. Tries without
+// sudo first; falls back to `sudo ln -sfn` if the parent dir isn't writable.
+func migrateToSymlink(linkPath, target string) error {
+	if existing, err := os.Readlink(linkPath); err == nil && existing == target {
+		return nil // already the right symlink
+	}
+
+	if err := atomicSymlink(linkPath, target); err == nil {
+		return nil
+	}
+
+	cmd := exec.Command("sudo", "ln", "-sfn", target, linkPath)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+// copyFile copies src to dst. dst is truncated if it exists.
+func copyFile(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(out, in); err != nil {
+		out.Close()
+		return err
+	}
+	return out.Close()
+}
+
+// atomicSymlink creates or replaces linkPath as a symlink to target using
+// create-tmp + rename so there's no window where linkPath is missing.
+// Fails if the parent directory isn't writable by the current user.
+func atomicSymlink(linkPath, target string) error {
+	tmp := linkPath + ".symlink.tmp"
+	_ = os.Remove(tmp)
+	if err := os.Symlink(target, tmp); err != nil {
+		return err
+	}
+	if err := os.Rename(tmp, linkPath); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
 	return nil
 }
 
@@ -169,20 +255,3 @@ func downloadFile(url, dest string) error {
 func selfUpdateBinaryName() string {
 	return "scdev-" + runtime.GOOS + "-" + runtime.GOARCH
 }
-
-// resolveExecPath follows symlinks to find the real binary path.
-func resolveExecPath(path string) (string, error) {
-	info, err := os.Lstat(path)
-	if err != nil {
-		return path, err
-	}
-	if info.Mode()&os.ModeSymlink != 0 {
-		resolved, err := os.Readlink(path)
-		if err != nil {
-			return path, err
-		}
-		return resolved, nil
-	}
-	return path, nil
-}
-

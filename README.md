@@ -62,6 +62,8 @@ This teaches your agent the full scdev CLI, config format, debugging workflows, 
 curl -fsSL https://raw.githubusercontent.com/ScaleCommerce-DEV/scdev/main/install.sh | sh
 ```
 
+The installer places the real binary at `~/.scdev/bin/scdev` and symlinks it into `/usr/local/bin` (one-time sudo prompt). Subsequent `scdev self-update` runs rewrite the user-owned file in place and never prompt for sudo. Installs done with earlier versions migrate to this layout automatically the first time `scdev self-update` runs.
+
 ### 2. First-time setup
 
 This installs SSL certificates and starts the shared services (router, mail catcher, DB browser):

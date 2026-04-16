@@ -3,7 +3,8 @@ set -e
 
 REPO="ScaleCommerce-DEV/scdev"
 BINARY="scdev"
-INSTALL_DIR="/usr/local/bin"
+BIN_DIR="$HOME/.scdev/bin"
+SYMLINK_DIR="/usr/local/bin"
 
 # Detect OS
 OS="$(uname -s)"
@@ -29,20 +30,24 @@ fi
 URL="https://github.com/${REPO}/releases/latest/download/${BINARY}-${OS}-${ARCH}"
 
 echo "Downloading scdev for ${OS}/${ARCH}..."
-curl -fsSL -o "$BINARY" "$URL"
-chmod +x "$BINARY"
+mkdir -p "$BIN_DIR"
+curl -fsSL -o "$BIN_DIR/$BINARY" "$URL"
+chmod +x "$BIN_DIR/$BINARY"
 
 # Remove macOS quarantine attribute
 if [ "$OS" = "darwin" ] && command -v xattr >/dev/null 2>&1; then
-  xattr -d com.apple.quarantine "$BINARY" 2>/dev/null || true
+  xattr -d com.apple.quarantine "$BIN_DIR/$BINARY" 2>/dev/null || true
 fi
 
-if [ -w "$INSTALL_DIR" ]; then
-  mv "$BINARY" "$INSTALL_DIR/$BINARY"
+# Symlink into a PATH location. The real binary stays in the user-owned
+# $BIN_DIR so future `scdev self-update` runs never need sudo.
+if [ -w "$SYMLINK_DIR" ]; then
+  ln -sfn "$BIN_DIR/$BINARY" "$SYMLINK_DIR/$BINARY"
 else
-  echo "Installing to ${INSTALL_DIR} (requires sudo)..."
-  sudo mv "$BINARY" "$INSTALL_DIR/$BINARY"
+  echo "Creating symlink in ${SYMLINK_DIR} (requires sudo, one-time)..."
+  sudo ln -sfn "$BIN_DIR/$BINARY" "$SYMLINK_DIR/$BINARY"
 fi
 
-echo "scdev installed to ${INSTALL_DIR}/${BINARY}"
+echo "scdev installed to ${BIN_DIR}/${BINARY}"
+echo "  symlinked from ${SYMLINK_DIR}/${BINARY}"
 scdev version
