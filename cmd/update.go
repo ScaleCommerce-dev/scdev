@@ -18,12 +18,13 @@ This command detects changes in the config and only recreates
 containers that need to be updated. Use this after modifying
 your config file instead of running 'scdev down && scdev start'.
 
-Changes detected:
-- Routing configuration (host_port, protocol, port)
+Changes detected (via a config hash stamped on each container):
 - Image changes
 - Environment variable changes
 - Volume mount changes
-- Command changes`,
+- Command / working directory changes
+- Routing configuration (host_port, protocol, port, domain)
+- Labels, network aliases, and published ports`,
 	RunE: runUpdate,
 }
 

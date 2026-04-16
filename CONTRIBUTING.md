@@ -173,7 +173,7 @@ Two-pass variable substitution in `internal/config/loader.go`:
 
 User variables can reference built-in vars (e.g., `DB_NAME: ${PROJECTNAME}_db`) but not other user variables (map iteration order is undefined in Go).
 
-`buildContainerConfig()` in `project.go` is the single source of truth for container configuration. Both `startServiceWithMutagen()` (creating containers) and `serviceNeedsRecreate()` (comparing against running containers) use it.
+`buildContainerConfig()` in `project.go` is the single source of truth for container configuration. Both `startServiceWithMutagen()` (creating containers) and `serviceNeedsRecreate()` (comparing against running containers) use it. It stamps a `scdev.config-hash` label (deterministic sha256 of image, env, volumes, command, working dir, routing labels, ports, aliases, and network). `scdev update` recreates any service whose stamped hash differs from the freshly built one. Pre-hash containers have no label and get recreated once on first update after upgrading.
 
 ## Documentation
 

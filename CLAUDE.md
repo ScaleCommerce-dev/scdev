@@ -1,94 +1,71 @@
 # scdev
 
-Local development environment framework for web applications. Single command startup, shared infrastructure (Traefik, Mailpit, Adminer), project isolation via Docker networks.
+Local development environment framework for web applications. Go CLI that shells out to the `docker` CLI (never the Docker SDK - keeps the door open for Podman). Single command startup, shared infrastructure (Traefik, Mailpit, Adminer), project isolation via Docker networks.
 
-**About this file:** CLAUDE.md is for agent guidance - architectural decisions, rules, conventions, and gotchas that can't be inferred from reading code. Don't bloat it with code-level details (file listings, prop docs, full API specs) that agents can discover by reading the source. Focus on the "why", not the "what".
+**About this file:** agent guidance only - decisions, conventions, and gotchas that can't be inferred from code. Every line biases behavior and competes for attention. When editing, ask per line: "Would removing this cause an agent to make a mistake?" If not, cut it. Don't add file listings, stack summaries, or anything agents discover by grepping.
 
-## Quick Reference
+## Workflow
 
-```bash
-make build           # Build binary
-make test            # Run unit tests (always run before committing)
-make test-integration # Run integration tests (requires Docker, run before releases or after refactors)
-```
+- Run `make test` before every commit (fast, mock runtime).
+- Run `make test-integration` before releases, or after changing project lifecycle / routing / Mutagen / runtime code (spins up real Docker, takes minutes).
+- **Never commit, push, or tag without explicit user confirmation.** Show the proposed commit message and wait for approval before `git commit`, `git push`, or `git tag`. Never add "Co-Authored-By" lines.
 
-**When to run which:** `make test` is fast and should run on every change. `make test-integration` spins up real Docker containers and takes minutes - run it before releases, after refactoring core logic (project lifecycle, routing, Mutagen), or when changing code that unit tests can't cover.
-
-## Releases
-
-1. Update `CHANGELOG.md` - add new `## vX.Y.Z` section at top
-2. Commit, tag, push:
-   ```bash
-   git add CHANGELOG.md && git commit -m "Release vX.Y.Z"
-   git tag vX.Y.Z && git push origin main && git push origin vX.Y.Z
-   ```
-3. CI builds binaries for darwin/linux (arm64/amd64), creates GitHub Release with changelog
-
-## Key Decisions
-
-- **Runtime:** Shell out to `docker` CLI (not SDK) - enables future Podman support
-- **Defaults:** All in `internal/config/defaults.go` - single source of truth for domain, images, versions
-- **Templates:** Embedded via `//go:embed` with `${VAR}` substitution
-- **Tests:** Unit tests from start, integration tests tagged `//go:build integration`
-- **Default Domain:** `scalecommerce.site` - wildcard DNS resolving to 127.0.0.1
-- **Named Volumes:** Auto-discovered from service volume mounts - no top-level `volumes:` section needed (unlike Docker Compose). `parseVolumeMount()` detects named vs bind volumes.
-- **Config variables:** `variables:` in project config defines reusable `${VAR}` placeholders. Substituted in the second pass of `LoadProject()` after PROJECTNAME is resolved. NOT passed to containers (that's what `environment:` is for).
-- **Project templates:** `scdev create` scaffolds from GitHub repos or local dirs. Template logic in `internal/create/`, command in `cmd/create.go`. Template repos follow the naming convention `scdev-template-<name>`.
-- **Link networks:** Runtime relationships between projects, stored in global state (`~/.scdev/state.yaml`), not project config. Each link creates a dedicated Docker network (`scdev_link_<name>`). Containers resolve each other by container name via Docker's embedded DNS - no explicit network aliases needed.
+Release process:
+1. Add `## vX.Y.Z` section at the top of `CHANGELOG.md`.
+2. `git add CHANGELOG.md && git commit -m "Release vX.Y.Z"`
+3. `git tag vX.Y.Z && git push origin main && git push origin vX.Y.Z`
+4. CI builds darwin/linux (arm64/amd64) binaries and creates the GitHub Release from the changelog.
 
 ## Style
 
-- **Never use em-dashes** (—). Use regular hyphens (-) in all code, copy, comments, and docs.
+**Never use em-dashes** (—). Use regular hyphens (-) everywhere: code, copy, comments, docs.
 
 ## Conventions That Break Expectations
 
-- **No top-level `volumes:` in project config.** Unlike Docker Compose, named volumes don't need separate declaration. They're discovered automatically from service `volumes:` entries. If it doesn't start with `/` or `.`, it's a named volume.
-- **Justfile commands** live in `.scdev/commands/<name>.just`, not a single Justfile. Command resolution: built-in > justfile > error.
-- **Mutagen auto-detection:** Enabled on macOS, disabled on Linux. Controlled by `~/.scdev/global-config.yaml`, not project config.
-- **`routing.domain`** on services allows per-service custom domains (HTTP/HTTPS only). Without it, all services share the project domain. Useful for frontend + backend setups.
+- **No top-level `volumes:` in project config.** Unlike Docker Compose, named volumes don't need separate declaration - anything in a service `volumes:` entry that doesn't start with `/` or `.` is auto-discovered as a named volume (`parseVolumeMount()`).
+- **Config `variables:` are NOT env vars.** They're `${VAR}` placeholders substituted at config-load time (second pass of `LoadProject()`, after `PROJECTNAME` resolves). They don't reach containers - that's what `environment:` is for.
+- **Justfile commands** live in `.scdev/commands/<name>.just`, not a single Justfile. Resolution order: built-in > justfile > error.
+- **Mutagen auto-detection:** enabled on macOS, disabled on Linux. Controlled by `~/.scdev/global-config.yaml`, not project config.
+- **`routing.domain`** on a service enables a per-service custom domain (HTTP/HTTPS only). Without it, services share the project domain. Useful for frontend + backend splits.
+- **Default domain `scalecommerce.site`** is wildcard DNS resolving to 127.0.0.1 - not a real site, just a resolver trick.
 
-## Adding New Commands or Services
+## Architecture Anchors
 
-**Read `CONTRIBUTING.md` first** when adding new commands, shared services, or major features. It has the full checklist, architecture context, and test patterns.
+- **`internal/config/defaults.go`** is the single source of truth for images, versions, and the default domain. Change once, everything picks it up.
+- **`buildContainerConfig()` in `internal/project/project.go`** is the single source of truth for container configuration. It stamps an `scdev.config-hash` label covering image, env, volumes, command, working dir, routing labels, ports, and network aliases. `scdev update` recreates any service whose stamped hash differs. **Any new service config field that should shape a container must flow through `buildContainerConfig` - otherwise `scdev update` won't detect changes to it.**
+- **`ContainerNameFor(service, project)`** builds container names without a loaded `Project`. Use it instead of `fmt.Sprintf("%s.%s.scdev", ...)`.
+- **Link networks** are runtime relationships between projects, stored in global state (`~/.scdev/state.yaml`), not project config. Each creates a `scdev_link_<name>` network. Containers resolve each other by container name via Docker's embedded DNS.
+- **Template repos** follow the naming convention `scdev-template-<name>` (matters for `scdev create` resolution).
 
-All Docker-dependent commands must call `requireDocker(ctx)` at the top of their `RunE` function (defined in `cmd/shared.go`). This gives users a clear error if Docker isn't running instead of a confusing low-level failure.
+## Adding Docker-Dependent Commands
 
-### Adding New Shared Services
+Call `requireDocker(ctx)` as the first line of `RunE` (defined in `cmd/shared.go`). Without it users get cryptic low-level failures instead of a clear "Docker isn't running" message.
 
-When adding a new shared service (easy to miss steps):
+### Adding a Shared Service
 
-1. Add container name constant in `internal/services/<service>.go`
-2. Add `Start<Service>`, `Stop<Service>`, `<Service>Status` methods to `manager.go`
-3. **Update `Connect<Service>ToProject`** - pass network aliases so the service is resolvable by short name from project containers
-4. **Update `cmd/services.go` `runServicesRecreate()`** - add stop/remove/start calls
-5. Update `cmd/services.go` start/stop/status commands
-6. Add image constant to `internal/config/defaults.go`
+Easy-to-miss steps when wiring a new shared service:
+
+1. Container name constant in `internal/services/<service>.go`.
+2. `Start<Service>` / `Stop<Service>` / `<Service>Status` on `manager.go`.
+3. `Connect<Service>ToProject` **must pass network aliases** so project containers can resolve it by short name.
+4. Update `runServicesRecreate()` in `cmd/services.go` - stop/remove/start.
+5. Wire into `cmd/services.go` start/stop/status commands.
+6. Add the image constant to `internal/config/defaults.go`.
 
 ## Gotchas
 
-- Mutagen ignored paths are NOT synced in either direction. `node_modules` and `.pnpm-store` should always be ignored for Node.js projects - they stay inside the container for native speed. IDE autocomplete still works because `pnpm install` also runs on the host (or the IDE uses the host's own node_modules).
-- For pnpm projects, `.pnpm-store` MUST be in the mutagen ignore list. pnpm creates a ~500MB content-addressable store inside the project dir when running in a container. Without ignoring it, platform-specific native binaries (glibc vs musl) sync to the host and break when the container image changes.
-- Only directory bind mounts are synced via Mutagen. Single-file mounts stay as regular bind mounts.
-- The docs page (`docs.shared.<domain>`) doubles as a 404 catch-all via Traefik - unmatched URLs redirect there.
-- The sync-ready gate (`/.scdev-sync-ready` marker) automatically holds the container's command until Mutagen sync completes. No need for `while [ ! -f ... ]` workarounds in commands.
-- **Project domains don't work for inter-container communication.** `*.scalecommerce.site` resolves to `127.0.0.1`, which inside a container points to the container itself, not Traefik. Linked containers must use container names (`app.project-b.scdev`) instead. This is why `scdev link` uses Docker DNS, not domain routing.
-- **`ContainerNameFor(service, project)`** is the standalone helper for building container names without a loaded Project. Use it instead of `fmt.Sprintf("%s.%s.scdev", ...)`.
-- **`scdev rename` migrates volumes via a temp container** using a project service image (guaranteed local). Docker has no native volume rename. The `CopyVolume` method on the Runtime interface handles this. All copies happen before any old volumes are removed to minimize blast radius on failure.
-- **Integration tests that tear down shared services** (router, mail, db, redis) must snapshot what's running before the test and restore it afterward. See `snapshotSharedServices`/`restoreSharedServices` helpers. Forgetting this silently breaks the developer's running environment.
+- **Project domains don't work for inter-container communication.** `*.scalecommerce.site` resolves to 127.0.0.1, which inside a container points at the container itself, not Traefik. Cross-project containers must use container names (`app.project-b.scdev`) - this is why `scdev link` uses Docker DNS, not routing.
+- **Mutagen ignored paths are not synced either way.** `node_modules` and `.pnpm-store` must be ignored for Node.js projects so they stay inside the container at native speed. IDE autocomplete still works via the host's own `pnpm install` / host `node_modules`.
+- **`.pnpm-store` MUST be in the mutagen ignore list for pnpm projects.** pnpm builds a ~500MB content-addressable store with platform-specific native binaries (glibc vs musl) inside the project dir. Without ignoring it, syncing those binaries to the host breaks the next time the container image changes.
+- **Only directory bind mounts sync via Mutagen.** Single-file mounts stay as regular bind mounts.
+- **Sync-ready gate:** `buildContainerConfig` wraps commands with a wait on `/.scdev-sync-ready` when Mutagen is enabled for that service. Don't add your own `while [ ! -f ... ]` workaround - it's already there.
+- **`scdev rename` migrates volumes via a temp container** using a project service image (guaranteed present locally). Docker has no native volume rename. See `CopyVolume` on the Runtime interface. All copies happen before any old volumes are removed, to bound blast radius on failure.
+- **The docs page (`docs.shared.<domain>`) is also Traefik's 404 catch-all** - unmatched URLs land there, not a generic error page.
+- **Integration tests that tear down shared services** (router, mail, db, redis) must snapshot beforehand and restore afterward via `snapshotSharedServices` / `restoreSharedServices`. Forgetting this silently breaks the developer's running environment.
 
-## README
+## Docs to Keep in Sync
 
-The README doubles as the project's main documentation and marketing page. It contains config examples, command references, and architecture explanations that must stay in sync with the code. Check README.md for needed updates on every user-facing change (new commands, config options, shared services, CLI flags).
-
-## Templates Docs
-
-`templates/README.md` is the template authoring guide. It documents config.yaml options, the setup lifecycle, scaffolding patterns, and framework-specific notes. When changing config options, variables, Mutagen behavior, or the create/setup workflow, update both `README.md` and `templates/README.md`.
-
-## Contributing Guide
-
-`CONTRIBUTING.md` is the developer onboarding doc - project structure, testing strategy, architecture decisions, and how to add commands/services. Update it when adding new packages, changing test patterns, or making architectural decisions that affect how developers work on the project.
-
-## Completo Briefing
-
-`Completo-Briefing.md` provides project context to Completo's AI features. Use `/completo-briefing` to regenerate.
-
+- **`README.md`** - user-facing docs and marketing; needs updating for any user-visible change (new commands, config options, shared services, CLI flags).
+- **`templates/README.md`** - template authoring guide; update alongside `README.md` when changing config options, variables, Mutagen behavior, or the create/setup workflow.
+- **`CONTRIBUTING.md`** - developer onboarding (structure, testing strategy, how to add commands/services). Update it when architectural decisions or test patterns change.
+- **`Completo-Briefing.md`** - context for Completo's AI features. Regenerate with `/completo-briefing`.

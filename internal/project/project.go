@@ -2,10 +2,14 @@ package project
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"net"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -15,6 +19,11 @@ import (
 	"github.com/ScaleCommerce-DEV/scdev/internal/services"
 	"github.com/ScaleCommerce-DEV/scdev/internal/state"
 )
+
+// configHashLabel is the label that carries a deterministic hash of the
+// expected container config. serviceNeedsRecreate compares this label to
+// the hash of the freshly built config; any drift triggers recreation.
+const configHashLabel = "scdev.config-hash"
 
 // Project represents a loaded scdev project
 type Project struct {
@@ -626,17 +635,20 @@ func (p *Project) Update(ctx context.Context) (bool, error) {
 	return updated, nil
 }
 
-// serviceNeedsRecreate checks if a service container needs to be recreated
+// serviceNeedsRecreate checks if a service container needs to be recreated.
+// It compares the configHashLabel stamped at creation time against the hash
+// of the freshly built expected config. Any drift in image, env, volumes,
+// command, working dir, routing labels, or ports triggers recreation.
+// Containers created before the hash label existed have no label and will
+// be recreated on the next update - an intentional one-time migration.
 func (p *Project) serviceNeedsRecreate(ctx context.Context, serviceName string, svc config.ServiceConfig) (bool, error) {
 	containerName := p.ContainerName(serviceName)
 
-	// Get current container labels
 	currentLabels, err := p.Runtime.GetContainerLabels(ctx, containerName)
 	if err != nil {
 		return true, nil // If we can't read labels, recreate to be safe
 	}
 
-	// Build expected config using the same logic as Start() for accurate comparison
 	mutagenEnabled := p.IsMutagenEnabled()
 	var mutagenMountMap map[string]MutagenSyncMount
 	if mutagenEnabled {
@@ -647,27 +659,7 @@ func (p *Project) serviceNeedsRecreate(ctx context.Context, serviceName string, 
 	}
 	expectedCfg := p.buildContainerConfig(serviceName, svc, mutagenEnabled, mutagenMountMap)
 
-	// Compare routing-related labels
-	for key, expectedValue := range expectedCfg.Labels {
-		if strings.HasPrefix(key, "traefik.") {
-			if currentLabels[key] != expectedValue {
-				return true, nil
-			}
-		}
-	}
-
-	// Check if any traefik labels in current config are not in expected (removed routing)
-	for key := range currentLabels {
-		if strings.HasPrefix(key, "traefik.") {
-			if _, ok := expectedCfg.Labels[key]; !ok {
-				return true, nil
-			}
-		}
-	}
-
-	// For now, focus on routing changes
-
-	return false, nil
+	return currentLabels[configHashLabel] != expectedCfg.Labels[configHashLabel], nil
 }
 
 // buildContainerConfig builds the full container configuration for a service.
@@ -748,7 +740,70 @@ func (p *Project) buildContainerConfig(name string, svc config.ServiceConfig, mu
 		}
 	}
 
+	// Stamp a deterministic hash of the final config so serviceNeedsRecreate
+	// can detect any drift (image, env, volumes, command, routing, etc.) with
+	// a single label compare. Computed last so it covers everything above.
+	cfg.Labels[configHashLabel] = computeConfigHash(cfg)
+
 	return cfg
+}
+
+// computeConfigHash returns a deterministic sha256 of the fields that
+// define container identity for recreation purposes. The configHashLabel
+// itself is excluded so the hash doesn't depend on its own value.
+func computeConfigHash(cfg runtime.ContainerConfig) string {
+	envPairs := make([]string, 0, len(cfg.Env))
+	for k, v := range cfg.Env {
+		envPairs = append(envPairs, k+"="+v)
+	}
+	sort.Strings(envPairs)
+
+	labelPairs := make([]string, 0, len(cfg.Labels))
+	for k, v := range cfg.Labels {
+		if k == configHashLabel {
+			continue
+		}
+		labelPairs = append(labelPairs, k+"="+v)
+	}
+	sort.Strings(labelPairs)
+
+	volumes := make([]string, 0, len(cfg.Volumes))
+	for _, v := range cfg.Volumes {
+		volumes = append(volumes, fmt.Sprintf("%s:%s:%v", v.Source, v.Target, v.ReadOnly))
+	}
+	sort.Strings(volumes)
+
+	ports := append([]string(nil), cfg.Ports...)
+	sort.Strings(ports)
+
+	aliases := append([]string(nil), cfg.Aliases...)
+	sort.Strings(aliases)
+
+	payload := struct {
+		Image       string
+		WorkingDir  string
+		Command     []string
+		Env         []string
+		Labels      []string
+		Volumes     []string
+		Ports       []string
+		NetworkName string
+		Aliases     []string
+	}{
+		Image:       cfg.Image,
+		WorkingDir:  cfg.WorkingDir,
+		Command:     cfg.Command,
+		Env:         envPairs,
+		Labels:      labelPairs,
+		Volumes:     volumes,
+		Ports:       ports,
+		NetworkName: cfg.NetworkName,
+		Aliases:     aliases,
+	}
+
+	b, _ := json.Marshal(payload)
+	sum := sha256.Sum256(b)
+	return hex.EncodeToString(sum[:])
 }
 
 // Exec runs a command in a service container
