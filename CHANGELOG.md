@@ -1,3 +1,9 @@
+## v0.5.3
+
+### Bug Fixes
+
+- **Fix systemcheck reporting "All checks passed" when CA is not trusted** - `checkCA` only checked whether CA files exist, not whether the CA is trusted by the system. On a new install where the user skips CA installation, first-run would say "Setup incomplete" but systemcheck would say "All checks passed!" immediately after. Now systemcheck verifies trust status and reports "not trusted by system" with instructions to fix.
+
 ## v0.5.2
 
 ### Bug Fixes

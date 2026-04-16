@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 
 	"github.com/ScaleCommerce-DEV/scdev/internal/config"
 	"github.com/ScaleCommerce-DEV/scdev/internal/ssl"
@@ -126,7 +125,7 @@ func (m *Manager) RunSetup(ctx context.Context) (bool, error) {
 	// Step 4: Verify CA is trusted (by checking if cert is valid)
 	fmt.Println("[4/4] Verifying CA trust...")
 	if certPath != "" {
-		trusted, err := m.verifyCertTrust(ctx, certPath)
+		trusted, err := m.verifyCertTrust(ctx, mkcertPath, certPath)
 		if err != nil {
 			fmt.Printf("      Warning: could not verify trust: %v\n", err)
 		} else if trusted {
@@ -169,7 +168,7 @@ func (m *Manager) RunSetup(ctx context.Context) (bool, error) {
 			}
 
 			// Re-verify that CA is now trusted
-			trustedNow, err := m.verifyCertTrust(ctx, certPath)
+			trustedNow, err := m.verifyCertTrust(ctx, mkcertPath, certPath)
 			if err != nil || !trustedNow {
 				fmt.Println("      CA installation completed but verification still fails.")
 				fmt.Println("      You may need to restart your browser or system.")
@@ -266,23 +265,7 @@ func (m *Manager) ensureCertsWithPath(ctx context.Context, mkcertPath string) (b
 
 // verifyCertTrust checks if the certificate is trusted by the system
 // Returns (trusted, error)
-func (m *Manager) verifyCertTrust(ctx context.Context, certPath string) (bool, error) {
-	if runtime.GOOS == "darwin" {
-		// On macOS, use security verify-cert
-		_, err := tools.RunTool(ctx, "security", "verify-cert", "-c", certPath)
-		if err != nil {
-			// Verification failed - CA not trusted
-			return false, nil
-		}
-		return true, nil
-	}
-
-	// On Linux, use openssl verify against system trust store
-	// This will fail if the mkcert CA is not installed in the system
-	_, err := tools.RunTool(ctx, "openssl", "verify", certPath)
-	if err != nil {
-		// Verification failed - CA not in system trust store
-		return false, nil
-	}
-	return true, nil
+func (m *Manager) verifyCertTrust(ctx context.Context, mkcertPath, certPath string) (bool, error) {
+	mkcert := tools.NewMkcert(mkcertPath)
+	return mkcert.IsCATrusted(ctx, certPath)
 }

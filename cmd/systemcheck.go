@@ -195,7 +195,7 @@ func runSystemcheck(cmd *cobra.Command, args []string) error {
 
 	// Check local CA (only if mkcert is available)
 	if mkcertPath != "" {
-		issues += checkCA(ctx, mkcertPath)
+		issues += checkCA(ctx, mkcertPath, globalCfg)
 	}
 
 	// Check certificates
@@ -291,7 +291,7 @@ func checkMkcert(ctx context.Context, cfg *config.GlobalConfig) (string, int) {
 	return "", 1
 }
 
-func checkCA(ctx context.Context, mkcertPath string) int {
+func checkCA(ctx context.Context, mkcertPath string, cfg *config.GlobalConfig) int {
 	fmt.Print("Local CA:      ")
 
 	mkcert := tools.NewMkcert(mkcertPath)
@@ -312,6 +312,17 @@ func checkCA(ctx context.Context, mkcertPath string) int {
 		fmt.Printf("%s (not initialized)\n", statusText("MISSING"))
 		fmt.Println("               Run 'scdev systemcheck --install-ca' to install")
 		return 1
+	}
+
+	// CA files exist - also check if trusted by the system
+	certPath := filepath.Join(config.GetCertsDir(), ssl.CertFileName)
+	if _, err := os.Stat(certPath); err == nil {
+		trusted, err := mkcert.IsCATrusted(ctx, certPath)
+		if err == nil && !trusted {
+			fmt.Printf("%s (%s - not trusted by system)\n", statusText("MISSING"), caRoot)
+			fmt.Println("               Run 'scdev systemcheck --install-ca' to install")
+			return 1
+		}
 	}
 
 	fmt.Printf("%s (%s)\n", statusText("OK"), caRoot)

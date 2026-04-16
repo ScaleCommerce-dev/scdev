@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/ScaleCommerce-DEV/scdev/internal/config"
 )
@@ -99,6 +100,25 @@ func (m *Mkcert) GenerateCert(ctx context.Context, certPath, keyPath string, dom
 	}
 
 	return nil
+}
+
+// IsCATrusted checks if the mkcert CA is trusted by the system.
+// It does this by verifying the certificate at certPath against the system trust store.
+func (m *Mkcert) IsCATrusted(ctx context.Context, certPath string) (bool, error) {
+	if runtime.GOOS == "darwin" {
+		_, err := RunTool(ctx, "security", "verify-cert", "-c", certPath)
+		if err != nil {
+			return false, nil
+		}
+		return true, nil
+	}
+
+	// On Linux, use openssl verify against system trust store
+	_, err := RunTool(ctx, "openssl", "verify", certPath)
+	if err != nil {
+		return false, nil
+	}
+	return true, nil
 }
 
 // Version returns the mkcert version
