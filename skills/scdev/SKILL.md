@@ -45,6 +45,11 @@ scdev down -v                    # Remove everything including volumes
 scdev exec <service> <command>   # e.g. scdev exec app pnpm test
 scdev exec app bash              # Interactive shell
 
+# Print a visually distinct progress marker (for use inside .scdev/commands/*.just)
+scdev step "Installing dependencies"   # 2 blank lines + cyan ▶ + bold text;
+                                       # makes phase headers pop against composer/npm/apk
+                                       # output. Auto-plain on non-TTY / NO_COLOR.
+
 # Logs and info
 scdev logs [service]             # First service if omitted. -f to follow, --tail N to limit
 scdev info / status / config     # Project info, status, resolved config
@@ -358,6 +363,9 @@ template entrypoint must handle (Node, PHP, PHP framework landmines), read
   Container waits in a loop until setup creates the marker, then starts the app.
 - **`setup.just`** runs on the host with `scdev exec` for container commands. Interactive terminal
   means framework prompts work (unlike the container entrypoint which has no TTY).
+- **`@scdev step "<msg>"` for phase headers** in setup.just, not `@echo`. Setup output is a wall of
+  apk/composer/npm noise; plain echo disappears in it. `scdev step` prints two blank lines + cyan
+  `▶` + bold so each phase stands out. Auto-plain on non-TTY / `NO_COLOR`.
 - **Scaffold in-place** (`--force`) when the framework supports it (Nuxt). Scaffold in `/tmp` and
   copy back when the tool requires an empty dir (Symfony) - safe for PHP, not for Node.js/pnpm.
 - **`pnpm approve-builds --all`** after install for native module prebuilt binaries (pnpm v10).

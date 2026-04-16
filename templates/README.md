@@ -237,25 +237,24 @@ Justfiles run on the **host**, not inside the container. Use `scdev exec app <co
 
 ## Writing setup.just
 
+Setup often runs thousands of lines of command output (package managers installing deps, scaffolders writing files, compilers building assets). Plain `@echo "Installing PHP extensions..."` lines get buried in that noise and users lose track of which phase is running. Use `@scdev step "<message>"` instead - it prints two leading blank lines, a cyan `▶`, and the message in bold, so each phase reads as a clear section header even when the surrounding output is a wall of text. Styling is stripped when stdout isn't a TTY, when `NO_COLOR` is set, or when the user has plain mode enabled in global config, so the same recipe works in logs and CI too.
+
 ```just
 # Description of what setup does
 
 [no-exit-message]
 default:
-    scdev start
+    scdev start -q
+    @scdev step "Installing dependencies"
     scdev exec app sh -c "your install commands here && touch .setup-complete"
-    @echo ""
-    @echo "Setup complete! App will start automatically."
-    @echo ""
-    @echo "Here are the details about your new project:"
-    @echo ""
+    @scdev step "Setup complete! App will start automatically."
     scdev info
 ```
 
 **Conventions:**
 - `scdev start` goes first - the container must be running before `scdev exec`
 - `touch .setup-complete` goes last in the exec - only after everything succeeds
-- Use `@` prefix on cosmetic echo lines to suppress just's command echo
+- `@scdev step "<msg>"` for each top-level phase instead of `@echo`; reserve plain `@echo` for sub-detail lines that don't need to stand out
 - Keep echo ON for `scdev start`, `scdev exec`, and `scdev info` so the user sees what's running
 - Add `[no-exit-message]` to suppress just's default exit message
 
@@ -277,24 +276,17 @@ On macOS with Mutagen, `.scdev` is in the ignore list so the container sees an e
 [no-exit-message]
 default:
     scdev start -q
-    @echo ""
-    @echo "Installing tools..."
+    @scdev step "Installing tools"
     scdev exec app sh -c "corepack enable && apk add --no-cache git"
-    @echo ""
-    @echo "Scaffolding Nuxt project..."
+    @scdev step "Scaffolding Nuxt project"
     scdev exec app pnpm dlx nuxi@latest init . --packageManager pnpm --gitInit=false --force
-    @echo ""
-    @echo "Preparing Nuxt modules..."
+    @scdev step "Preparing Nuxt modules"
     scdev exec app npx nuxi prepare
-    @echo ""
-    @echo "Approving native module builds..."
+    @scdev step "Approving native module builds"
     scdev exec app pnpm approve-builds --all
-    @echo ""
-    @echo "Finalizing..."
+    @scdev step "Finalizing"
     scdev exec app sh -c "echo '.setup-complete' >> .gitignore && touch .setup-complete"
-    @echo ""
-    @echo "Setup complete! App will start automatically."
-    @echo ""
+    @scdev step "Setup complete! App will start automatically."
     scdev info
 ```
 
@@ -318,24 +310,17 @@ Some scaffolding tools have no force flag and strictly require an empty director
 [no-exit-message]
 default:
     scdev start -q
-    @echo ""
-    @echo "Installing dependencies..."
+    @scdev step "Installing dependencies"
     scdev exec app apk add --no-cache bash
-    @echo ""
-    @echo "Installing Composer..."
+    @scdev step "Installing Composer"
     scdev exec app sh -c "wget -qO- https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer"
-    @echo ""
-    @echo "Installing Symfony CLI..."
+    @scdev step "Installing Symfony CLI"
     scdev exec app sh -c "wget https://get.symfony.com/cli/installer -O - 2>/dev/null | bash && cp \$HOME/.symfony5/bin/symfony /usr/local/bin/symfony"
-    @echo ""
-    @echo "Scaffolding Symfony project..."
+    @scdev step "Scaffolding Symfony project"
     scdev exec app symfony new /tmp/app --no-git
-    @echo ""
-    @echo "Copying project files..."
+    @scdev step "Copying project files"
     scdev exec app sh -c "cp -r /tmp/app/. /app/ && rm -rf /tmp/app && echo '.setup-complete' >> .gitignore && touch .setup-complete"
-    @echo ""
-    @echo "Setup complete! App will start automatically."
-    @echo ""
+    @scdev step "Setup complete! App will start automatically."
     scdev info
 ```
 

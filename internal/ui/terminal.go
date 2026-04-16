@@ -132,6 +132,24 @@ func Color(text, color string, plainMode bool) string {
 	return code + text + "\x1b[0m"
 }
 
+// Bold wraps text in ANSI bold codes when supported.
+func Bold(text string, plainMode bool) string {
+	if plainMode || !SupportsColors() {
+		return text
+	}
+	return "\x1b[1m" + text + "\x1b[0m"
+}
+
+// StatusStep prints a visually distinct framework status message to stdout.
+// Used during multi-step flows (setup, start) to make scdev's own progress
+// markers stand out against verbose nested command output. Leads with two
+// blank lines, then a cyan "▶" prefix and a bold message.
+func StatusStep(message string, plainMode bool) {
+	fmt.Println()
+	fmt.Println()
+	fmt.Printf("%s %s\n", Color("▶", "cyan", plainMode), Bold(message, plainMode))
+}
+
 // StatusColor returns colored status text based on the status value.
 func StatusColor(status string, plainMode bool) string {
 	if plainMode || !SupportsColors() {

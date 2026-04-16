@@ -28,6 +28,7 @@ Release process:
 - **Mutagen auto-detection:** enabled on macOS, disabled on Linux. Controlled by `~/.scdev/global-config.yaml`, not project config.
 - **`routing.domain`** on a service enables a per-service custom domain (HTTP/HTTPS only). Without it, services share the project domain. Useful for frontend + backend splits.
 - **Default domain `scalecommerce.site`** is wildcard DNS resolving to 127.0.0.1 - not a real site, just a resolver trick.
+- **Framework progress messages use `ui.StatusStep()`**, not `fmt.Println` - two blank lines + cyan `▶` + bold text, so they stand out from verbose nested command output. Mirrored by the `scdev step <message>` subcommand for template justfiles (templates should call `@scdev step "..."` instead of `@echo "..."` for top-level progress markers).
 
 ## Architecture Anchors
 

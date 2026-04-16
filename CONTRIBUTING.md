@@ -202,6 +202,7 @@ Key patterns:
 - Never use em-dashes (-). Use regular hyphens (-) everywhere.
 - Error messages: `fmt.Errorf("failed to <action>: %w", err)` - wrap with context
 - User-facing output: `fmt.Printf` for status, `fmt.Println` for section headers
+- Top-level progress markers during multi-step flows (setup, start, sync): use `ui.StatusStep(msg, plainMode)` instead of plain `fmt.Println`. Adds two blank lines + cyan `▶` + bold text so framework messages stand out from verbose nested command output. Same styling is exposed as `scdev step <msg>` for template justfiles.
 - Commands return errors (Cobra handles display with `SilenceUsage: true`)
 
 ## Release Process

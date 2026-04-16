@@ -52,30 +52,31 @@ Setup runs on the **host**, uses `scdev exec` for container commands. The intera
 from `scdev exec` is important - framework prompts work here but would crash in the entrypoint
 (which has no TTY).
 
+Setup also produces a wall of output (apk/composer/npm installing hundreds of deps, compilers,
+scaffolders). Plain `@echo` status lines disappear in that noise. `@scdev step "<msg>"` prints two
+leading blank lines + a cyan `▶` + bold text so each phase reads as a clear section header. Styling
+auto-strips when stdout isn't a TTY, when `NO_COLOR` is set, or when global plain mode is on, so
+the same recipe works in logs and CI.
+
 ```just
 # Description
 
 [no-exit-message]
 default:
     scdev start -q
-    @echo ""
-    @echo "Installing dependencies..."
+    @scdev step "Installing dependencies"
     scdev exec app sh -c "corepack enable && pnpm install && touch .setup-complete"
-    @echo ""
-    @echo "Setup complete! App will start automatically."
-    @echo ""
-    @echo "Here are the details about your new project:"
-    @echo ""
+    @scdev step "Setup complete! App will start automatically."
     scdev info
 ```
 
 Conventions:
 - `scdev start -q` first (quiet: skips info display since setup shows it at the end)
 - `touch .setup-complete` last in exec (only on success)
-- `@echo` for cosmetic lines (suppresses just's command echo)
+- `@scdev step "<msg>"` for each top-level phase; reserve `@echo` for sub-detail lines that don't need to stand out
 - Keep echo ON for `scdev start`, `scdev exec`, `scdev info` so the user sees what's running
 - `[no-exit-message]` suppresses just's exit message
-- Break long chains into separate `scdev exec` calls with `@echo` progress messages between them
+- Break long chains into separate `scdev exec` calls with a `@scdev step` marker between them
 
 ## Handling Framework Scaffolding
 

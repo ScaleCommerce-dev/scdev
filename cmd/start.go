@@ -7,6 +7,7 @@ import (
 
 	"github.com/ScaleCommerce-DEV/scdev/internal/config"
 	"github.com/ScaleCommerce-DEV/scdev/internal/project"
+	"github.com/ScaleCommerce-DEV/scdev/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -47,7 +48,11 @@ func runStart(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("DNS verification failed: %w", err)
 	}
 
-	fmt.Printf("Starting project %s...\n", proj.Config.Name)
+	plainMode := false
+	if gcfg, err := config.LoadGlobalConfig(); err == nil && gcfg != nil {
+		plainMode = ui.PlainMode(gcfg.Terminal.Plain)
+	}
+	ui.StatusStep(fmt.Sprintf("Starting project %s", proj.Config.Name), plainMode)
 
 	if err := proj.Start(ctx); err != nil {
 		return err
