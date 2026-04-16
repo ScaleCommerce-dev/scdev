@@ -414,6 +414,52 @@ symfony server:start --no-tls --port=8000 --allow-all-ip
 
 **vendor/ portability:** Unlike Node.js, PHP's `vendor/` directory uses `__DIR__` for path resolution at runtime. Copying `vendor/` between directories (e.g. from `/tmp/app` to `/app`) works fine. This is why the /tmp scaffolding approach is safe for PHP but not for Node.js.
 
+**Raise `memory_limit`:** the PHP CLI default (128 MB) OOMs on Symfony `cache:clear` post-install scripts, Composer dependency solving on large projects, and anything that loads the full container. Add a drop-in ini file once in setup and again guard it in the entrypoint so it survives container recreation:
+
+```sh
+printf 'memory_limit=-1\n' > /usr/local/etc/php/conf.d/zz-app.ini
+```
+
+**Install missing PHP extensions:** `php:8.3-cli-alpine` ships only a minimal set. Projects like Sylius, Shopware, and Akeneo need `intl pdo_mysql gd bcmath opcache exif zip` at minimum. Use [install-php-extensions](https://github.com/mlocati/docker-php-extension-installer):
+
+```sh
+wget -qO /usr/local/bin/install-php-extensions \
+  https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions
+chmod +x /usr/local/bin/install-php-extensions
+install-php-extensions intl pdo_mysql gd bcmath opcache exif zip
+```
+
+Guard with `[ ! -f /usr/local/bin/install-php-extensions ]` in the entrypoint so restarts skip the reinstall.
+
+**Trusted proxies (Symfony/Sylius/Laravel/Shopware):** Traefik terminates HTTPS and forwards HTTP to the app. Without a trusted-proxy config, Symfony generates `http://` URLs inside the HTTPS page - the browser blocks them as mixed content, the debug toolbar hangs on "Loading…", and admin login breaks. Set this in the app service `environment:`:
+
+```yaml
+environment:
+  SYMFONY_TRUSTED_PROXIES: private_ranges    # Symfony 6.3+ shorthand
+  # Laravel equivalent uses TRUSTED_PROXIES=* for the TrustProxies middleware
+```
+
+This is required for any PHP framework that builds absolute URLs while running behind a reverse proxy. It's the single most common runtime surprise on PHP framework templates.
+
+**Asset pipelines (Webpack Encore, Vite):** Many PHP framework templates ship a `package.json` and build JS/CSS at install time (Sylius 2.x via Webpack Encore, Shopware 6 admin, most custom themes). Add Node to the app container and build assets in setup:
+
+```sh
+apk add --no-cache nodejs npm
+npm install --no-audit --no-fund && npm run build
+```
+
+Also add an idempotent rebuild in the entrypoint so `scdev down && scdev start` regenerates the bundle:
+
+```sh
+if [ -f package.json ] && [ ! -f public/build/shop/manifest.json ]; then
+  npm install --no-audit --no-fund && npm run build;
+fi
+```
+
+This matters because `public/build` lives in `mutagen.ignore` (binary, regenerable), so it's lost on container recreation. Without the entrypoint rebuild, the first page load after a clean start 500s on a missing `manifest.json`.
+
+**Mailer DSN:** for any Symfony/Sylius app, wire mail to Mailpit with `MAILER_DSN: "smtp://mail:1025"` (no auth, no TLS). For Laravel: `MAIL_HOST=mail MAIL_PORT=1025 MAIL_ENCRYPTION=null`.
+
 ### Don't include files that the scaffolder creates
 
 For scaffold templates, don't include `.gitignore`, `README.md`, or any files that the scaffolding tool will create. The scaffolder's versions will take precedence. If you need scdev-specific entries (like `.setup-complete`), append them to the scaffolder's `.gitignore` after setup:
@@ -483,3 +529,12 @@ If the tool supports a force flag (`--force`), use it to scaffold in-place. If n
 
 **Changes on host not reflected in container (or vice versa).**
 Check the Mutagen ignore list. Ignored paths are not synced in either direction. Dependency directories (`node_modules`, `vendor`) should be ignored (they stay in the container). Source files should NOT be ignored.
+
+**Symfony/Sylius page renders but the Web Debug Toolbar is stuck on "Loading…", admin login bounces, or the browser console shows mixed-content errors.**
+The app is generating `http://` URLs inside an HTTPS page because Symfony doesn't see that the outer request was HTTPS. Traefik terminates TLS and forwards plain HTTP to the app, but Symfony ignores the `X-Forwarded-Proto` header unless you trust the proxy. Set `SYMFONY_TRUSTED_PROXIES: private_ranges` in the service environment. Laravel equivalent: `TRUSTED_PROXIES=*`. See "PHP with Composer" above for details.
+
+**Storefront renders HTTP 500 with "Asset manifest file /app/public/build/*/manifest.json does not exist".**
+Webpack Encore (or similar bundler) assets haven't been built. Run `scdev exec app npm run build` once, then add `npm install && npm run build` to `setup.just` and an idempotent rebuild in the container entrypoint (see "PHP with Composer" above).
+
+**`curl` returns 200 but the browser sees errors.**
+HTTP status alone doesn't cover mixed-content blocks, CSP violations, or JS errors - those are browser-only failure modes. When finishing a template, verify in an actual browser (e.g. the chrome-devtools MCP tools) and check both the console and the network tab, not just the status code.

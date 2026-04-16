@@ -46,13 +46,21 @@ scdev exec <service> <command>   # e.g. scdev exec app pnpm test
 scdev exec app bash              # Interactive shell
 
 # Logs and info
-scdev logs -f app                # Follow logs
+scdev logs [service]             # First service if omitted. -f to follow, --tail N to limit
 scdev info / status / config     # Project info, status, resolved config
+scdev rename <new-name>          # Migrate containers/volumes/network/link memberships to a new name
 
 # Shared services
 scdev mail / db / redis          # Open in browser
 scdev services status            # Check shared services
 scdev services recreate          # Rebuild shared containers
+
+# Cross-project networks (links) — see "Linking projects" below
+scdev link create <name>         # Make a shared Docker network
+scdev link join <name> <proj>[.<svc>] ...   # Attach a whole project or one service
+scdev link leave <name> <member> ...
+scdev link ls / status <name>    # Inspect
+scdev link delete <name>         # Remove network + disconnect members
 
 # Templates
 scdev create express my-app              # ScaleCommerce-DEV/scdev-template-express
@@ -178,6 +186,19 @@ persist across stop/start, removed with `down -v`.
 **Routing** - HTTP: automatic HTTPS subdomain. TCP: `{ protocol: tcp, port: 5432, host_port: 5432 }`
 exposes raw TCP on host (for DB tools). Services within a project reach each other by name.
 
+**Multiple routed services in one project** - every `routing:` block defaults to the project's
+single domain. A second routed service (e.g. RabbitMQ management UI, a separate admin app) will
+collide on the same host. Give it a distinct hostname via `routing.domain`:
+
+```yaml
+services:
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    routing:
+      port: 15672
+      domain: rabbitmq.${PROJECTNAME}.${SCDEV_DOMAIN}   # https://rabbitmq.my-app.scalecommerce.site
+```
+
 **Mutagen** (macOS) - fast file sync. Always ignore dependency dirs (`node_modules`, `vendor`) and
 build artifacts. Without ignores, installs take 5-10x longer.
 
@@ -205,19 +226,95 @@ watch:
 
 Justfiles run on the **host**. Always use `scdev exec` for container commands.
 
+## Linking projects
+
+Each scdev project has its own isolated Docker network, so by default two projects can't talk to
+each other. When they need to (a monolith calling a microservice you're also developing locally,
+split front-end/back-end, shared gateway), create a named **link** — a shared Docker network that
+any project can join.
+
+```bash
+scdev link create backend              # Create a shared network (Docker: scdev_link_backend)
+scdev link join backend api            # Attach all services of project "api"
+scdev link join backend worker.app     # Or just one service — project.service notation
+scdev link status backend              # Show members + running state
+scdev link leave backend api           # Detach; scdev link delete backend tears down the network
+```
+
+**DNS on link networks:** across a link, containers are reachable by their fully-qualified name
+`<service>.<project>.scdev` (e.g. `app.api.scdev`, `db.api.scdev`). The short service name (`app`,
+`db`) is a DNS alias scdev only injects on *the project's own* network — on a link network multiple
+projects could have a service called `app`, so always use the long name for cross-project calls.
+
+**Cross-project calls are HTTP to the internal port, not HTTPS on 443.** The public
+`https://*.scalecommerce.site` domains resolve to `127.0.0.1`, which from inside a container means
+the container's own loopback — not the host's Traefik. TLS termination and Traefik routing only
+exist host-side. From one container to another, go direct:
+
+```
+http://app.api.scdev:8000      # ✓ cross-project via link (FQDN + internal port)
+http://app:8000                # ✓ same project only (short alias)
+https://api.scalecommerce.site # ✗ resolves to 127.0.0.1, hits container's own loopback
+```
+
+When wiring one project's URL into another's env, use the internal port the target service listens
+on (the value of its `routing.port`), not 443.
+
+**Persistence:** link membership is stored in scdev state. `scdev start` auto-reconnects a project
+to every link it's a member of — you don't re-run `scdev link join` after a restart, down, or reboot.
+`scdev rename` migrates memberships to the new name too. `scdev down` disconnects the project from
+its links (containers are gone); the link itself survives until `scdev link delete`.
+
+**Member granularity:** joining a whole project attaches every service container; joining
+`project.service` attaches only that one. Use per-service joins when exposing a narrow surface
+(e.g. only the API gateway, not the DB) across projects.
+
 ## Setting Up scdev for an Existing Project
 
-1. **Analyze the stack** - check `package.json`, `composer.json`, etc.
-2. **Create `.scdev/config.yaml`** - pick image, dev command, port, DB services. See `references/config-examples.md` for templates.
-3. **Add to `.gitignore`:** `.scdev/local/` and `.pnpm-store/`
-4. **`scdev start`**
-5. **Add to README** - `scdev start && scdev setup` instructions
-6. **Add to CLAUDE.md** - `scdev exec app <command>` patterns for agents
+Different from template scaffolding: the source code is already on the host, so the container's
+`command:` doesn't need the `.setup-complete` wait loop — just install deps and exec the dev
+server. `setup.just` is optional; only create one if there's a multi-step onboarding (migrations,
+seed data, asset build).
+
+1. **Read the existing stack.** `package.json` / `composer.json` / `requirements.txt` for framework
+   and dev command. `.env` / `.env.example` for `DATABASE_URL`, `MAILER_DSN`, `HOST`, `PORT`,
+   `APP_URL`. Existing `docker-compose.yml` / `Dockerfile` as a hint (ports, volumes) — not source
+   of truth. README for any manual setup steps.
+2. **Pick a starting config** from `references/config-examples.md` matching the stack.
+3. **Bind the dev server to all interfaces** in the `command:` — otherwise the container port isn't
+   reachable from Traefik: `HOST=0.0.0.0` (Node), `--host 0.0.0.0` (Vite), `--allow-all-ip`
+   (Symfony CLI), `0.0.0.0` (Django `runserver`).
+4. **Rewire env for the scdev network.** Change `DATABASE_URL` host from `localhost` / `127.0.0.1`
+   / compose's service name to the scdev service name you declared (commonly `db`). Set
+   `MAILER_DSN: "smtp://mail:1025"` so outbound mail is caught by Mailpit. **For any Symfony /
+   Sylius / Shopware / Laravel project**, also set `SYMFONY_TRUSTED_PROXIES: private_ranges` now —
+   without it, the debug toolbar and login flows break behind Traefik (see Debugging → "Symfony/Sylius
+   behind Traefik"). Laravel equivalent: `TRUSTED_PROXIES=*`.
+5. **Mirror the existing DB** (image, version, credentials, database name) — the app's `.env`
+   usually tells you all three.
+6. **`mutagen.ignore`** for dependency and build artifact dirs: `node_modules`, `.pnpm-store`,
+   `vendor`, `var/cache`, `.nuxt`, `.next`, framework-specific build output. Without this, installs
+   are 5–10× slower on macOS.
+7. **`.gitignore`:** add `.scdev/local/` (always) and `.pnpm-store/` (pnpm projects).
+8. **`scdev start`, then verify in a browser** (not just curl): check the console and network tabs
+   for mixed-content, missing assets, JS errors. `curl 200` lies for HTML apps.
+9. **Document** `scdev start` in the project README and `scdev exec app <cmd>` patterns in its
+   `CLAUDE.md` so future agents know how to operate the env.
+
+For stack-specific landmines when writing the config or entrypoint (Node corepack, pnpm build
+scripts, PHP `memory_limit`, PHP extensions, Symfony `TRUSTED_PROXIES`, Webpack Encore / Vite
+rebuild, mailer DSN), read `references/stack-gotchas.md` — those patterns apply whether you're
+wrapping an existing repo or authoring a template.
 
 ## Debugging
 
 **Container crashes:** `scdev logs -f app` to see why. `scdev restart` fixes most transient issues.
 `scdev down && scdev start` for a full clean restart.
+
+**Config changes aren't taking effect:** `scdev restart` just stops+starts the existing container,
+so edits to `environment:`, `image:`, `command:`, routing, or volume mounts don't apply. Use
+`scdev update` — it diffs the config against the running containers and recreates only the services
+that actually changed. Code changes are live via bind mount / Mutagen — no restart or update needed.
 
 **Redirects to docs page:** Either the container isn't running or `routing.port` doesn't match the
 app's port. For shared service UIs (mail, db, redis), also check `scdev services status` - the
@@ -227,6 +324,24 @@ service needs to be running AND the project must have the corresponding `shared.
 
 **DB connection refused:** Use service name (`db`), not `localhost`. Example: `postgres://postgres:postgres@db:5432/app`
 
+**Can't reach `https://other-project.scalecommerce.site` from inside a container:** `*.scalecommerce.site`
+is a wildcard that resolves to `127.0.0.1` — from inside a container that's its own loopback, not
+the host's Traefik. Container-to-container traffic must go HTTP-direct using the container name:
+`http://<service>.<project>.scdev:<internal-port>`. Both projects must be joined to a shared link
+(see "Linking projects").
+
+**Symfony/Sylius behind Traefik — stuck "Loading…" debug toolbar, broken admin login, mixed-content
+errors in the console:** Traefik terminates TLS and forwards HTTP to the app. Without trusted-proxy
+config, Symfony can't tell the outer request was HTTPS and generates `http://` URLs inside the HTTPS
+page — the browser blocks them. Fix: add `SYMFONY_TRUSTED_PROXIES: private_ranges` to the app service
+`environment:` (Symfony 6.3+ shorthand for RFC1918 + 127.0.0.1). Laravel equivalent: `TRUSTED_PROXIES=*`
+for the TrustProxies middleware. Any framework that generates absolute URLs needs similar awareness.
+
+**`curl 200 OK` isn't enough for HTML apps:** mixed-content, CSP failures, and JS errors are
+browser-only failure modes — curl can't see them. After finishing a web template or UI change, open
+the project in a browser via the chrome-devtools MCP tools (`new_page`, `list_console_messages`,
+`list_network_requests`) and confirm the console is clean and all requests are `https://`.
+
 **Why `.pnpm-store` must be ignored:** pnpm creates a ~500MB platform-specific store. If synced,
 wrong binaries (glibc vs musl) break the container on image changes.
 
@@ -234,7 +349,10 @@ wrong binaries (glibc vs musl) break the container on image changes.
 
 Templates enable `scdev create <template> my-app` for one-command project scaffolding.
 
-**For the full template authoring guide, read `references/templates.md`.** Key concepts:
+**For template authoring: read `references/templates.md`** for the `.setup-complete` pattern,
+scaffolding strategies, and `setup.just` conventions. For the stack-specific runtime behaviors the
+template entrypoint must handle (Node, PHP, PHP framework landmines), read
+`references/stack-gotchas.md`. Key concepts:
 
 - **`.setup-complete` marker pattern** - solves the container startup vs setup circular dependency.
   Container waits in a loop until setup creates the marker, then starts the app.

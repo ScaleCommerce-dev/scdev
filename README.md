@@ -384,13 +384,15 @@ variables:
 
 services:
   app:
-    image: webdevops/php-nginx:8.2
+    image: webdevops/php-nginx:8.3
     working_dir: /app
     volumes:
       - ${PROJECTPATH}:/app
     environment:
       WEB_DOCUMENT_ROOT: /app/public
       DATABASE_URL: mysql://root:${DB_PASSWORD}@db:3306/${DB_NAME}
+      MAILER_DSN: smtp://mail:1025            # catch outgoing mail in Mailpit
+      SYMFONY_TRUSTED_PROXIES: private_ranges # Symfony/Sylius behind Traefik (see Troubleshooting)
     routing:
       port: 80
 
@@ -565,6 +567,28 @@ scdev uses ports 80 and 443 for the shared router. Check what's using them:
 lsof -i :80
 lsof -i :443
 ```
+
+### Symfony/Sylius/Laravel: stuck "Loading…" debug toolbar, broken admin login, mixed-content errors
+
+Traefik terminates HTTPS and forwards plain HTTP to your app on its internal port. Without a
+trusted-proxy config, Symfony (and Laravel) treat the inbound request as HTTP and generate
+`http://` URLs inside the HTTPS page - the browser blocks them as mixed content, so the Symfony
+debug toolbar hangs on "Loading…" and features that redirect or build absolute URLs (admin login,
+password reset emails, asset manifests) break.
+
+Fix - add one env var on the app service:
+
+```yaml
+services:
+  app:
+    environment:
+      SYMFONY_TRUSTED_PROXIES: private_ranges    # Symfony/Sylius (RFC1918 + 127.0.0.1)
+      # Laravel equivalent:
+      # TRUSTED_PROXIES: "*"                      # for the TrustProxies middleware
+```
+
+Then apply with `scdev update`. Any framework that generates absolute URLs while running behind
+a reverse proxy needs similar awareness.
 
 ## Standing on the Shoulders of Giants
 

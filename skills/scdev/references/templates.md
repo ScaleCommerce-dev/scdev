@@ -120,24 +120,14 @@ scdev exec app sh -c "echo '.setup-complete' >> .gitignore && touch .setup-compl
 | /tmp + copy | Tool requires empty dir AND deps are portable | Symfony, Laravel |
 | No scaffolding | Template includes all source files | Express, static sites |
 
-## Node.js/pnpm Specifics
+## Stack-specific runtime gotchas
 
-- Set `COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"` in config.yaml environment (not in each command)
-- `pnpm approve-builds --all` after install to approve native module prebuilt binaries
-- `HOST: "0.0.0.0"` in environment so dev server is accessible from outside container
-- Add to mutagen ignore: `node_modules`, `.pnpm-store`, `.scdev`, `.setup-complete`
-- Framework build artifacts: `.nuxt`, `.output` (Nuxt), `.next` (Next.js)
-- Use `node --watch app.js` for file watching (Node 22+); frameworks have their own HMR
-
-## PHP/Composer Specifics
-
-- `php:8.4-cli-alpine` doesn't include Composer or Symfony CLI - install at runtime
-- Install Composer: `wget -qO- https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer`
-- Install Symfony CLI: `wget https://get.symfony.com/cli/installer -O - 2>/dev/null | bash && cp $HOME/.symfony5/bin/symfony /usr/local/bin/symfony`
-- Install tools to `/usr/local/bin` so they're available in subsequent `scdev exec` calls
-- Symfony dev server: `symfony server:start --no-tls --port=8000 --allow-all-ip`
-- `--no-tls` because scdev handles HTTPS via Traefik; `--allow-all-ip` binds to 0.0.0.0
-- Add to mutagen ignore: `vendor`, `var`, `.scdev`, `.setup-complete`
+Language/framework behaviors (Node corepack, pnpm build scripts, PHP extensions,
+`SYMFONY_TRUSTED_PROXIES`, Webpack Encore asset pipelines, `memory_limit`, `MAILER_DSN`) are **not
+template-authoring-specific** — they apply to any scdev-managed container. See
+`stack-gotchas.md` for the full list. When authoring a template you'll bake those into the
+entrypoint and/or `setup.just`; when adding scdev to an existing project you'll bake them into the
+entrypoint the same way.
 
 ## Template Naming and Testing
 
