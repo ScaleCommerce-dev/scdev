@@ -53,7 +53,7 @@ const (
 	MkcertURLTemplate = "https://github.com/FiloSottile/mkcert/releases/download/%s/mkcert-%s-%s-%s"
 
 	// JustVersion is the version of just to download
-	JustVersion = "1.40.0"
+	JustVersion = "1.49.0"
 
 	// JustURLTemplate is the download URL template for just
 	// Use with fmt.Sprintf(JustURLTemplate, JustVersion, arch, os)

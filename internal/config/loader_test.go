@@ -640,6 +640,7 @@ func TestGenerateDefaultGlobalConfig(t *testing.T) {
 		"${RouterImage}",
 		"${MailImage}",
 		"${DBUIImage}",
+		"${RedisInsightsImage}",
 		"${ObservabilityImage}",
 	}
 	for _, v := range varsToSubstitute {
@@ -660,6 +661,9 @@ func TestGenerateDefaultGlobalConfig(t *testing.T) {
 	}
 	if !strings.Contains(config, DBUIImage) {
 		t.Errorf("config should contain DBUIImage (%s)", DBUIImage)
+	}
+	if !strings.Contains(config, RedisInsightsImage) {
+		t.Errorf("config should contain RedisInsightsImage (%s)", RedisInsightsImage)
 	}
 	if !strings.Contains(config, ObservabilityImage) {
 		t.Errorf("config should contain ObservabilityImage (%s)", ObservabilityImage)

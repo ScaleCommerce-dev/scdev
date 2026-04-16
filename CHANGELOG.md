@@ -1,3 +1,17 @@
+## v0.5.2
+
+### Bug Fixes
+
+- **Fix RedisInsights image not resolved on new installs** - `${RedisInsightsImage}` was missing from the substitution map in `generateDefaultGlobalConfig()`, causing the literal string to be written to `~/.scdev/global-config.yaml` on first run. Docker then failed with "invalid reference format". Existing installs were unaffected because their config file predated the redis_insights section.
+
+### Maintenance
+
+- Bump Go toolchain from 1.25.1 to 1.26.2
+- Bump just from 1.40.0 to 1.49.0
+- Bump golang.org/x/term from v0.39.0 to v0.42.0
+- Bump golang.org/x/sys from v0.40.0 to v0.43.0
+- Bump github.com/spf13/pflag from v1.0.9 to v1.0.10
+
 ## v0.5.1
 
 ### Features

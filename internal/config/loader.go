@@ -335,6 +335,7 @@ func generateDefaultGlobalConfig() string {
 		"RouterImage":        RouterImage,
 		"MailImage":          MailImage,
 		"DBUIImage":          DBUIImage,
+		"RedisInsightsImage": RedisInsightsImage,
 		"ObservabilityImage": ObservabilityImage,
 	}
 	return substituteConfigVars(defaultGlobalConfig, vars)
