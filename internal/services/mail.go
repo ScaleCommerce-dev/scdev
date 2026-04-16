@@ -45,7 +45,7 @@ func MailContainerConfig(cfg MailServiceConfig) runtime.ContainerConfig {
 		labels["traefik.http.routers.scdev-mail-https.service"] = "scdev-mail"
 	}
 
-	return runtime.ContainerConfig{
+	out := runtime.ContainerConfig{
 		Name:        MailContainerName,
 		Image:       cfg.Image,
 		NetworkName: SharedNetworkName,
@@ -54,4 +54,6 @@ func MailContainerConfig(cfg MailServiceConfig) runtime.ContainerConfig {
 		// No ports exposed directly - SMTP (1025) accessed via network alias,
 		// Web UI (8025) accessed via Traefik routing
 	}
+	runtime.StampConfigHash(&out)
+	return out
 }

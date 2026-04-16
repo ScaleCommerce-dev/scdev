@@ -9,7 +9,7 @@ import (
 )
 
 // =============================================================================
-// computeConfigHash tests
+// ComputeConfigHash tests
 // =============================================================================
 
 func baseCfg() runtime.ContainerConfig {
@@ -37,13 +37,13 @@ func baseCfg() runtime.ContainerConfig {
 
 func TestComputeConfigHash_Deterministic(t *testing.T) {
 	cfg := baseCfg()
-	h1 := computeConfigHash(cfg)
+	h1 := runtime.ComputeConfigHash(cfg)
 
 	// Rebuild with maps inserted in different order - hash must match
 	cfg2 := baseCfg()
 	cfg2.Env = map[string]string{"BAZ": "qux", "FOO": "bar"}
 	cfg2.Labels = map[string]string{"scdev.service": "app", "scdev.project": "testproject"}
-	h2 := computeConfigHash(cfg2)
+	h2 := runtime.ComputeConfigHash(cfg2)
 
 	if h1 != h2 {
 		t.Errorf("hash not deterministic across map orderings: %s vs %s", h1, h2)
@@ -52,18 +52,18 @@ func TestComputeConfigHash_Deterministic(t *testing.T) {
 
 func TestComputeConfigHash_ExcludesOwnLabel(t *testing.T) {
 	cfg := baseCfg()
-	h1 := computeConfigHash(cfg)
+	h1 := runtime.ComputeConfigHash(cfg)
 
-	cfg.Labels[configHashLabel] = "some-other-value"
-	h2 := computeConfigHash(cfg)
+	cfg.Labels[runtime.ConfigHashLabel] = "some-other-value"
+	h2 := runtime.ComputeConfigHash(cfg)
 
 	if h1 != h2 {
-		t.Errorf("hash must ignore configHashLabel value: %s vs %s", h1, h2)
+		t.Errorf("hash must ignore runtime.ConfigHashLabel value: %s vs %s", h1, h2)
 	}
 }
 
 func TestComputeConfigHash_DetectsChanges(t *testing.T) {
-	base := computeConfigHash(baseCfg())
+	base := runtime.ComputeConfigHash(baseCfg())
 
 	cases := []struct {
 		name   string
@@ -91,7 +91,7 @@ func TestComputeConfigHash_DetectsChanges(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			cfg := baseCfg()
 			tc.mutate(&cfg)
-			got := computeConfigHash(cfg)
+			got := runtime.ComputeConfigHash(cfg)
 			if got == base {
 				t.Errorf("expected hash to change for %q, got same hash %s", tc.name, got)
 			}
@@ -212,7 +212,7 @@ func TestServiceNeedsRecreate_MissingHashLabelRecreates(t *testing.T) {
 	p, mock := seedRunningService(t, nil)
 	containerName := p.ContainerName("app")
 	labels := mock.Containers[containerName].Labels
-	delete(labels, configHashLabel)
+	delete(labels, runtime.ConfigHashLabel)
 	mock.ContainerLabels[containerName] = labels
 
 	got, err := p.serviceNeedsRecreate(context.Background(), "app", p.Config.Services["app"])

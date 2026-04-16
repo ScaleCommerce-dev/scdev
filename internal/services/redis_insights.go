@@ -45,7 +45,7 @@ func RedisInsightsContainerConfig(cfg RedisInsightsServiceConfig) runtime.Contai
 		labels["traefik.http.routers.scdev-redis-https.service"] = "scdev-redis"
 	}
 
-	return runtime.ContainerConfig{
+	out := runtime.ContainerConfig{
 		Name:        RedisInsightsContainerName,
 		Image:       cfg.Image,
 		NetworkName: SharedNetworkName,
@@ -53,4 +53,6 @@ func RedisInsightsContainerConfig(cfg RedisInsightsServiceConfig) runtime.Contai
 		Labels:      labels,
 		// No ports exposed directly - Web UI (5540) accessed via Traefik routing
 	}
+	runtime.StampConfigHash(&out)
+	return out
 }

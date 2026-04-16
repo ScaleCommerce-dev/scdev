@@ -1,3 +1,9 @@
+## Unreleased
+
+### Bug Fixes
+
+- **Fix stale shared-service containers silently breaking after config changes** - if a shared service (Mail, DB UI, Redis Insights, Router) was created while SSL was off and SSL later got flipped on (or image, domain, or dashboard settings changed), `scdev services start` would just start the stale container instead of recreating it, so the new Traefik labels never took effect. Symptoms: `https://db.shared.<domain>` redirecting to the docs page, HTTPS URLs for other shared services falling through to the 404 catch-all. Shared services now carry the same `scdev.config-hash` label that project services use; `startService` compares it to the hash of the freshly built expected config on every call and recreates the container on drift. The router keeps its "don't recreate just to shrink ports" behavior (other projects' ports would be dropped) via a union-of-ports check before hashing.
+
 ## v0.5.6
 
 ### Improvements

@@ -2,14 +2,10 @@ package project
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"net"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"time"
 
@@ -19,11 +15,6 @@ import (
 	"github.com/ScaleCommerce-DEV/scdev/internal/services"
 	"github.com/ScaleCommerce-DEV/scdev/internal/state"
 )
-
-// configHashLabel is the label that carries a deterministic hash of the
-// expected container config. serviceNeedsRecreate compares this label to
-// the hash of the freshly built config; any drift triggers recreation.
-const configHashLabel = "scdev.config-hash"
 
 // Project represents a loaded scdev project
 type Project struct {
@@ -659,7 +650,7 @@ func (p *Project) serviceNeedsRecreate(ctx context.Context, serviceName string, 
 	}
 	expectedCfg := p.buildContainerConfig(serviceName, svc, mutagenEnabled, mutagenMountMap)
 
-	return currentLabels[configHashLabel] != expectedCfg.Labels[configHashLabel], nil
+	return currentLabels[runtime.ConfigHashLabel] != expectedCfg.Labels[runtime.ConfigHashLabel], nil
 }
 
 // buildContainerConfig builds the full container configuration for a service.
@@ -743,67 +734,9 @@ func (p *Project) buildContainerConfig(name string, svc config.ServiceConfig, mu
 	// Stamp a deterministic hash of the final config so serviceNeedsRecreate
 	// can detect any drift (image, env, volumes, command, routing, etc.) with
 	// a single label compare. Computed last so it covers everything above.
-	cfg.Labels[configHashLabel] = computeConfigHash(cfg)
+	runtime.StampConfigHash(&cfg)
 
 	return cfg
-}
-
-// computeConfigHash returns a deterministic sha256 of the fields that
-// define container identity for recreation purposes. The configHashLabel
-// itself is excluded so the hash doesn't depend on its own value.
-func computeConfigHash(cfg runtime.ContainerConfig) string {
-	envPairs := make([]string, 0, len(cfg.Env))
-	for k, v := range cfg.Env {
-		envPairs = append(envPairs, k+"="+v)
-	}
-	sort.Strings(envPairs)
-
-	labelPairs := make([]string, 0, len(cfg.Labels))
-	for k, v := range cfg.Labels {
-		if k == configHashLabel {
-			continue
-		}
-		labelPairs = append(labelPairs, k+"="+v)
-	}
-	sort.Strings(labelPairs)
-
-	volumes := make([]string, 0, len(cfg.Volumes))
-	for _, v := range cfg.Volumes {
-		volumes = append(volumes, fmt.Sprintf("%s:%s:%v", v.Source, v.Target, v.ReadOnly))
-	}
-	sort.Strings(volumes)
-
-	ports := append([]string(nil), cfg.Ports...)
-	sort.Strings(ports)
-
-	aliases := append([]string(nil), cfg.Aliases...)
-	sort.Strings(aliases)
-
-	payload := struct {
-		Image       string
-		WorkingDir  string
-		Command     []string
-		Env         []string
-		Labels      []string
-		Volumes     []string
-		Ports       []string
-		NetworkName string
-		Aliases     []string
-	}{
-		Image:       cfg.Image,
-		WorkingDir:  cfg.WorkingDir,
-		Command:     cfg.Command,
-		Env:         envPairs,
-		Labels:      labelPairs,
-		Volumes:     volumes,
-		Ports:       ports,
-		NetworkName: cfg.NetworkName,
-		Aliases:     aliases,
-	}
-
-	b, _ := json.Marshal(payload)
-	sum := sha256.Sum256(b)
-	return hex.EncodeToString(sum[:])
 }
 
 // Exec runs a command in a service container

@@ -63,7 +63,7 @@ func DBUIContainerConfig(cfg DBUIServiceConfig) runtime.ContainerConfig {
 		})
 	}
 
-	return runtime.ContainerConfig{
+	out := runtime.ContainerConfig{
 		Name:        DBUIContainerName,
 		Image:       cfg.Image,
 		NetworkName: SharedNetworkName,
@@ -75,6 +75,8 @@ func DBUIContainerConfig(cfg DBUIServiceConfig) runtime.ContainerConfig {
 			"ADMINER_DEFAULT_SERVER": "",
 		},
 	}
+	runtime.StampConfigHash(&out)
+	return out
 }
 
 // GetAdminerConfigDir returns the path to the Adminer config directory

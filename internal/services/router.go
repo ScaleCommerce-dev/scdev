@@ -150,7 +150,7 @@ func RouterContainerConfig(cfg RouterConfig) runtime.ContainerConfig {
 		)
 	}
 
-	return runtime.ContainerConfig{
+	out := runtime.ContainerConfig{
 		Name:        RouterContainerName,
 		Image:       cfg.Image,
 		Command:     command,
@@ -160,6 +160,8 @@ func RouterContainerConfig(cfg RouterConfig) runtime.ContainerConfig {
 		Volumes:     volumes,
 		Labels:      labels,
 	}
+	runtime.StampConfigHash(&out)
+	return out
 }
 
 // intsToString converts a sorted slice of ints to a comma-separated string

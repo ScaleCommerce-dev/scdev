@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/ScaleCommerce-DEV/scdev/internal/config"
@@ -98,7 +99,14 @@ func (m *Manager) stopService(ctx context.Context, containerName, displayName st
 	return m.runtime.StopContainer(ctx, containerName)
 }
 
-// startService starts a service container with the given config
+// startService starts a service container with the given config.
+//
+// If a container already exists, its stamped runtime.ConfigHashLabel is
+// compared to the hash of the freshly built expected config. A mismatch
+// means the baked config has drifted from what the current code would
+// produce (e.g. SSL flipped on, image bumped, domain changed), so the
+// container is removed and recreated. Matching hash + running = no-op;
+// matching hash + stopped = plain start.
 func (m *Manager) startService(ctx context.Context, containerName, displayName, image string, configFn func() runtime.ContainerConfig) error {
 	// Ensure shared network exists
 	if err := m.EnsureSharedNetwork(ctx); err != nil {
@@ -111,14 +119,27 @@ func (m *Manager) startService(ctx context.Context, containerName, displayName, 
 		return fmt.Errorf("failed to check %s container: %w", displayName, err)
 	}
 
+	expectedCfg := configFn()
+
 	if container != nil {
-		if container.Running {
+		currentLabels, err := m.runtime.GetContainerLabels(ctx, containerName)
+		if err != nil {
+			return fmt.Errorf("failed to read %s labels: %w", displayName, err)
+		}
+		if currentLabels[runtime.ConfigHashLabel] != expectedCfg.Labels[runtime.ConfigHashLabel] {
+			fmt.Printf("%s config drift detected, recreating...\n", displayName)
+			_ = m.runtime.StopContainer(ctx, containerName)
+			if err := m.runtime.RemoveContainer(ctx, containerName); err != nil {
+				return fmt.Errorf("failed to remove %s container: %w", displayName, err)
+			}
+		} else if container.Running {
 			fmt.Printf("%s is already running\n", displayName)
 			return nil
+		} else {
+			// Config matches, just start the existing container
+			fmt.Printf("Starting %s...\n", strings.ToLower(displayName))
+			return m.runtime.StartContainer(ctx, containerName)
 		}
-		// Container exists but not running, start it
-		fmt.Printf("Starting %s...\n", strings.ToLower(displayName))
-		return m.runtime.StartContainer(ctx, containerName)
 	}
 
 	// Pull image if needed
@@ -134,11 +155,8 @@ func (m *Manager) startService(ctx context.Context, containerName, displayName, 
 		}
 	}
 
-	// Create container
-	cfg := configFn()
-
 	fmt.Printf("Creating %s container...\n", strings.ToLower(displayName))
-	if _, err := m.runtime.CreateContainer(ctx, cfg); err != nil {
+	if _, err := m.runtime.CreateContainer(ctx, expectedCfg); err != nil {
 		return fmt.Errorf("failed to create %s container: %w", displayName, err)
 	}
 
@@ -192,10 +210,17 @@ func (m *Manager) disconnectServiceFromProject(ctx context.Context, containerNam
 // =============================================================================
 
 // StartRouter starts the Traefik router container.
-// TCP/UDP ports are aggregated from the state file to ensure the router
-// has all ports needed by all registered projects.
+//
+// Ports are aggregated from every registered project's state. The running
+// container's config-hash is compared against a freshly built expected
+// config; any drift (image, SSL, dashboard, docs, domain, new ports)
+// triggers a recreate. To avoid a restart storm whenever one project
+// happens to not need a port another already configured, the expected
+// port set is the UNION of what the container currently has and what
+// state now requires: extra ports in the running router don't force a
+// recreate on their own. Intentional port shrinking happens via
+// RefreshRouter, which is called when a project is removed.
 func (m *Manager) StartRouter(ctx context.Context) error {
-	// Aggregate all ports from all projects in state
 	stateMgr, err := state.DefaultManager()
 	if err != nil {
 		return fmt.Errorf("failed to load state: %w", err)
@@ -206,26 +231,30 @@ func (m *Manager) StartRouter(ctx context.Context) error {
 		return fmt.Errorf("failed to get routing ports from state: %w", err)
 	}
 
-	// Ensure shared network exists
 	if err := m.EnsureSharedNetwork(ctx); err != nil {
 		return err
 	}
 
-	// Check if router already exists
 	container, err := m.runtime.GetContainer(ctx, RouterContainerName)
 	if err != nil {
 		return fmt.Errorf("failed to check router container: %w", err)
 	}
 
 	if container != nil {
-		// Check if we need to recreate due to port changes
-		needsRecreate := m.routerNeedsRecreate(ctx, tcpPorts, udpPorts)
+		currentLabels, err := m.runtime.GetContainerLabels(ctx, RouterContainerName)
+		if err != nil {
+			return fmt.Errorf("failed to read router labels: %w", err)
+		}
 
-		if needsRecreate {
-			fmt.Println("Router needs new ports, recreating...")
-			if err := m.runtime.StopContainer(ctx, RouterContainerName); err != nil {
-				// Ignore stop errors
-			}
+		// Union current + required so a smaller required set doesn't trigger
+		// a recreate - preserves "extra ports are fine" behavior.
+		effectiveTCP := unionPortSets(parsePortCSV(currentLabels["scdev.tcp-ports"]), tcpPorts)
+		effectiveUDP := unionPortSets(parsePortCSV(currentLabels["scdev.udp-ports"]), udpPorts)
+		expectedCfg := m.buildRouterContainerConfig(effectiveTCP, effectiveUDP)
+
+		if currentLabels[runtime.ConfigHashLabel] != expectedCfg.Labels[runtime.ConfigHashLabel] {
+			fmt.Println("Router config drift detected, recreating...")
+			_ = m.runtime.StopContainer(ctx, RouterContainerName)
 			if err := m.runtime.RemoveContainer(ctx, RouterContainerName); err != nil {
 				return fmt.Errorf("failed to remove router container: %w", err)
 			}
@@ -233,13 +262,11 @@ func (m *Manager) StartRouter(ctx context.Context) error {
 			fmt.Println("Router is already running")
 			return nil
 		} else {
-			// Container exists but not running, start it
 			fmt.Println("Starting router...")
 			return m.runtime.StartContainer(ctx, RouterContainerName)
 		}
 	}
 
-	// Pull image if needed
 	image := m.cfg.Shared.Router.Image
 	imageExists, err := m.runtime.ImageExists(ctx, image)
 	if err != nil {
@@ -253,39 +280,9 @@ func (m *Manager) StartRouter(ctx context.Context) error {
 		}
 	}
 
-	// Create router container with all aggregated ports
-	routerCfg := RouterConfig{
-		Image:     m.cfg.Shared.Router.Image,
-		Dashboard: m.cfg.Shared.Router.Dashboard,
-		Domain:    m.cfg.Domain,
-		TCPPorts:  tcpPorts,
-		UDPPorts:  udpPorts,
-	}
-
-	// Configure TLS if SSL is enabled and certs exist
-	if m.cfg.SSL.Enabled {
-		traefikDir, err := config.EnsureTraefikConfig()
-		if err != nil {
-			fmt.Printf("Warning: failed to configure TLS: %v\n", err)
-		} else if traefikDir != "" {
-			routerCfg.TLSCertDir = config.GetCertsDir()
-			routerCfg.TLSConfigDir = traefikDir
-		}
-	}
-
-	// Configure docs page (always enabled)
-	docsDir, err := config.EnsureDocsConfig(m.cfg.Domain, m.cfg.SSL.Enabled)
-	if err != nil {
-		fmt.Printf("Warning: failed to configure docs: %v\n", err)
-	} else {
-		routerCfg.DocsDir = docsDir
-		// Ensure TLSConfigDir is set even without TLS (needed for docs routing config)
-		if routerCfg.TLSConfigDir == "" {
-			routerCfg.TLSConfigDir = config.GetTraefikConfigDir()
-		}
-	}
-
-	cfg := RouterContainerConfig(routerCfg)
+	// Recreate with the required (narrower) port set - if we're recreating
+	// anyway there's no reason to keep orphaned ports around.
+	cfg := m.buildRouterContainerConfig(tcpPorts, udpPorts)
 
 	fmt.Println("Creating router container...")
 	if _, err := m.runtime.CreateContainer(ctx, cfg); err != nil {
@@ -298,6 +295,43 @@ func (m *Manager) StartRouter(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// buildRouterContainerConfig assembles the full router container config
+// for a given set of TCP/UDP ports, including TLS and docs wiring. It
+// has idempotent side effects (EnsureTraefikConfig, EnsureDocsConfig
+// create directories on disk if missing) but that's fine - they're safe
+// to call on every check.
+func (m *Manager) buildRouterContainerConfig(tcpPorts, udpPorts []int) runtime.ContainerConfig {
+	routerCfg := RouterConfig{
+		Image:     m.cfg.Shared.Router.Image,
+		Dashboard: m.cfg.Shared.Router.Dashboard,
+		Domain:    m.cfg.Domain,
+		TCPPorts:  tcpPorts,
+		UDPPorts:  udpPorts,
+	}
+
+	if m.cfg.SSL.Enabled {
+		traefikDir, err := config.EnsureTraefikConfig()
+		if err != nil {
+			fmt.Printf("Warning: failed to configure TLS: %v\n", err)
+		} else if traefikDir != "" {
+			routerCfg.TLSCertDir = config.GetCertsDir()
+			routerCfg.TLSConfigDir = traefikDir
+		}
+	}
+
+	docsDir, err := config.EnsureDocsConfig(m.cfg.Domain, m.cfg.SSL.Enabled)
+	if err != nil {
+		fmt.Printf("Warning: failed to configure docs: %v\n", err)
+	} else {
+		routerCfg.DocsDir = docsDir
+		if routerCfg.TLSConfigDir == "" {
+			routerCfg.TLSConfigDir = config.GetTraefikConfigDir()
+		}
+	}
+
+	return RouterContainerConfig(routerCfg)
 }
 
 // RefreshRouter rebuilds the router if the ports from state don't match current router
@@ -344,43 +378,47 @@ func (m *Manager) RefreshRouter(ctx context.Context) error {
 	return m.StartRouter(ctx)
 }
 
-func (m *Manager) routerNeedsRecreate(ctx context.Context, tcpPorts, udpPorts []int) bool {
-	labels, err := m.runtime.GetContainerLabels(ctx, RouterContainerName)
-	if err != nil {
-		return true
+// parsePortCSV parses the comma-separated port list stored in
+// scdev.tcp-ports / scdev.udp-ports labels back into []int. Empty or
+// malformed entries are skipped rather than erroring - a drifted label
+// just leads to a recreate, which is the fallback behavior we want.
+func parsePortCSV(s string) []int {
+	if s == "" {
+		return nil
 	}
-
-	currentTCP := labels["scdev.tcp-ports"]
-	currentUDP := labels["scdev.udp-ports"]
-	requiredTCP := intsToString(tcpPorts)
-	requiredUDP := intsToString(udpPorts)
-
-	return !portsContained(currentTCP, requiredTCP) || !portsContained(currentUDP, requiredUDP)
-}
-
-func portsContained(current, required string) bool {
-	if required == "" {
-		return true
-	}
-	if current == "" {
-		return false
-	}
-	return current == required || containsAllPorts(current, required)
-}
-
-func containsAllPorts(current, required string) bool {
-	currentPorts := make(map[string]bool)
-	for _, p := range strings.Split(current, ",") {
-		if p != "" {
-			currentPorts[p] = true
+	parts := strings.Split(s, ",")
+	ports := make([]int, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		var n int
+		if _, err := fmt.Sscanf(p, "%d", &n); err == nil {
+			ports = append(ports, n)
 		}
 	}
-	for _, p := range strings.Split(required, ",") {
-		if p != "" && !currentPorts[p] {
-			return false
+	return ports
+}
+
+// unionPortSets returns the sorted deduplicated union of two port lists.
+func unionPortSets(a, b []int) []int {
+	seen := make(map[int]bool, len(a)+len(b))
+	out := make([]int, 0, len(a)+len(b))
+	for _, p := range a {
+		if !seen[p] {
+			seen[p] = true
+			out = append(out, p)
 		}
 	}
-	return true
+	for _, p := range b {
+		if !seen[p] {
+			seen[p] = true
+			out = append(out, p)
+		}
+	}
+	sort.Ints(out)
+	return out
 }
 
 func (m *Manager) StopRouter(ctx context.Context) error {
