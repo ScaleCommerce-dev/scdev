@@ -1,3 +1,9 @@
+## v0.6.2
+
+### Bug Fixes
+
+- **Fix auto-update never running on fast commands** - the background update check was launched as an unjoined goroutine, so Go's runtime killed it when `main()` returned. Fast commands like `scdev version`, `scdev list`, and `scdev status` finish before the GitHub API round-trip completes, so `~/.scdev/update-check.json` was never written and auto-update effectively never ran. Made the refresh synchronous: API probe bounded to 3s, download/install bounded to 60s. Cache-hit path (99% of invocations) is unchanged at ~6ms; stale-cache path now blocks for ~200ms on a 304 or ~1-2s when a new release is actually being downloaded. Cost is paid at most once per 24h per machine.
+
 ## v0.6.1
 
 ### Features
