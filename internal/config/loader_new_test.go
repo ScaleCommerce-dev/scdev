@@ -5,63 +5,10 @@ import (
 	"testing"
 )
 
-func TestEscapeHTML(t *testing.T) {
-	tests := []struct {
-		name     string
-		input    string
-		expected string
-	}{
-		{
-			name:     "ampersand",
-			input:    "foo & bar",
-			expected: "foo &amp; bar",
-		},
-		{
-			name:     "less than",
-			input:    "a < b",
-			expected: "a &lt; b",
-		},
-		{
-			name:     "greater than",
-			input:    "a > b",
-			expected: "a &gt; b",
-		},
-		{
-			name:     "double quote",
-			input:    `say "hello"`,
-			expected: "say &quot;hello&quot;",
-		},
-		{
-			name:     "single quote",
-			input:    "it's",
-			expected: "it&#39;s",
-		},
-		{
-			name:     "no special characters",
-			input:    "plain text 123",
-			expected: "plain text 123",
-		},
-		{
-			name:     "all special characters",
-			input:    `&<>"'`,
-			expected: "&amp;&lt;&gt;&quot;&#39;",
-		},
-		{
-			name:     "empty string",
-			input:    "",
-			expected: "",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := escapeHTML(tt.input)
-			if result != tt.expected {
-				t.Errorf("escapeHTML(%q) = %q, want %q", tt.input, result, tt.expected)
-			}
-		})
-	}
-}
+// HTML escaping is handled by stdlib html.EscapeString; this package just
+// wires it into generateProjectsSection. The XSS-escaping behavior is
+// verified end-to-end in TestGenerateProjectsSection's "HTML escaping"
+// subtest, which is the contract that actually matters.
 
 func TestGenerateProjectsSection(t *testing.T) {
 	t.Run("empty projects list", func(t *testing.T) {

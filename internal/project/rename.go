@@ -27,38 +27,8 @@ func (p *Project) Rename(ctx context.Context, newName string) error {
 	// Phase 1: Tear down with old name
 	fmt.Printf("Stopping project %s...\n", oldName)
 
-	// Terminate Mutagen sessions (must happen before volume migration)
-	if p.IsMutagenEnabled() {
-		p.terminateMutagenSessions(ctx)
-	}
-
-	// Disconnect from link networks
-	p.disconnectLinks(ctx)
-
-	// Disconnect shared services
-	p.disconnectEnabledSharedServices(ctx)
-
-	// Stop and remove all containers
-	for serviceName := range p.Config.Services {
-		containerName := p.ContainerName(serviceName)
-
-		exists, err := p.Runtime.ContainerExists(ctx, containerName)
-		if err != nil || !exists {
-			continue
-		}
-
-		running, _ := p.Runtime.IsContainerRunning(ctx, containerName)
-		if running {
-			fmt.Printf("Stopping service %s...\n", serviceName)
-			if err := p.Runtime.StopContainer(ctx, containerName); err != nil {
-				return fmt.Errorf("failed to stop service %s: %w", serviceName, err)
-			}
-		}
-
-		fmt.Printf("Removing service %s...\n", serviceName)
-		if err := p.Runtime.RemoveContainer(ctx, containerName); err != nil {
-			return fmt.Errorf("failed to remove service %s: %w", serviceName, err)
-		}
+	if err := p.teardownContainers(ctx); err != nil {
+		return err
 	}
 
 	// Phase 2: Migrate volumes (copy all first, then remove old)

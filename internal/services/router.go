@@ -3,6 +3,8 @@ package services
 import (
 	"fmt"
 	"sort"
+	"strconv"
+	"strings"
 
 	"github.com/ScaleCommerce-DEV/scdev/internal/config"
 	"github.com/ScaleCommerce-DEV/scdev/internal/runtime"
@@ -164,7 +166,10 @@ func RouterContainerConfig(cfg RouterConfig) runtime.ContainerConfig {
 	return out
 }
 
-// intsToString converts a sorted slice of ints to a comma-separated string
+// intsToString converts a slice of ints to a sorted comma-separated string.
+// Sorted so the output is deterministic across runs - both the router's
+// scdev.tcp-ports / scdev.udp-ports labels and the config hash derived
+// from them are stable.
 func intsToString(ports []int) string {
 	if len(ports) == 0 {
 		return ""
@@ -172,12 +177,10 @@ func intsToString(ports []int) string {
 	sorted := make([]int, len(ports))
 	copy(sorted, ports)
 	sort.Ints(sorted)
-	result := ""
+
+	parts := make([]string, len(sorted))
 	for i, p := range sorted {
-		if i > 0 {
-			result += ","
-		}
-		result += fmt.Sprintf("%d", p)
+		parts[i] = strconv.Itoa(p)
 	}
-	return result
+	return strings.Join(parts, ",")
 }

@@ -411,9 +411,12 @@ func (p *Project) Stop(ctx context.Context) error {
 	return nil
 }
 
-// Down stops and removes all project containers and the network
-// If removeVolumes is true, also removes volumes (respecting persist_on_delete)
-func (p *Project) Down(ctx context.Context, removeVolumes bool) error {
+// teardownContainers disconnects Mutagen, links, and shared services, then
+// stops and removes every service container for this project. Both `Down`
+// and `Rename` use this as their common first phase; their post-teardown
+// steps (remove network/volumes/state vs migrate volumes) differ and live
+// in the caller.
+func (p *Project) teardownContainers(ctx context.Context) error {
 	// Terminate Mutagen sync sessions first (before removing containers)
 	if p.IsMutagenEnabled() {
 		p.terminateMutagenSessions(ctx)
@@ -425,7 +428,6 @@ func (p *Project) Down(ctx context.Context, removeVolumes bool) error {
 	// Disconnect shared services (do this first, before removing network)
 	p.disconnectEnabledSharedServices(ctx)
 
-	// Remove all containers first
 	for serviceName := range p.Config.Services {
 		containerName := p.ContainerName(serviceName)
 
@@ -433,17 +435,14 @@ func (p *Project) Down(ctx context.Context, removeVolumes bool) error {
 		if err != nil {
 			return err
 		}
-
 		if !exists {
 			continue
 		}
 
-		// Stop if running
 		running, err := p.Runtime.IsContainerRunning(ctx, containerName)
 		if err != nil {
 			return err
 		}
-
 		if running {
 			fmt.Printf("Stopping service %s...\n", serviceName)
 			if err := p.Runtime.StopContainer(ctx, containerName); err != nil {
@@ -451,14 +450,21 @@ func (p *Project) Down(ctx context.Context, removeVolumes bool) error {
 			}
 		}
 
-		// Remove
 		fmt.Printf("Removing service %s...\n", serviceName)
 		if err := p.Runtime.RemoveContainer(ctx, containerName); err != nil {
 			return fmt.Errorf("failed to remove service %s: %w", serviceName, err)
 		}
 	}
+	return nil
+}
 
-	// Remove network
+// Down stops and removes all project containers and the network.
+// If removeVolumes is true, also removes volumes.
+func (p *Project) Down(ctx context.Context, removeVolumes bool) error {
+	if err := p.teardownContainers(ctx); err != nil {
+		return err
+	}
+
 	networkName := p.NetworkName()
 	networkExists, err := p.Runtime.NetworkExists(ctx, networkName)
 	if err != nil {
@@ -848,5 +854,3 @@ func (p *Project) Volumes(ctx context.Context) ([]VolumeInfo, error) {
 
 	return volumes, nil
 }
-
-// sharedServiceEntry pairs a config flag with its connect/disconnect methods.

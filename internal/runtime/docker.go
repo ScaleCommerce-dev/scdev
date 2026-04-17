@@ -316,15 +316,15 @@ func (d *DockerCLI) NetworkConnect(ctx context.Context, networkName, containerNa
 	return err
 }
 
-// NetworkDisconnect disconnects a container from a network
+// NetworkDisconnect disconnects a container from a network.
+// "is not connected" is not an error - the desired end state is already reached.
 func (d *DockerCLI) NetworkDisconnect(ctx context.Context, networkName, containerName string) error {
 	_, err := d.run(ctx, "network", "disconnect", networkName, containerName)
-	if err != nil {
-		errLower := strings.ToLower(err.Error())
-		// Ignore "not connected" errors
-		if strings.Contains(errLower, "is not connected") {
-			return nil
-		}
+	if err == nil {
+		return nil
+	}
+	if strings.Contains(strings.ToLower(err.Error()), "is not connected") {
+		return nil
 	}
 	return err
 }
