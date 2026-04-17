@@ -1,6 +1,8 @@
 package updatecheck
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -110,8 +112,17 @@ func newTestEnv(t *testing.T, tag string, installable bool) *testEnv {
 	t.Setenv("HOME", home)
 
 	binBody := []byte("#!/bin/sh\necho " + tag + "\n")
+	sum := sha256.Sum256(binBody)
+	checksumsBody := []byte(fmt.Sprintf("%s  scdev-%s-%s\n", hex.EncodeToString(sum[:]), runtime.GOOS, runtime.GOARCH))
 
 	dlSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Checksum file or binary are served from the same server, by path suffix.
+		if filepath.Base(r.URL.Path) == ChecksumsAssetName {
+			w.Header().Set("Content-Type", "text/plain")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(checksumsBody)
+			return
+		}
 		w.Header().Set("Content-Type", "application/octet-stream")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write(binBody)
@@ -123,8 +134,12 @@ func newTestEnv(t *testing.T, tag string, installable bool) *testEnv {
 		w.Header().Set("ETag", `W/"`+tag+`"`)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		_, _ = fmt.Fprintf(w, `{"tag_name":%q,"assets":[{"name":%q,"browser_download_url":%q}]}`,
-			tag, assetName, dlSrv.URL+"/"+assetName)
+		_, _ = fmt.Fprintf(w,
+			`{"tag_name":%q,"assets":[{"name":%q,"browser_download_url":%q},{"name":%q,"browser_download_url":%q}]}`,
+			tag,
+			assetName, dlSrv.URL+"/"+assetName,
+			ChecksumsAssetName, dlSrv.URL+"/"+ChecksumsAssetName,
+		)
 	}))
 	t.Cleanup(apiSrv.Close)
 

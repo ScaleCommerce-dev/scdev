@@ -32,6 +32,11 @@ jobs:
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "${LDFLAGS}" -o scdev-linux-amd64 .
           CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags "${LDFLAGS}" -o scdev-linux-arm64 .
 
+      - name: Generate checksums
+        run: |
+          sha256sum scdev-darwin-arm64 scdev-darwin-amd64 scdev-linux-amd64 scdev-linux-arm64 > checksums.txt
+          cat checksums.txt
+
       - name: Build release body
         run: |
           cat > release-body.md << 'HEADER'
@@ -66,3 +71,4 @@ jobs:
             scdev-darwin-amd64
             scdev-linux-amd64
             scdev-linux-arm64
+            checksums.txt

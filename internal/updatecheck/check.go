@@ -171,21 +171,30 @@ func fetchLatest(ctx context.Context, prev *cache) (*release, string, error) {
 }
 
 // installAsset finds the asset matching this OS/arch, downloads it to
-// canonical+".update", chmods, and atomically renames into place. Overwrites
-// the currently-running binary's canonical target; on Unix this is safe
-// because the running process has the file open and keeps executing its
-// in-memory copy.
+// canonical+".update", verifies it against the release's checksums.txt,
+// chmods, and atomically renames into place. Overwrites the currently-
+// running binary's canonical target; on Unix this is safe because the
+// running process has the file open and keeps executing its in-memory copy.
+//
+// If the release lacks checksums.txt (older releases) the binary is
+// rejected - silent installs without integrity checks are not worth the
+// supply-chain risk.
 func installAsset(ctx context.Context, rel *release) error {
 	assetName := "scdev-" + runtime.GOOS + "-" + runtime.GOARCH
-	var downloadURL string
+	var downloadURL, checksumsURL string
 	for _, a := range rel.Assets {
-		if a.Name == assetName {
+		switch a.Name {
+		case assetName:
 			downloadURL = a.BrowserDownloadURL
-			break
+		case ChecksumsAssetName:
+			checksumsURL = a.BrowserDownloadURL
 		}
 	}
 	if downloadURL == "" {
 		return fmt.Errorf("no asset for %s/%s", runtime.GOOS, runtime.GOARCH)
+	}
+	if checksumsURL == "" {
+		return fmt.Errorf("release %s has no %s - refusing to install without integrity check", rel.TagName, ChecksumsAssetName)
 	}
 
 	canonical, err := CanonicalPath()
@@ -196,8 +205,19 @@ func installAsset(ctx context.Context, rel *release) error {
 		return err
 	}
 
+	// Fetch checksums first so we can fail fast if they're missing/malformed
+	// before paying the cost of downloading a large binary.
+	expectedHex, err := fetchExpectedChecksum(ctx, checksumsURL, assetName)
+	if err != nil {
+		return err
+	}
+
 	tmpPath := canonical + ".update"
 	if err := downloadTo(ctx, downloadURL, tmpPath); err != nil {
+		os.Remove(tmpPath)
+		return err
+	}
+	if err := VerifyFile(tmpPath, expectedHex); err != nil {
 		os.Remove(tmpPath)
 		return err
 	}
@@ -206,6 +226,30 @@ func installAsset(ctx context.Context, rel *release) error {
 		return err
 	}
 	return os.Rename(tmpPath, canonical)
+}
+
+// fetchExpectedChecksum downloads the release's checksums file and returns
+// the sha256 hex string for the given asset name.
+func fetchExpectedChecksum(ctx context.Context, checksumsURL, assetName string) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, checksumsURL, nil)
+	if err != nil {
+		return "", err
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("fetch checksums: status %d", resp.StatusCode)
+	}
+
+	sums := ParseChecksums(resp.Body)
+	expected, ok := sums[assetName]
+	if !ok {
+		return "", fmt.Errorf("no checksum for %s in %s", assetName, ChecksumsAssetName)
+	}
+	return expected, nil
 }
 
 func downloadTo(ctx context.Context, url, dest string) error {

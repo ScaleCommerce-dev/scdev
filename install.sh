@@ -27,11 +27,42 @@ if ! command -v docker >/dev/null 2>&1; then
   echo "Warning: Docker is not installed. scdev requires Docker to run."
 fi
 
-URL="https://github.com/${REPO}/releases/latest/download/${BINARY}-${OS}-${ARCH}"
+ASSET="${BINARY}-${OS}-${ARCH}"
+URL="https://github.com/${REPO}/releases/latest/download/${ASSET}"
+CHECKSUMS_URL="https://github.com/${REPO}/releases/latest/download/checksums.txt"
 
 echo "Downloading scdev for ${OS}/${ARCH}..."
 mkdir -p "$BIN_DIR"
-curl -fsSL -o "$BIN_DIR/$BINARY" "$URL"
+TMP_BIN="$(mktemp)"
+TMP_SUMS="$(mktemp)"
+# shellcheck disable=SC2064
+trap "rm -f '$TMP_BIN' '$TMP_SUMS'" EXIT
+
+curl -fsSL -o "$TMP_BIN" "$URL"
+curl -fsSL -o "$TMP_SUMS" "$CHECKSUMS_URL"
+
+# Verify SHA256. The checksums file is 'sha256  filename' per line; grep
+# for our asset and run sha256sum (or shasum on macOS) against it.
+EXPECTED="$(grep "  ${ASSET}$" "$TMP_SUMS" | awk '{print $1}')"
+if [ -z "$EXPECTED" ]; then
+  echo "error: no checksum for ${ASSET} in checksums.txt"
+  exit 1
+fi
+
+if command -v sha256sum >/dev/null 2>&1; then
+  ACTUAL="$(sha256sum "$TMP_BIN" | awk '{print $1}')"
+else
+  ACTUAL="$(shasum -a 256 "$TMP_BIN" | awk '{print $1}')"
+fi
+
+if [ "$EXPECTED" != "$ACTUAL" ]; then
+  echo "error: checksum mismatch for ${ASSET}"
+  echo "  expected: ${EXPECTED}"
+  echo "  actual:   ${ACTUAL}"
+  exit 1
+fi
+
+mv "$TMP_BIN" "$BIN_DIR/$BINARY"
 chmod +x "$BIN_DIR/$BINARY"
 
 # Remove macOS quarantine attribute
