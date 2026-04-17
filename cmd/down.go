@@ -22,41 +22,30 @@ var downCmd = &cobra.Command{
 }
 
 func init() {
-	downCmd.Flags().BoolVarP(&downRemoveVolumes, "volumes", "v", false, "Also remove volumes (respects persist_on_delete)")
+	downCmd.Flags().BoolVarP(&downRemoveVolumes, "volumes", "v", false, "Also remove volumes")
 	downCmd.Flags().BoolVarP(&downForce, "force", "f", false, "Skip confirmation prompt when removing volumes")
 	rootCmd.AddCommand(downCmd)
 }
 
 func runDown(cmd *cobra.Command, args []string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	defer cancel()
-
-	if err := requireDocker(ctx); err != nil {
-		return err
-	}
-
-	proj, err := project.Load()
-	if err != nil {
-		return err
-	}
-
-	if downRemoveVolumes && !downForce {
-		msg := fmt.Sprintf("This will remove all containers, networks, and volumes for project %q.\nData stored in volumes will be permanently deleted. Continue? [y/N]: ", proj.Config.Name)
-		if !confirm(msg) {
-			fmt.Println("Aborted.")
-			return nil
+	return withProject(2*time.Minute, func(ctx context.Context, proj *project.Project) error {
+		if downRemoveVolumes && !downForce {
+			msg := fmt.Sprintf("This will remove all containers, networks, and volumes for project %q.\nData stored in volumes will be permanently deleted. Continue? [y/N]: ", proj.Config.Name)
+			if !confirm(msg) {
+				fmt.Println("Aborted.")
+				return nil
+			}
 		}
-	}
 
-	fmt.Printf("Removing project %s...\n", proj.Config.Name)
+		fmt.Printf("Removing project %s...\n", proj.Config.Name)
 
-	if err := proj.Down(ctx, downRemoveVolumes); err != nil {
-		return err
-	}
+		if err := proj.Down(ctx, downRemoveVolumes); err != nil {
+			return err
+		}
 
-	// Update docs page with current project info
-	updateDocsWithProjects(ctx)
+		updateDocsWithProjects(ctx)
 
-	fmt.Printf("Project %s removed\n", proj.Config.Name)
-	return nil
+		fmt.Printf("Project %s removed\n", proj.Config.Name)
+		return nil
+	})
 }

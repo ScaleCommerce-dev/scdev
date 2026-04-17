@@ -512,7 +512,6 @@ mutagen:
 | `routing.port` | int | 80 (http), 443 (https) | Container port to route to |
 | `routing.host_port` | int | - | Host port for TCP/UDP (required for tcp/udp) |
 | `routing.domain` | string | project domain | Custom domain for this service (http/https only) |
-| `pre_start` | list | - | Commands to run before container starts |
 | `labels` | map | - | Docker labels |
 
 #### Variables and environment

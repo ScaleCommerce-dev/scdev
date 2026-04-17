@@ -27,21 +27,18 @@ no longer exists, the stale entry is simply removed from the registry.`,
 }
 
 func init() {
-	removeCmd.Flags().BoolVarP(&removeVolumes, "volumes", "v", false, "Also remove volumes (respects persist_on_delete)")
+	removeCmd.Flags().BoolVarP(&removeVolumes, "volumes", "v", false, "Also remove volumes")
 	removeCmd.Flags().BoolVarP(&removeForce, "force", "f", false, "Skip confirmation prompt")
 	rootCmd.AddCommand(removeCmd)
 }
 
 func runRemove(cmd *cobra.Command, args []string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	defer cancel()
+	return withDocker(2*time.Minute, func(ctx context.Context) error {
+		return runRemoveImpl(ctx, args[0])
+	})
+}
 
-	if err := requireDocker(ctx); err != nil {
-		return err
-	}
-
-	name := args[0]
-
+func runRemoveImpl(ctx context.Context, name string) error {
 	stateMgr, err := state.DefaultManager()
 	if err != nil {
 		return fmt.Errorf("failed to load state: %w", err)

@@ -25,9 +25,6 @@ const (
 	// RedisInsightsImage is the default Redis Insights image
 	RedisInsightsImage = "redis/redisinsight:latest"
 
-	// ObservabilityImage is the default OpenObserve image
-	ObservabilityImage = "public.ecr.aws/zinclabs/openobserve:latest"
-
 	// TestImage is the lightweight image used for integration tests
 	// Keep in sync with testdata/projects/*/config.yaml fixtures
 	TestImage = "alpine:latest"

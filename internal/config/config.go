@@ -50,7 +50,6 @@ type SharedConfig struct {
 	Mail          MailConfig          `yaml:"mail"`
 	DBUI          DBUIConfig          `yaml:"db"`
 	RedisInsights RedisInsightsConfig `yaml:"redis_insights"`
-	Observability ObservabilityConfig `yaml:"observability"`
 }
 
 // RouterConfig defines Traefik configuration
@@ -71,11 +70,6 @@ type DBUIConfig struct {
 
 // RedisInsightsConfig defines Redis Insights configuration
 type RedisInsightsConfig struct {
-	Image string `yaml:"image"`
-}
-
-// ObservabilityConfig defines OpenObserve configuration
-type ObservabilityConfig struct {
 	Image string `yaml:"image"`
 }
 
@@ -104,8 +98,6 @@ type ProjectSharedConfig struct {
 	Mail          bool `yaml:"mail"`
 	DBUI          bool `yaml:"db"`
 	RedisInsights bool `yaml:"redis"`
-	Observability bool `yaml:"observability"`
-	Tunnel        bool `yaml:"tunnel"`
 }
 
 // ServiceConfig defines a container service
@@ -117,7 +109,6 @@ type ServiceConfig struct {
 	Environment    map[string]string `yaml:"environment"`
 	Command        string            `yaml:"command"`
 	Labels         map[string]string `yaml:"labels"`
-	PreStart       []string          `yaml:"pre_start"`
 	RegisterToDBUI bool              `yaml:"register_to_dbui"` // Register this service in the shared DB UI (Adminer)
 }
 

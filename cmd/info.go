@@ -31,6 +31,9 @@ func init() {
 }
 
 func runInfo(cmd *cobra.Command, args []string) error {
+	// info deliberately does NOT require Docker so users can inspect a
+	// project config even when Docker isn't running. Statuses degrade
+	// gracefully to "not created" / "unknown".
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -114,7 +117,7 @@ func showProjectInfo(ctx context.Context, proj *project.Project) error {
 	fmt.Println()
 
 	// Shared services
-	if proj.Config.Shared.Router || proj.Config.Shared.Mail || proj.Config.Shared.DBUI || proj.Config.Shared.RedisInsights || proj.Config.Shared.Observability {
+	if proj.Config.Shared.Router || proj.Config.Shared.Mail || proj.Config.Shared.DBUI || proj.Config.Shared.RedisInsights {
 		fmt.Println("Shared Services:")
 		// Always show docs URL when router is enabled
 		if proj.Config.Shared.Router {
@@ -137,10 +140,6 @@ func showProjectInfo(ctx context.Context, proj *project.Project) error {
 					fmt.Printf("                 └ %s\n", hostname)
 				}
 			}
-		}
-		if proj.Config.Shared.Observability {
-			url := fmt.Sprintf("%s://observe.shared.%s", protocol, globalDomain)
-			fmt.Printf("  observability: %s\n", ui.Hyperlink(url, url, plainMode))
 		}
 		fmt.Println()
 	}

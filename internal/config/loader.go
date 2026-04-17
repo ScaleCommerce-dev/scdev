@@ -4,6 +4,7 @@ import (
 	"bytes"
 	_ "embed"
 	"fmt"
+	"html"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -256,9 +257,6 @@ func newDefaultGlobalConfig() GlobalConfig {
 			RedisInsights: RedisInsightsConfig{
 				Image: RedisInsightsImage,
 			},
-			Observability: ObservabilityConfig{
-				Image: ObservabilityImage,
-			},
 		},
 		Terminal: TerminalConfig{
 			Plain: false,
@@ -336,7 +334,6 @@ func generateDefaultGlobalConfig() string {
 		"MailImage":          MailImage,
 		"DBUIImage":          DBUIImage,
 		"RedisInsightsImage": RedisInsightsImage,
-		"ObservabilityImage": ObservabilityImage,
 	}
 	return substituteConfigVars(defaultGlobalConfig, vars)
 }
@@ -551,23 +548,13 @@ func generateProjectsSection(projects []ProjectInfo, protocol string) string {
                     </div>
                     <span class="project-open">open &rarr;</span>
                 </a>
-`, url, statusClass, escapeHTML(p.Name), statusClass, statusText, escapeHTML(p.Domain), escapeHTML(p.Path)))
+`, url, statusClass, html.EscapeString(p.Name), statusClass, statusText, html.EscapeString(p.Domain), html.EscapeString(p.Path)))
 	}
 
 	sb.WriteString(`            </div>
         </div>`)
 
 	return sb.String()
-}
-
-// escapeHTML escapes special HTML characters
-func escapeHTML(s string) string {
-	s = strings.ReplaceAll(s, "&", "&amp;")
-	s = strings.ReplaceAll(s, "<", "&lt;")
-	s = strings.ReplaceAll(s, ">", "&gt;")
-	s = strings.ReplaceAll(s, "\"", "&quot;")
-	s = strings.ReplaceAll(s, "'", "&#39;")
-	return s
 }
 
 // UpdateDocsProjects updates only the docs HTML with current project information

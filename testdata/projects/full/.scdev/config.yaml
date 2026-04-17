@@ -10,8 +10,6 @@ info: |
 shared:
   router: true
   mail: true
-  observability: false
-  tunnel: false
 
 environment:
   APP_ENV: dev

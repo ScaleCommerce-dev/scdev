@@ -26,9 +26,6 @@ shared:
   redis_insights:
     image: ${RedisInsightsImage}
 
-  observability:
-    image: ${ObservabilityImage}
-
 # Terminal output settings
 terminal:
   plain: false  # Set to true to disable colors, hyperlinks, and markdown rendering
