@@ -70,11 +70,45 @@ func NewManager(path string) *Manager {
 	return &Manager{path: path}
 }
 
-// Load reads the state file
+// Load reads the state file. Safe for read-only callers.
+// Mutating callers must use Mutate to avoid lost updates under concurrent access.
 func (m *Manager) Load() (*State, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	return m.loadLocked()
+}
 
+// Save writes the state file. Rarely needed by external callers -
+// prefer Mutate for read-modify-write operations.
+func (m *Manager) Save(state *State) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.saveLocked(state)
+}
+
+// Mutate atomically loads the state, applies fn, and saves the result.
+// The entire load-modify-save cycle holds the manager's lock, so concurrent
+// goroutines in the same process cannot clobber each other's changes.
+// (Cross-process concurrency is not protected - callers running multiple
+// scdev invocations simultaneously on the same state file can still race.)
+func (m *Manager) Mutate(fn func(*State) error) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	state, err := m.loadLocked()
+	if err != nil {
+		return err
+	}
+
+	if err := fn(state); err != nil {
+		return err
+	}
+
+	return m.saveLocked(state)
+}
+
+// loadLocked reads and parses the state file. Caller must hold m.mu.
+func (m *Manager) loadLocked() (*State, error) {
 	state := &State{
 		Projects: make(map[string]ProjectEntry),
 	}
@@ -102,11 +136,8 @@ func (m *Manager) Load() (*State, error) {
 	return state, nil
 }
 
-// Save writes the state file
-func (m *Manager) Save(state *State) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
+// saveLocked writes the state file. Caller must hold m.mu.
+func (m *Manager) saveLocked(state *State) error {
 	data, err := yaml.Marshal(state)
 	if err != nil {
 		return fmt.Errorf("failed to marshal state: %w", err)
@@ -132,33 +163,25 @@ func (m *Manager) RegisterProject(name, path string) error {
 
 // RegisterProjectWithRouting adds or updates a project with routing info
 func (m *Manager) RegisterProjectWithRouting(name, path string, tcpPorts, udpPorts []int) error {
-	state, err := m.Load()
-	if err != nil {
-		return err
-	}
-
-	state.Projects[name] = ProjectEntry{
-		Path:        path,
-		LastStarted: time.Now(),
-		Routing: RoutingState{
-			TCPPorts: tcpPorts,
-			UDPPorts: udpPorts,
-		},
-	}
-
-	return m.Save(state)
+	return m.Mutate(func(state *State) error {
+		state.Projects[name] = ProjectEntry{
+			Path:        path,
+			LastStarted: time.Now(),
+			Routing: RoutingState{
+				TCPPorts: tcpPorts,
+				UDPPorts: udpPorts,
+			},
+		}
+		return nil
+	})
 }
 
 // UnregisterProject removes a project from the state
 func (m *Manager) UnregisterProject(name string) error {
-	state, err := m.Load()
-	if err != nil {
-		return err
-	}
-
-	delete(state.Projects, name)
-
-	return m.Save(state)
+	return m.Mutate(func(state *State) error {
+		delete(state.Projects, name)
+		return nil
+	})
 }
 
 // GetProject returns a single project entry
@@ -253,39 +276,35 @@ func (m *Manager) GetUDPPortOwner(port int) (string, error) {
 
 // RenameProject renames a project entry in the state and updates all link memberships
 func (m *Manager) RenameProject(oldName, newName string) error {
-	st, err := m.Load()
-	if err != nil {
-		return err
-	}
+	return m.Mutate(func(st *State) error {
+		entry, ok := st.Projects[oldName]
+		if !ok {
+			return fmt.Errorf("project %q not found in state", oldName)
+		}
 
-	entry, ok := st.Projects[oldName]
-	if !ok {
-		return fmt.Errorf("project %q not found in state", oldName)
-	}
+		if _, exists := st.Projects[newName]; exists {
+			return fmt.Errorf("project %q already exists in state", newName)
+		}
 
-	if _, exists := st.Projects[newName]; exists {
-		return fmt.Errorf("project %q already exists in state", newName)
-	}
+		// Move project entry
+		st.Projects[newName] = entry
+		delete(st.Projects, oldName)
 
-	// Move project entry
-	st.Projects[newName] = entry
-	delete(st.Projects, oldName)
-
-	// Update link memberships
-	for linkName, link := range st.Links {
-		changed := false
-		for i, member := range link.Members {
-			if member.Project == oldName {
-				link.Members[i].Project = newName
-				changed = true
+		// Update link memberships
+		for linkName, link := range st.Links {
+			changed := false
+			for i, member := range link.Members {
+				if member.Project == oldName {
+					link.Members[i].Project = newName
+					changed = true
+				}
+			}
+			if changed {
+				st.Links[linkName] = link
 			}
 		}
-		if changed {
-			st.Links[linkName] = link
-		}
-	}
-
-	return m.Save(st)
+		return nil
+	})
 }
 
 // ValidateLinkName checks that a link name is valid for use as a Docker network suffix
@@ -327,44 +346,36 @@ func (lm LinkMember) String() string {
 
 // CreateLink creates a new named link
 func (m *Manager) CreateLink(name string) error {
-	st, err := m.Load()
-	if err != nil {
-		return err
-	}
+	return m.Mutate(func(st *State) error {
+		if st.Links == nil {
+			st.Links = make(map[string]LinkEntry)
+		}
 
-	if st.Links == nil {
-		st.Links = make(map[string]LinkEntry)
-	}
+		if _, exists := st.Links[name]; exists {
+			return fmt.Errorf("link %q already exists", name)
+		}
 
-	if _, exists := st.Links[name]; exists {
-		return fmt.Errorf("link %q already exists", name)
-	}
-
-	st.Links[name] = LinkEntry{
-		Network: LinkNetworkName(name),
-	}
-
-	return m.Save(st)
+		st.Links[name] = LinkEntry{
+			Network: LinkNetworkName(name),
+		}
+		return nil
+	})
 }
 
 // DeleteLink removes a named link
 func (m *Manager) DeleteLink(name string) error {
-	st, err := m.Load()
-	if err != nil {
-		return err
-	}
+	return m.Mutate(func(st *State) error {
+		if st.Links == nil {
+			return fmt.Errorf("link %q does not exist", name)
+		}
 
-	if st.Links == nil {
-		return fmt.Errorf("link %q does not exist", name)
-	}
+		if _, exists := st.Links[name]; !exists {
+			return fmt.Errorf("link %q does not exist", name)
+		}
 
-	if _, exists := st.Links[name]; !exists {
-		return fmt.Errorf("link %q does not exist", name)
-	}
-
-	delete(st.Links, name)
-
-	return m.Save(st)
+		delete(st.Links, name)
+		return nil
+	})
 }
 
 // GetLink returns a link entry by name
@@ -402,70 +413,64 @@ func (m *Manager) ListLinks() (map[string]LinkEntry, error) {
 
 // AddLinkMembers adds members to a link
 func (m *Manager) AddLinkMembers(name string, members []LinkMember) error {
-	st, err := m.Load()
-	if err != nil {
-		return err
-	}
+	return m.Mutate(func(st *State) error {
+		if st.Links == nil {
+			return fmt.Errorf("link %q does not exist", name)
+		}
 
-	if st.Links == nil {
-		return fmt.Errorf("link %q does not exist", name)
-	}
+		entry, exists := st.Links[name]
+		if !exists {
+			return fmt.Errorf("link %q does not exist", name)
+		}
 
-	entry, exists := st.Links[name]
-	if !exists {
-		return fmt.Errorf("link %q does not exist", name)
-	}
-
-	for _, newMember := range members {
-		found := false
-		for _, existing := range entry.Members {
-			if existing.Project == newMember.Project && existing.Service == newMember.Service {
-				found = true
-				break
+		for _, newMember := range members {
+			found := false
+			for _, existing := range entry.Members {
+				if existing.Project == newMember.Project && existing.Service == newMember.Service {
+					found = true
+					break
+				}
+			}
+			if !found {
+				entry.Members = append(entry.Members, newMember)
 			}
 		}
-		if !found {
-			entry.Members = append(entry.Members, newMember)
-		}
-	}
 
-	st.Links[name] = entry
-	return m.Save(st)
+		st.Links[name] = entry
+		return nil
+	})
 }
 
 // RemoveLinkMembers removes members from a link
 func (m *Manager) RemoveLinkMembers(name string, members []LinkMember) error {
-	st, err := m.Load()
-	if err != nil {
-		return err
-	}
+	return m.Mutate(func(st *State) error {
+		if st.Links == nil {
+			return fmt.Errorf("link %q does not exist", name)
+		}
 
-	if st.Links == nil {
-		return fmt.Errorf("link %q does not exist", name)
-	}
+		entry, exists := st.Links[name]
+		if !exists {
+			return fmt.Errorf("link %q does not exist", name)
+		}
 
-	entry, exists := st.Links[name]
-	if !exists {
-		return fmt.Errorf("link %q does not exist", name)
-	}
-
-	filtered := make([]LinkMember, 0, len(entry.Members))
-	for _, existing := range entry.Members {
-		remove := false
-		for _, toRemove := range members {
-			if existing.Project == toRemove.Project && existing.Service == toRemove.Service {
-				remove = true
-				break
+		filtered := make([]LinkMember, 0, len(entry.Members))
+		for _, existing := range entry.Members {
+			remove := false
+			for _, toRemove := range members {
+				if existing.Project == toRemove.Project && existing.Service == toRemove.Service {
+					remove = true
+					break
+				}
+			}
+			if !remove {
+				filtered = append(filtered, existing)
 			}
 		}
-		if !remove {
-			filtered = append(filtered, existing)
-		}
-	}
 
-	entry.Members = filtered
-	st.Links[name] = entry
-	return m.Save(st)
+		entry.Members = filtered
+		st.Links[name] = entry
+		return nil
+	})
 }
 
 // GetLinksForProject returns all links that include the given project
