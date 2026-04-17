@@ -110,24 +110,25 @@ func refreshAndInstall(path string, prev *cache, currentVersion string) {
 	apiCtx, apiCancel := context.WithTimeout(context.Background(), apiTimeout)
 	defer apiCancel()
 
-	rel, etag, err := fetchLatest(apiCtx, prev)
-	if err != nil {
-		return
-	}
-
+	// Seed next with prev so error and 304 paths preserve ETag/LatestTag/InstalledTag.
 	next := cache{LastChecked: time.Now()}
 	if prev != nil {
+		next.ETag = prev.ETag
+		next.LatestTag = prev.LatestTag
 		next.InstalledTag = prev.InstalledTag
 	}
 
-	if rel == nil {
-		// 304 Not Modified. Keep prev metadata, just bump LastChecked.
-		if prev == nil {
-			return
-		}
-		next.ETag = prev.ETag
-		next.LatestTag = prev.LatestTag
-	} else {
+	rel, etag, err := fetchLatest(apiCtx, prev)
+	if err != nil {
+		// Rate-limit (403), transient network error, or non-2xx. Still
+		// record the attempt so we respect cacheTTL; otherwise every
+		// subsequent invocation would retry immediately and, on a shared
+		// IP, pile into GitHub's 60-req/hour limit in a death spiral.
+		_ = saveCache(path, &next)
+		return
+	}
+
+	if rel != nil {
 		next.ETag = etag
 		next.LatestTag = rel.TagName
 
@@ -139,6 +140,7 @@ func refreshAndInstall(path string, prev *cache, currentVersion string) {
 			installCancel()
 		}
 	}
+	// rel == nil means 304 Not Modified: next already carries prev's ETag/LatestTag.
 
 	_ = saveCache(path, &next)
 }

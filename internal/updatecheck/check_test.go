@@ -273,12 +273,15 @@ func TestRefreshAndInstall304PreservesPrev(t *testing.T) {
 	}
 }
 
-func TestRefreshAndInstallServerErrorSkipsWrite(t *testing.T) {
+func TestRefreshAndInstallServerErrorStillWritesCache(t *testing.T) {
+	// API failures (rate limit, 5xx, transient network) must still bump
+	// LastChecked so we respect cacheTTL instead of retrying on every
+	// invocation and driving a rate-limit death spiral on shared IPs.
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusForbidden) // mimic GitHub "rate limit exceeded"
 	}))
 	defer srv.Close()
 
@@ -289,7 +292,45 @@ func TestRefreshAndInstallServerErrorSkipsWrite(t *testing.T) {
 	path := filepath.Join(home, "cache.json")
 	refreshAndInstall(path, nil, "v0.1.0")
 
-	if _, err := os.Stat(path); !os.IsNotExist(err) {
-		t.Errorf("expected no cache file on 500, got err=%v", err)
+	c, err := loadCache(path)
+	if err != nil {
+		t.Fatalf("cache not written on API error: %v", err)
+	}
+	if time.Since(c.LastChecked) > time.Minute {
+		t.Errorf("LastChecked not recent: %v", c.LastChecked)
+	}
+}
+
+func TestRefreshAndInstallErrorPreservesPrev(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+	}))
+	defer srv.Close()
+
+	prev := apiURL
+	apiURL = srv.URL
+	defer func() { apiURL = prev }()
+
+	path := filepath.Join(home, "cache.json")
+	old := &cache{
+		LastChecked:  time.Now().Add(-48 * time.Hour),
+		ETag:         `W/"cached"`,
+		LatestTag:    "v0.5.7",
+		InstalledTag: "v0.5.7",
+	}
+	refreshAndInstall(path, old, "v0.5.6")
+
+	got, err := loadCache(path)
+	if err != nil {
+		t.Fatalf("cache not written: %v", err)
+	}
+	if got.ETag != `W/"cached"` || got.LatestTag != "v0.5.7" || got.InstalledTag != "v0.5.7" {
+		t.Errorf("error path should preserve prev values, got %+v", got)
+	}
+	if time.Since(got.LastChecked) > time.Minute {
+		t.Errorf("LastChecked not refreshed on error: %v", got.LastChecked)
 	}
 }
