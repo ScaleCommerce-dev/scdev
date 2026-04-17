@@ -1,24 +1,24 @@
-// Package updatecheck implements a lightweight, non-blocking background
-// update mechanism for scdev.
+// Package updatecheck implements a once-a-day update check for scdev.
 //
 // Design:
 //   - MaybeAutoUpdate runs on every CLI invocation.
 //   - It reads a cached result from ~/.scdev/update-check.json. If a prior
-//     background install has already landed a newer version at the canonical
-//     path, it prints a one-line banner to stderr informing the user that
-//     the next invocation will pick it up.
-//   - If the cache is older than cacheTTL (or missing), it fires a
-//     fire-and-forget goroutine that does a conditional GET (ETag) against
-//     the GitHub API; if a newer release exists AND the running binary is
-//     in the symlink layout, the goroutine downloads the matching asset
-//     and atomically replaces ~/.scdev/bin/scdev. No sudo. No re-exec.
-//     The current process keeps running its in-memory code; the NEXT scdev
-//     invocation transparently uses the new binary via the symlink.
+//     install has already landed a newer version at the canonical path, it
+//     prints a one-line banner to stderr informing the user that the next
+//     invocation will pick it up.
+//   - If the cache is older than cacheTTL (or missing), it does a conditional
+//     GET (ETag) against the GitHub API synchronously, bounded by apiTimeout.
+//     If a newer release exists AND the running binary is in the symlink
+//     layout, it downloads the matching asset and atomically replaces
+//     ~/.scdev/bin/scdev. No sudo. No re-exec. The current process keeps
+//     running its in-memory code; the NEXT scdev invocation transparently
+//     uses the new binary via the symlink.
 //
-// The goroutine is not joined - if the user's command exits before the
-// download finishes, we just try again next time. That's fine. At most one
-// API hit per 24h per machine, and download traffic only when a new release
-// actually exists.
+// Blocking is deliberate: an earlier fire-and-forget goroutine version got
+// killed when main() returned on fast commands (version/list/status), so the
+// cache was never written and the install never happened. At most one API hit
+// per 24h per machine, and download traffic only when a new release actually
+// exists - so the cost is paid at most once a day.
 package updatecheck
 
 import (
@@ -34,8 +34,9 @@ import (
 )
 
 const (
-	cacheTTL    = 24 * time.Hour
-	httpTimeout = 60 * time.Second // generous: covers API call + binary download
+	cacheTTL     = 24 * time.Hour
+	apiTimeout   = 3 * time.Second  // bound on the synchronous API probe (304 path)
+	totalTimeout = 60 * time.Second // ceiling for API + download + verify + install
 )
 
 // apiURL is a var (not a const) so tests can point it at an httptest server.
@@ -63,10 +64,11 @@ type releaseAsset struct {
 	BrowserDownloadURL string `json:"browser_download_url"`
 }
 
-// MaybeAutoUpdate prints a one-line banner to stderr if a background install
-// completed in a prior invocation, and kicks off a new background refresh
-// (check + download + install) if the cache is stale. Safe to call on every
-// invocation; never blocks; all failures are silent.
+// MaybeAutoUpdate prints a one-line banner to stderr if a prior invocation
+// installed a newer version, and performs a synchronous refresh (check +
+// download + install) if the cache is stale. Cache-hit path is fast and
+// network-free; stale-cache path blocks up to totalTimeout (at most once per
+// cacheTTL). All failures are silent.
 func MaybeAutoUpdate(currentVersion string) {
 	if shouldSkip(currentVersion) {
 		return
@@ -83,7 +85,7 @@ func MaybeAutoUpdate(currentVersion string) {
 		switch {
 		case c.InstalledTag != "" && IsNewer(c.InstalledTag, currentVersion):
 			fmt.Fprintf(os.Stderr,
-				"\x1b[33m✓ scdev updated to %s in background; next run will use it.\x1b[0m\n",
+				"\x1b[33m✓ scdev updated to %s; next run will use it.\x1b[0m\n",
 				c.InstalledTag)
 		case c.LatestTag != "" && IsNewer(c.LatestTag, currentVersion):
 			// Seen a newer release but haven't installed it (likely on a
@@ -95,19 +97,20 @@ func MaybeAutoUpdate(currentVersion string) {
 	}
 
 	if c == nil || time.Since(c.LastChecked) > cacheTTL {
-		go refreshAndInstall(path, c, currentVersion)
+		refreshAndInstall(path, c, currentVersion)
 	}
 }
 
 // refreshAndInstall performs the conditional GET, writes the cache, and (if
 // a newer release exists and the running binary is in canonical layout)
-// downloads the asset and installs it. Runs in a goroutine; process may
-// exit before it completes.
+// downloads the asset and installs it. Blocks the caller. The API probe uses
+// apiTimeout; if a download is needed, the combined operation is capped at
+// totalTimeout.
 func refreshAndInstall(path string, prev *cache, currentVersion string) {
-	ctx, cancel := context.WithTimeout(context.Background(), httpTimeout)
-	defer cancel()
+	apiCtx, apiCancel := context.WithTimeout(context.Background(), apiTimeout)
+	defer apiCancel()
 
-	rel, etag, err := fetchLatest(ctx, prev)
+	rel, etag, err := fetchLatest(apiCtx, prev)
 	if err != nil {
 		return
 	}
@@ -129,9 +132,11 @@ func refreshAndInstall(path string, prev *cache, currentVersion string) {
 		next.LatestTag = rel.TagName
 
 		if IsNewer(rel.TagName, currentVersion) && canInstallFn() {
-			if err := installAsset(ctx, rel); err == nil {
+			installCtx, installCancel := context.WithTimeout(context.Background(), totalTimeout)
+			if err := installAsset(installCtx, rel); err == nil {
 				next.InstalledTag = rel.TagName
 			}
+			installCancel()
 		}
 	}
 
