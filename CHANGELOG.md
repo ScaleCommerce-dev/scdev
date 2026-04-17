@@ -1,3 +1,9 @@
+## v0.6.1
+
+### Features
+
+- **`scdev open` command** - opens the current project's URL in the default browser. `scdev open` uses the project in the working directory; `scdev open <name>` looks up any registered project by name. Protocol follows the global SSL setting (http/https). Closes the common "I need the URL again, let me run `scdev info` and copy-paste" loop.
+
 ## v0.6.0
 
 ### Features
