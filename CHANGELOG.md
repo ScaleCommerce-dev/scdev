@@ -1,3 +1,9 @@
+## v0.6.3
+
+### Bug Fixes
+
+- **Fix auto-update rate-limit death spiral on shared IPs** - when the GitHub API call failed (rate limit, 5xx, transient network error), `refreshAndInstall` returned without writing `~/.scdev/update-check.json`, so the next invocation retried immediately instead of waiting the 24h TTL. On a shared egress IP (office NAT, VPN, CI pool) once any user hit GitHub's 60-req/hour unauthenticated limit, every retrying user kept burning credits faster than the window refilled, starving everyone else's next-day refresh. The cache is now always written on error with `LastChecked` bumped and prev `ETag`/`LatestTag`/`InstalledTag` preserved, so a failed attempt counts as "checked recently."
+
 ## v0.6.2
 
 ### Bug Fixes
