@@ -18,6 +18,9 @@ This command detects changes in the config and only recreates
 containers that need to be updated. Use this after modifying
 your config file instead of running 'scdev down && scdev start'.
 
+If the project hasn't been started yet (no network exists), update
+will start it from scratch - equivalent to running 'scdev start'.
+
 Changes detected (via a config hash stamped on each container):
 - Image changes
 - Environment variable changes
@@ -33,29 +36,19 @@ func init() {
 }
 
 func runUpdate(cmd *cobra.Command, args []string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-	defer cancel()
+	return withProject(5*time.Minute, func(ctx context.Context, proj *project.Project) error {
+		fmt.Printf("Updating project %s...\n", proj.Config.Name)
 
-	if err := requireDocker(ctx); err != nil {
-		return err
-	}
+		updated, err := proj.Update(ctx)
+		if err != nil {
+			return err
+		}
 
-	proj, err := project.Load()
-	if err != nil {
-		return err
-	}
-
-	fmt.Printf("Updating project %s...\n", proj.Config.Name)
-
-	updated, err := proj.Update(ctx)
-	if err != nil {
-		return err
-	}
-
-	if updated {
-		fmt.Printf("Project %s updated\n", proj.Config.Name)
-	} else {
-		fmt.Printf("Project %s is up to date\n", proj.Config.Name)
-	}
-	return nil
+		if updated {
+			fmt.Printf("Project %s updated\n", proj.Config.Name)
+		} else {
+			fmt.Printf("Project %s is up to date\n", proj.Config.Name)
+		}
+		return nil
+	})
 }

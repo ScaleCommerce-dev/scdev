@@ -24,13 +24,10 @@ func init() {
 }
 
 func runList(cmd *cobra.Command, args []string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
+	return withDocker(30*time.Second, runListImpl)
+}
 
-	if err := requireDocker(ctx); err != nil {
-		return err
-	}
-
+func runListImpl(ctx context.Context) error {
 	stateMgr, err := state.DefaultManager()
 	if err != nil {
 		return fmt.Errorf("failed to load state: %w", err)

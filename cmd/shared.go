@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ScaleCommerce-DEV/scdev/internal/config"
+	"github.com/ScaleCommerce-DEV/scdev/internal/project"
 	runtimePkg "github.com/ScaleCommerce-DEV/scdev/internal/runtime"
 	"github.com/ScaleCommerce-DEV/scdev/internal/services"
 	"github.com/ScaleCommerce-DEV/scdev/internal/state"
@@ -23,6 +24,41 @@ import (
 func requireDocker(ctx context.Context) error {
 	docker := runtimePkg.NewDockerCLI()
 	return docker.CheckAvailable(ctx)
+}
+
+// withProject is the shared bootstrap for commands that need Docker + a
+// loaded project. Creates a timeout context, checks Docker availability,
+// loads the project from the current directory (or --config override), and
+// calls fn. Any error from Docker check or project load is surfaced
+// directly - callers don't need to re-wrap with context.
+func withProject(timeout time.Duration, fn func(ctx context.Context, proj *project.Project) error) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	if err := requireDocker(ctx); err != nil {
+		return err
+	}
+
+	proj, err := project.Load()
+	if err != nil {
+		return err
+	}
+
+	return fn(ctx, proj)
+}
+
+// withDocker is withProject without the project load, for commands that
+// need Docker but operate on state or global resources only (list,
+// services, cleanup, etc.).
+func withDocker(timeout time.Duration, fn func(ctx context.Context) error) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	if err := requireDocker(ctx); err != nil {
+		return err
+	}
+
+	return fn(ctx)
 }
 
 // openSharedServiceURL opens a shared service URL in the browser

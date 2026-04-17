@@ -9,141 +9,57 @@ import (
 	"github.com/ScaleCommerce-DEV/scdev/internal/services"
 )
 
-// sharedServiceEntry pairs a config flag with its connect/disconnect methods.
-type sharedServiceEntry struct {
-	enabled    bool
-	connect    func(context.Context) error
-	disconnect func(context.Context)
-}
-
-// enabledSharedServices returns the list of shared services enabled for this project.
-func (p *Project) enabledSharedServices() []sharedServiceEntry {
-	return []sharedServiceEntry{
-		{p.Config.Shared.Router, p.connectRouter, p.disconnectRouter},
-		{p.Config.Shared.Mail, p.connectMail, p.disconnectMail},
-		{p.Config.Shared.DBUI, p.connectDBUI, p.disconnectDBUI},
-		{p.Config.Shared.RedisInsights, p.connectRedisInsights, p.disconnectRedisInsights},
-	}
-}
-
-// connectEnabledSharedServices connects all enabled shared services to the project network.
+// connectEnabledSharedServices connects every shared service whose
+// per-project flag is set to this project's network. The registry is the
+// single source of truth (internal/services/registry.go), shared with the
+// CLI so enabling a new shared service is a single-file change.
 func (p *Project) connectEnabledSharedServices(ctx context.Context) {
-	for _, svc := range p.enabledSharedServices() {
-		if svc.enabled {
-			if err := svc.connect(ctx); err != nil {
-				fmt.Printf("Warning: %v\n", err)
-			}
+	mgr, err := p.sharedManager()
+	if err != nil {
+		return
+	}
+	for _, svc := range services.AllSharedServices() {
+		if !svc.ProjectEnabled(&p.Config.Shared) {
+			continue
+		}
+		fmt.Printf("Ensuring shared %s is running...\n", svc.Name)
+		if err := svc.Start(ctx, mgr); err != nil {
+			fmt.Printf("Warning: failed to start %s: %v\n", svc.Name, err)
+			continue
+		}
+		if err := svc.Connect(ctx, mgr, p.NetworkName()); err != nil {
+			fmt.Printf("Warning: %v\n", err)
 		}
 	}
 }
 
-// disconnectEnabledSharedServices disconnects all enabled shared services from the project network.
+// disconnectEnabledSharedServices detaches every enabled shared service
+// from the project's network. Iterates in reverse order so the router
+// (which the others may route through) is removed last.
 func (p *Project) disconnectEnabledSharedServices(ctx context.Context) {
-	// Disconnect in reverse order (router last)
-	entries := p.enabledSharedServices()
-	for i := len(entries) - 1; i >= 0; i-- {
-		if entries[i].enabled {
-			entries[i].disconnect(ctx)
+	mgr, err := p.sharedManager()
+	if err != nil {
+		return
+	}
+	registry := services.AllSharedServices()
+	for i := len(registry) - 1; i >= 0; i-- {
+		svc := registry[i]
+		if !svc.ProjectEnabled(&p.Config.Shared) {
+			continue
 		}
+		_ = svc.Disconnect(ctx, mgr, p.NetworkName())
 	}
 }
 
-// connectSharedService connects a shared service to this project's network
-func (p *Project) connectSharedService(
-	ctx context.Context,
-	displayName string,
-	startFn func(context.Context, *services.Manager) error,
-	connectFn func(context.Context, *services.Manager, string) error,
-) error {
+// sharedManager constructs a services.Manager from the current global
+// config. Errors swallowed by callers so a missing/broken global config
+// doesn't stop the project lifecycle.
+func (p *Project) sharedManager() (*services.Manager, error) {
 	cfg, err := config.LoadGlobalConfig()
 	if err != nil {
-		return fmt.Errorf("failed to load global config: %w", err)
+		return nil, err
 	}
-
-	mgr := services.NewManager(cfg)
-
-	fmt.Printf("Ensuring shared %s is running...\n", displayName)
-	if err := startFn(ctx, mgr); err != nil {
-		return fmt.Errorf("failed to start %s: %w", displayName, err)
-	}
-
-	return connectFn(ctx, mgr, p.NetworkName())
-}
-
-// disconnectSharedService disconnects a shared service from this project's network
-func (p *Project) disconnectSharedService(
-	ctx context.Context,
-	disconnectFn func(context.Context, *services.Manager, string) error,
-) {
-	cfg, err := config.LoadGlobalConfig()
-	if err != nil {
-		return // Ignore errors
-	}
-
-	mgr := services.NewManager(cfg)
-	_ = disconnectFn(ctx, mgr, p.NetworkName())
-}
-
-// connectRouter connects the shared router to this project's network
-func (p *Project) connectRouter(ctx context.Context) error {
-	return p.connectSharedService(ctx, "router",
-		func(ctx context.Context, mgr *services.Manager) error { return mgr.StartRouter(ctx) },
-		func(ctx context.Context, mgr *services.Manager, network string) error {
-			return mgr.ConnectRouterToProject(ctx, network)
-		},
-	)
-}
-
-// disconnectRouter disconnects the shared router from this project's network
-func (p *Project) disconnectRouter(ctx context.Context) {
-	p.disconnectSharedService(ctx, func(ctx context.Context, mgr *services.Manager, network string) error {
-		return mgr.DisconnectRouterFromProject(ctx, network)
-	})
-}
-
-// connectMail connects the shared mail service to this project's network
-func (p *Project) connectMail(ctx context.Context) error {
-	return p.connectSharedService(ctx, "mail",
-		func(ctx context.Context, mgr *services.Manager) error { return mgr.StartMail(ctx) },
-		func(ctx context.Context, mgr *services.Manager, network string) error { return mgr.ConnectMailToProject(ctx, network) },
-	)
-}
-
-// disconnectMail disconnects the shared mail service from this project's network
-func (p *Project) disconnectMail(ctx context.Context) {
-	p.disconnectSharedService(ctx, func(ctx context.Context, mgr *services.Manager, network string) error {
-		return mgr.DisconnectMailFromProject(ctx, network)
-	})
-}
-
-// connectDBUI connects the shared database UI service to this project's network
-func (p *Project) connectDBUI(ctx context.Context) error {
-	return p.connectSharedService(ctx, "DBUI",
-		func(ctx context.Context, mgr *services.Manager) error { return mgr.StartDBUI(ctx) },
-		func(ctx context.Context, mgr *services.Manager, network string) error { return mgr.ConnectDBUIToProject(ctx, network) },
-	)
-}
-
-// disconnectDBUI disconnects the shared database UI service from this project's network
-func (p *Project) disconnectDBUI(ctx context.Context) {
-	p.disconnectSharedService(ctx, func(ctx context.Context, mgr *services.Manager, network string) error {
-		return mgr.DisconnectDBUIFromProject(ctx, network)
-	})
-}
-
-// connectRedisInsights connects the shared Redis Insights service to this project's network
-func (p *Project) connectRedisInsights(ctx context.Context) error {
-	return p.connectSharedService(ctx, "Redis Insights",
-		func(ctx context.Context, mgr *services.Manager) error { return mgr.StartRedisInsights(ctx) },
-		func(ctx context.Context, mgr *services.Manager, network string) error { return mgr.ConnectRedisInsightsToProject(ctx, network) },
-	)
-}
-
-// disconnectRedisInsights disconnects the shared Redis Insights service from this project's network
-func (p *Project) disconnectRedisInsights(ctx context.Context) {
-	p.disconnectSharedService(ctx, func(ctx context.Context, mgr *services.Manager, network string) error {
-		return mgr.DisconnectRedisInsightsFromProject(ctx, network)
-	})
+	return services.NewManager(cfg), nil
 }
 
 // configureRouting adds Traefik labels for routing based on the routing config

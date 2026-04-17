@@ -32,25 +32,15 @@ func init() {
 }
 
 func runVolumes(cmd *cobra.Command, args []string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	if err := requireDocker(ctx); err != nil {
-		return err
-	}
-
-	// --global: list volumes for all registered projects
-	if volumesGlobal {
-		return listGlobalVolumes(ctx)
-	}
-
-	// Project name argument: list volumes for that project
-	if len(args) == 1 {
-		return listProjectVolumesByName(ctx, args[0])
-	}
-
-	// Default: list volumes for current project
-	return listCurrentProjectVolumes(ctx)
+	return withDocker(30*time.Second, func(ctx context.Context) error {
+		if volumesGlobal {
+			return listGlobalVolumes(ctx)
+		}
+		if len(args) == 1 {
+			return listProjectVolumesByName(ctx, args[0])
+		}
+		return listCurrentProjectVolumes(ctx)
+	})
 }
 
 func listCurrentProjectVolumes(ctx context.Context) error {

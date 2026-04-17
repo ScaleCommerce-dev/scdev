@@ -26,18 +26,12 @@ func init() {
 }
 
 func runStatus(cmd *cobra.Command, args []string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
+	return withProject(30*time.Second, func(ctx context.Context, proj *project.Project) error {
+		return runStatusImpl(ctx, proj)
+	})
+}
 
-	if err := requireDocker(ctx); err != nil {
-		return err
-	}
-
-	proj, err := project.Load()
-	if err != nil {
-		return err
-	}
-
+func runStatusImpl(ctx context.Context, proj *project.Project) error {
 	// Load global config for terminal settings
 	cfg, _ := config.LoadGlobalConfig()
 	plainMode := cfg != nil && ui.PlainMode(cfg.Terminal.Plain)

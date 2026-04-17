@@ -26,23 +26,15 @@ func init() {
 }
 
 func runStart(cmd *cobra.Command, args []string) error {
-	// Check if first-run setup is needed
+	// Check if first-run setup is needed (before we touch Docker)
 	if _, err := RunSystemcheckIfNeeded(); err != nil {
 		return err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-	defer cancel()
+	return withProject(5*time.Minute, runStartImpl)
+}
 
-	if err := requireDocker(ctx); err != nil {
-		return err
-	}
-
-	proj, err := project.Load()
-	if err != nil {
-		return err
-	}
-
+func runStartImpl(ctx context.Context, proj *project.Project) error {
 	// Verify domain DNS resolves to 127.0.0.1
 	if _, err := config.VerifyDomainDNS(proj.Config.Domain); err != nil {
 		return fmt.Errorf("DNS verification failed: %w", err)
@@ -58,31 +50,29 @@ func runStart(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Update docs page with current project info
 	updateDocsWithProjects(ctx)
 
-	if !startQuiet {
-		fmt.Println()
-		fmt.Println("Project Info:")
-		fmt.Println()
-		if err := showProjectInfo(ctx, proj); err != nil {
-			return err
-		}
-
-		// Auto-open project URL in browser if configured
-		if proj.Config.AutoOpenAtStart {
-			globalCfg, err := config.LoadGlobalConfig()
-			if err == nil {
-				protocol := "http"
-				if globalCfg.SSL.Enabled {
-					protocol = "https"
-				}
-				url := fmt.Sprintf("%s://%s", protocol, proj.Config.Domain)
-				fmt.Printf("\nOpening %s\n", url)
-				_ = openBrowser(url)
-			}
-		}
+	if startQuiet {
+		return nil
 	}
 
+	fmt.Println()
+	fmt.Println("Project Info:")
+	fmt.Println()
+	if err := showProjectInfo(ctx, proj); err != nil {
+		return err
+	}
+
+	if proj.Config.AutoOpenAtStart {
+		if globalCfg, err := config.LoadGlobalConfig(); err == nil {
+			protocol := "http"
+			if globalCfg.SSL.Enabled {
+				protocol = "https"
+			}
+			url := fmt.Sprintf("%s://%s", protocol, proj.Config.Domain)
+			fmt.Printf("\nOpening %s\n", url)
+			_ = openBrowser(url)
+		}
+	}
 	return nil
 }

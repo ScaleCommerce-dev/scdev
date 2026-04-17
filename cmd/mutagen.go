@@ -45,19 +45,10 @@ func init() {
 }
 
 func runMutagenStatus(cmd *cobra.Command, args []string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
+	return withProject(30*time.Second, runMutagenStatusImpl)
+}
 
-	if err := requireDocker(ctx); err != nil {
-		return err
-	}
-
-	// Load project
-	proj, err := project.Load()
-	if err != nil {
-		return err
-	}
-
+func runMutagenStatusImpl(ctx context.Context, proj *project.Project) error {
 	// Check if Mutagen is enabled
 	if !proj.IsMutagenEnabled() {
 		fmt.Println("Mutagen file sync is disabled")
@@ -109,19 +100,10 @@ func runMutagenStatus(cmd *cobra.Command, args []string) error {
 }
 
 func runMutagenReset(cmd *cobra.Command, args []string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-	defer cancel()
+	return withProject(5*time.Minute, runMutagenResetImpl)
+}
 
-	if err := requireDocker(ctx); err != nil {
-		return err
-	}
-
-	// Load project
-	proj, err := project.Load()
-	if err != nil {
-		return err
-	}
-
+func runMutagenResetImpl(ctx context.Context, proj *project.Project) error {
 	// Check if Mutagen is enabled
 	if !proj.IsMutagenEnabled() {
 		return fmt.Errorf("Mutagen file sync is disabled - enable it in ~/.scdev/global-config.yaml")
@@ -207,19 +189,10 @@ func runMutagenReset(cmd *cobra.Command, args []string) error {
 }
 
 func runMutagenFlush(cmd *cobra.Command, args []string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-	defer cancel()
+	return withProject(5*time.Minute, runMutagenFlushImpl)
+}
 
-	if err := requireDocker(ctx); err != nil {
-		return err
-	}
-
-	// Load project
-	proj, err := project.Load()
-	if err != nil {
-		return err
-	}
-
+func runMutagenFlushImpl(ctx context.Context, proj *project.Project) error {
 	// Check if Mutagen is enabled
 	if !proj.IsMutagenEnabled() {
 		return fmt.Errorf("Mutagen file sync is disabled - enable it in ~/.scdev/global-config.yaml")

@@ -78,14 +78,12 @@ func init() {
 }
 
 func runLinkCreate(cmd *cobra.Command, args []string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
+	return withDocker(30*time.Second, func(ctx context.Context) error {
+		return runLinkCreateImpl(ctx, args[0])
+	})
+}
 
-	if err := requireDocker(ctx); err != nil {
-		return err
-	}
-
-	name := args[0]
+func runLinkCreateImpl(ctx context.Context, name string) error {
 
 	if err := state.ValidateLinkName(name); err != nil {
 		return err
@@ -121,14 +119,12 @@ func runLinkCreate(cmd *cobra.Command, args []string) error {
 }
 
 func runLinkDelete(cmd *cobra.Command, args []string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
+	return withDocker(30*time.Second, func(ctx context.Context) error {
+		return runLinkDeleteImpl(ctx, args[0])
+	})
+}
 
-	if err := requireDocker(ctx); err != nil {
-		return err
-	}
-
-	name := args[0]
+func runLinkDeleteImpl(ctx context.Context, name string) error {
 
 	stateMgr, err := state.DefaultManager()
 	if err != nil {
@@ -165,15 +161,12 @@ func runLinkDelete(cmd *cobra.Command, args []string) error {
 }
 
 func runLinkJoin(cmd *cobra.Command, args []string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
+	return withDocker(30*time.Second, func(ctx context.Context) error {
+		return runLinkJoinImpl(ctx, args[0], args[1:])
+	})
+}
 
-	if err := requireDocker(ctx); err != nil {
-		return err
-	}
-
-	name := args[0]
-	memberArgs := args[1:]
+func runLinkJoinImpl(ctx context.Context, name string, memberArgs []string) error {
 
 	stateMgr, err := state.DefaultManager()
 	if err != nil {
@@ -260,15 +253,12 @@ func runLinkJoin(cmd *cobra.Command, args []string) error {
 }
 
 func runLinkLeave(cmd *cobra.Command, args []string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
+	return withDocker(30*time.Second, func(ctx context.Context) error {
+		return runLinkLeaveImpl(ctx, args[0], args[1:])
+	})
+}
 
-	if err := requireDocker(ctx); err != nil {
-		return err
-	}
-
-	name := args[0]
-	memberArgs := args[1:]
+func runLinkLeaveImpl(ctx context.Context, name string, memberArgs []string) error {
 
 	stateMgr, err := state.DefaultManager()
 	if err != nil {
@@ -350,14 +340,12 @@ func runLinkLs(cmd *cobra.Command, args []string) error {
 }
 
 func runLinkStatus(cmd *cobra.Command, args []string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
+	return withDocker(30*time.Second, func(ctx context.Context) error {
+		return runLinkStatusImpl(ctx, args[0])
+	})
+}
 
-	if err := requireDocker(ctx); err != nil {
-		return err
-	}
-
-	name := args[0]
+func runLinkStatusImpl(ctx context.Context, name string) error {
 
 	stateMgr, err := state.DefaultManager()
 	if err != nil {

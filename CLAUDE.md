@@ -34,25 +34,26 @@ Release process:
 
 - **`internal/config/defaults.go`** is the single source of truth for images, versions, and the default domain. Change once, everything picks it up.
 - **`buildContainerConfig()` in `internal/project/project.go`** is the single source of truth for container configuration. It stamps an `scdev.config-hash` label covering image, env, volumes, command, working dir, routing labels, ports, and network aliases. `scdev update` recreates any service whose stamped hash differs. **Any new service config field that should shape a container must flow through `buildContainerConfig` - otherwise `scdev update` won't detect changes to it.**
-- **`runtime.ComputeConfigHash` / `runtime.StampConfigHash` in `internal/runtime/confighash.go`** are the shared hash helpers. Project `buildContainerConfig` and every shared-service `*ContainerConfig` function (`services/adminer.go`, `mail.go`, `redis_insights.go`, `router.go`) stamp the same `scdev.config-hash` label. `services.Manager.startService` compares the running container's hash to the freshly built expected config on every call and recreates on mismatch - this is what makes `scdev services start` pick up SSL/image/domain changes instead of silently starting a stale container. **Any new shared-service config field that should shape the container must flow through the `*ContainerConfig` function so it ends up in the hash; don't add per-field comparators.** The router has a port-superset carve-out: `StartRouter` hashes against the UNION of the running container's ports and state-required ports, so extra ports from a now-removed project don't force a recreate. Intentional port shrinking still happens via `RefreshRouter` on project removal.
+- **`runtime.ComputeConfigHash` / `runtime.StampConfigHash` in `internal/runtime/confighash.go`** are the shared hash helpers. Project `buildContainerConfig` and every shared-service `*ContainerConfig` function (`internal/services/adminer.go`, `mail.go`, `redis_insights.go`, `router.go`) stamp the same `scdev.config-hash` label. `services.Manager.startService` compares the running container's hash to the freshly built expected config on every call and recreates on mismatch - this is what makes `scdev services start` pick up SSL/image/domain changes instead of silently starting a stale container. **Any new shared-service config field that should shape the container must flow through the `*ContainerConfig` function so it ends up in the hash; don't add per-field comparators.** The router has a port-superset carve-out: `StartRouter` hashes against the UNION of the running container's ports and state-required ports, so extra ports from a now-removed project don't force a recreate. Intentional port shrinking still happens via `RefreshRouter` on project removal.
 - **`ContainerNameFor(service, project)`** builds container names without a loaded `Project`. Use it instead of `fmt.Sprintf("%s.%s.scdev", ...)`.
 - **Link networks** are runtime relationships between projects, stored in global state (`~/.scdev/state.yaml`), not project config. Each creates a `scdev_link_<name>` network. Containers resolve each other by container name via Docker's embedded DNS.
 - **Template repos** follow the naming convention `scdev-template-<name>` (matters for `scdev create` resolution).
 
 ## Adding Docker-Dependent Commands
 
-Call `requireDocker(ctx)` as the first line of `RunE` (defined in `cmd/shared.go`). Without it users get cryptic low-level failures instead of a clear "Docker isn't running" message.
+Use `withProject(timeout, fn)` or `withDocker(timeout, fn)` from `cmd/shared.go`. They handle the context, `requireDocker` check, and (for `withProject`) `project.Load` in one line. Without the Docker check users get cryptic low-level failures instead of a clear "Docker isn't running" message.
 
 ### Adding a Shared Service
 
 Easy-to-miss steps when wiring a new shared service:
 
 1. Container name constant in `internal/services/<service>.go`.
-2. `Start<Service>` / `Stop<Service>` / `<Service>Status` on `manager.go`.
-3. `Connect<Service>ToProject` **must pass network aliases** so project containers can resolve it by short name.
-4. Update `runServicesRecreate()` in `cmd/services.go` - stop/remove/start.
-5. Wire into `cmd/services.go` start/stop/status commands.
+2. `<Service>ContainerConfig(...)` function that stamps `runtime.StampConfigHash` - same pattern as `mail.go` / `redis_insights.go`.
+3. `Start<Service>` / `Stop<Service>` / `<Service>Status` on `manager.go`.
+4. `Connect<Service>ToProject` **must pass network aliases** so project containers can resolve it by short name.
+5. Add an entry to `AllSharedServices()` in `internal/services/registry.go` - this single registry drives CLI start/stop/status, `services recreate`, and per-project connect/disconnect. **Do not add parallel registries in `cmd/` or `internal/project/`.**
 6. Add the image constant to `internal/config/defaults.go`.
+7. Add the per-project opt-in flag to `ProjectSharedConfig` in `internal/config/config.go` and reference it in the registry's `ProjectEnabled` closure.
 
 ## Gotchas
 

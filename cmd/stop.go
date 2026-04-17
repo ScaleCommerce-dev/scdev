@@ -21,27 +21,16 @@ func init() {
 }
 
 func runStop(cmd *cobra.Command, args []string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	defer cancel()
+	return withProject(2*time.Minute, func(ctx context.Context, proj *project.Project) error {
+		fmt.Printf("Stopping project %s...\n", proj.Config.Name)
 
-	if err := requireDocker(ctx); err != nil {
-		return err
-	}
+		if err := proj.Stop(ctx); err != nil {
+			return err
+		}
 
-	proj, err := project.Load()
-	if err != nil {
-		return err
-	}
+		updateDocsWithProjects(ctx)
 
-	fmt.Printf("Stopping project %s...\n", proj.Config.Name)
-
-	if err := proj.Stop(ctx); err != nil {
-		return err
-	}
-
-	// Update docs page with current project info
-	updateDocsWithProjects(ctx)
-
-	fmt.Printf("Project %s stopped\n", proj.Config.Name)
-	return nil
+		fmt.Printf("Project %s stopped\n", proj.Config.Name)
+		return nil
+	})
 }

@@ -32,18 +32,6 @@ func runExec(cmd *cobra.Command, args []string) error {
 		return cmd.Help()
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
-	defer cancel()
-
-	if err := requireDocker(ctx); err != nil {
-		return err
-	}
-
-	proj, err := project.Load()
-	if err != nil {
-		return err
-	}
-
 	service := args[0]
 	command := args[1:]
 
@@ -56,10 +44,11 @@ func runExec(cmd *cobra.Command, args []string) error {
 		return cmd.Help()
 	}
 
-	opts := project.ExecOptions{
-		User:    execUser,
-		Workdir: execWorkdir,
-	}
-
-	return proj.Exec(ctx, service, command, true, opts)
+	return withProject(30*time.Minute, func(ctx context.Context, proj *project.Project) error {
+		opts := project.ExecOptions{
+			User:    execUser,
+			Workdir: execWorkdir,
+		}
+		return proj.Exec(ctx, service, command, true, opts)
+	})
 }

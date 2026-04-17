@@ -21,33 +21,18 @@ func init() {
 }
 
 func runRestart(cmd *cobra.Command, args []string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 7*time.Minute)
-	defer cancel()
+	return withProject(7*time.Minute, func(ctx context.Context, proj *project.Project) error {
+		fmt.Printf("Restarting project %s...\n", proj.Config.Name)
 
-	if err := requireDocker(ctx); err != nil {
-		return err
-	}
+		if err := proj.Restart(ctx); err != nil {
+			return err
+		}
 
-	proj, err := project.Load()
-	if err != nil {
-		return err
-	}
+		updateDocsWithProjects(ctx)
 
-	fmt.Printf("Restarting project %s...\n", proj.Config.Name)
-
-	if err := proj.Restart(ctx); err != nil {
-		return err
-	}
-
-	// Update docs page with current project info
-	updateDocsWithProjects(ctx)
-
-	fmt.Println()
-	fmt.Println("Project Info:")
-	fmt.Println()
-	if err := showProjectInfo(ctx, proj); err != nil {
-		return err
-	}
-
-	return nil
+		fmt.Println()
+		fmt.Println("Project Info:")
+		fmt.Println()
+		return showProjectInfo(ctx, proj)
+	})
 }

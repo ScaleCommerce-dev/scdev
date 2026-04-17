@@ -33,11 +33,11 @@ func init() {
 }
 
 func runLogs(cmd *cobra.Command, args []string) error {
-	// Create a context that cancels on interrupt
+	// logs has a unique lifecycle: no timeout (may run forever with -f)
+	// and cancels on SIGINT/SIGTERM. withProject's fixed timeout doesn't fit.
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// Handle interrupt signal for clean exit when following
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 	go func() {
@@ -54,12 +54,10 @@ func runLogs(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Determine which service to show logs for
 	var service string
 	if len(args) > 0 {
 		service = args[0]
 	} else {
-		// Use first service
 		services := proj.ServiceNames()
 		if len(services) == 0 {
 			return cmd.Help()
@@ -67,10 +65,8 @@ func runLogs(cmd *cobra.Command, args []string) error {
 		service = services[0]
 	}
 
-	opts := project.LogsOptions{
+	return proj.Logs(ctx, service, project.LogsOptions{
 		Follow: logsFollow,
 		Tail:   logsTail,
-	}
-
-	return proj.Logs(ctx, service, opts)
+	})
 }

@@ -35,18 +35,12 @@ func init() {
 }
 
 func runCleanup(cmd *cobra.Command, args []string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	defer cancel()
-
-	if err := requireDocker(ctx); err != nil {
-		return err
-	}
-
-	if cleanupGlobal {
-		return runGlobalCleanup(ctx)
-	}
-
-	return runProjectCleanup(ctx)
+	return withDocker(2*time.Minute, func(ctx context.Context) error {
+		if cleanupGlobal {
+			return runGlobalCleanup(ctx)
+		}
+		return runProjectCleanup(ctx)
+	})
 }
 
 func runProjectCleanup(ctx context.Context) error {

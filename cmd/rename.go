@@ -35,26 +35,19 @@ func init() {
 }
 
 func runRename(cmd *cobra.Command, args []string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
-	defer cancel()
-
-	if err := requireDocker(ctx); err != nil {
-		return err
-	}
-
 	newName := args[0]
 
-	// Validate new name (DNS-safe)
+	// Validate new name (DNS-safe) up front so we fail fast before touching Docker.
 	if err := create.ValidateName(newName); err != nil {
 		return err
 	}
 
-	// Load current project
-	proj, err := project.Load()
-	if err != nil {
-		return err
-	}
+	return withProject(10*time.Minute, func(ctx context.Context, proj *project.Project) error {
+		return runRenameImpl(ctx, proj, newName)
+	})
+}
 
+func runRenameImpl(ctx context.Context, proj *project.Project, newName string) error {
 	oldName := proj.Config.Name
 
 	if oldName == newName {
