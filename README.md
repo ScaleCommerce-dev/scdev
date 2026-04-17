@@ -318,6 +318,8 @@ scdev info        # Show project info, URLs, services
 scdev list        # List all projects
 scdev config      # Show resolved configuration
 scdev status      # Quick status check
+scdev open        # Open the current project's URL in the browser
+scdev open my-app # Open another registered project's URL
 ```
 
 ### Shared Services

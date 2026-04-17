@@ -53,6 +53,7 @@ scdev step "Installing dependencies"   # 2 blank lines + cyan ▶ + bold text;
 # Logs and info
 scdev logs [service]             # First service if omitted. -f to follow, --tail N to limit
 scdev info / status / config     # Project info, status, resolved config
+scdev open [project]             # Open project URL in browser (current project, or a registered one by name)
 scdev rename <new-name>          # Migrate containers/volumes/network/link memberships to a new name
 
 # Shared services
