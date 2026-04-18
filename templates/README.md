@@ -11,17 +11,15 @@ scdev create ./local-dir my-app         # Local directory (for development/testi
 ---
 
 > [!TIP]
-> ## 🤖  Building a template with Claude Code?
+> ## 🤖  Let Claude Code help you build the template
 >
-> **Install the `scdev` skill** so Claude knows about `.setup-complete`, the `sh -c`-wrapped `command:` field, framework scaffolding strategies, PHP/Node landmines, and every pattern in this document — without you having to re-explain them in every session.
+> **Install the `scdev` skill** and Claude Code can drive the whole template-authoring workflow for you — picking images, writing `config.yaml`, scaffolding `setup.just`, testing the run, and iterating when something breaks.
 >
 > ```bash
-> # One-time symlink — picks up edits to this repo automatically
-> mkdir -p ~/.claude/skills
-> ln -s ~/work/scdev/skills/scdev ~/.claude/skills/scdev
+> npx skills add scalecommerce-dev/scdev
 > ```
 >
-> Verify Claude can see it: start a new Claude Code session, the skill appears in the available-skills list and triggers on phrases like "create an scdev template", "setup.just", or any `.scdev/config.yaml` question.
+> Then start a Claude Code session and say something like *"create an scdev template for Foo"*. The skill triggers automatically on template-authoring phrases and on any `.scdev/config.yaml` or `setup.just` question.
 
 ---
 
