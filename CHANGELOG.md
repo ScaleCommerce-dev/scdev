@@ -1,3 +1,9 @@
+## v0.6.5
+
+### Features
+
+- **Transparent forwarding of colon-namespaced subcommands via `scdev <cmd>`** - when a justfile declares a recipe literally named after the file (e.g. `console *args:` in `console.just`), scdev now invokes just as `just -f console.just console <args...>` so arguments containing colons (`cache:clear`, `db:migrate`, `dal:refresh:index`) flow through as recipe parameters instead of being parsed as just's module-path separator. Template authors can now wrap CLIs like `bin/console` or `artisan` with a single catch-all recipe - `scdev console cache:clear` forwards straight to `bin/console cache:clear` inside the container. Without a filename-matching recipe, behavior is unchanged (first arg is the recipe name), so existing templates keep working.
+
 ## v0.6.4
 
 ### Bug Fixes
