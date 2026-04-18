@@ -1,3 +1,9 @@
+## v0.6.6
+
+### Features
+
+- **`scdev cleanup` now prunes only truly unused resources** - previously the bare command deleted every volume of the current project, and `--global` deleted volumes across every registered project plus orphans, contradicting how "cleanup" is normally understood (cf. `docker system prune`, `npm cache clean`) and making the command unsafe to run without thinking. The `--global` flag is gone; `scdev cleanup` now lists and removes (in one combined confirm): (1) state entries whose project directory is missing from disk, (2) containers carrying the `scdev.project` label whose project is no longer registered + on disk, (3) volumes not owned by any still-registered project. Orphaned containers are removed before volumes so the old "volume is in use" failure - which hit projects whose state was dropped but whose containers stayed alive - no longer blocks the volume pass. Resources belonging to still-registered projects are never touched; use `scdev remove` for a full project tear-down.
+
 ## v0.6.5
 
 ### Features
