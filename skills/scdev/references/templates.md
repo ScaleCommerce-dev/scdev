@@ -78,6 +78,21 @@ Conventions:
 - `[no-exit-message]` suppresses just's exit message
 - Break long chains into separate `scdev exec` calls with a `@scdev step` marker between them
 
+## Forwarding colon-namespaced CLIs
+
+For wrappers like `bin/console cache:clear` or `artisan migrate:fresh`, declare a recipe
+named after the file. scdev auto-prepends it so colon args pass through as recipe params
+instead of being parsed as just's module path:
+
+```just
+# .scdev/commands/console.just
+console *args:
+    scdev exec app php bin/console {{args}}
+```
+
+`scdev console cache:clear` -> `bin/console cache:clear`. Without a filename-matching
+recipe, the first arg is still treated as the recipe name (legacy behavior).
+
 ## Handling Framework Scaffolding
 
 When the framework has a create command that expects an empty directory:

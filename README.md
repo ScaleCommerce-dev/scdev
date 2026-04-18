@@ -283,6 +283,16 @@ scdev test           # run tests
 scdev test watch     # run tests in watch mode
 ```
 
+For CLIs with colon-namespaced subcommands (`cache:clear`, `migrate:fresh`), declare a recipe named after the file - args pass through verbatim:
+
+```just
+# .scdev/commands/console.just
+console *args:
+    scdev exec app php bin/console {{args}}
+```
+
+`scdev console cache:clear` -> `bin/console cache:clear`.
+
 Agents can `ls .scdev/commands/` to discover all available project tasks.
 
 ### Project Isolation

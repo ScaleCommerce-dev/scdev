@@ -231,6 +231,18 @@ e2e:                    # scdev test e2e
     scdev exec app pnpm test:e2e
 ```
 
+### Transparent forwarding (colon-namespaced subcommands)
+
+To wrap CLIs like `bin/console cache:clear` or `artisan migrate:fresh`, declare a recipe named after the file. scdev auto-prepends it so args with colons pass through as recipe parameters instead of being parsed as just's module path:
+
+```just
+# .scdev/commands/console.just
+console *args:
+    scdev exec app php bin/console {{args}}
+```
+
+Now `scdev console cache:clear` -> `bin/console cache:clear`. Without a filename-matching recipe, the legacy behavior holds (first arg is the recipe name), so `test.just` above keeps working.
+
 Templates typically include at least `setup.just`. You can add more commands for common tasks like running tests, seeding databases, or deploying. These commands are discoverable - `scdev --help` lists them, and agents can `ls .scdev/commands/` to find them.
 
 Justfiles run on the **host**, not inside the container. Use `scdev exec app <command>` to run things inside the container.
