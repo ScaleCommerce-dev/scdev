@@ -8,6 +8,23 @@ scdev create express my-app             # Shorthand for ScaleCommerce-DEV/scdev-
 scdev create ./local-dir my-app         # Local directory (for development/testing)
 ```
 
+---
+
+> [!TIP]
+> ## 🤖  Building a template with Claude Code?
+>
+> **Install the `scdev` skill** so Claude knows about `.setup-complete`, the `sh -c`-wrapped `command:` field, framework scaffolding strategies, PHP/Node landmines, and every pattern in this document — without you having to re-explain them in every session.
+>
+> ```bash
+> # One-time symlink — picks up edits to this repo automatically
+> mkdir -p ~/.claude/skills
+> ln -s ~/work/scdev/skills/scdev ~/.claude/skills/scdev
+> ```
+>
+> Verify Claude can see it: start a new Claude Code session, the skill appears in the available-skills list and triggers on phrases like "create an scdev template", "setup.just", or any `.scdev/config.yaml` question.
+
+---
+
 ## What's in a template
 
 Every template has the same base structure:
@@ -505,6 +522,9 @@ Browse all available templates on GitHub: [ScaleCommerce-DEV repositories matchi
 
 **Container crashes before setup runs.**
 The entrypoint must keep the container alive when `.setup-complete` doesn't exist. Use the wait loop pattern. Never use a command that can fail before setup (like `pnpm start` unconditionally).
+
+**Auxiliary container (db, queue, cache) exits immediately with `sh: 0: Illegal option --`.**
+The `command:` field in `.scdev/config.yaml` is wrapped in `sh -c "<value>"`, not passed as a raw Docker CMD array. Flag-style args like `command: --group_concat_max_len=320000` go straight to `sh` which rejects them. If you need to pass flags to the image's default binary (e.g. MariaDB, RabbitMQ), wrap them yourself: `command: exec mariadbd --group_concat_max_len=320000 --sort_buffer_size=2M` — or supply a config file via a volume mount instead.
 
 **`scdev exec` fails with "service not running".**
 The container crashed. Check `scdev logs` to see why. Common causes: the entrypoint command failed, missing `.setup-complete` wait loop, or a syntax error in the shell command.
