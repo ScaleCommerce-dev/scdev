@@ -115,7 +115,7 @@ Default project lifecycle: `scdev start` -> develop -> `scdev stop` (or `scdev d
 **Shared services (mgmt):** `services start|stop|status|recreate`
 **Cross-project networks:** `link create|delete|join|leave|ls|status`
 **Mutagen:** `mutagen status|reset|flush`
-**System:** `systemcheck [--install-ca]`, `version`, `self-update`, `cleanup [--global]`, `volumes [--global]`
+**System:** `systemcheck [--install-ca]`, `version`, `self-update`, `cleanup`, `volumes [--global]`
 **Internal helpers:** `step <message>` (for template justfiles - bold cyan progress marker)
 **Custom:** Any `.scdev/commands/<name>.just` becomes `scdev <name>`
 
