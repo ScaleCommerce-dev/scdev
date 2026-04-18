@@ -117,6 +117,35 @@ func (d *DockerCLI) RemoveContainer(ctx context.Context, nameOrID string) error 
 	return err
 }
 
+// ForceRemoveContainer stops (if running) and removes a container in one call.
+func (d *DockerCLI) ForceRemoveContainer(ctx context.Context, nameOrID string) error {
+	_, err := d.run(ctx, "rm", "-f", nameOrID)
+	return err
+}
+
+// ListContainers returns the names of containers matching the given filter
+// (e.g. "label=scdev.project"). Includes stopped containers.
+func (d *DockerCLI) ListContainers(ctx context.Context, filter string) ([]string, error) {
+	args := []string{"ps", "-a", "--format", "{{.Names}}"}
+	if filter != "" {
+		args = append(args, "--filter", filter)
+	}
+
+	out, err := d.run(ctx, args...)
+	if err != nil {
+		return nil, err
+	}
+
+	var names []string
+	for _, name := range strings.Split(strings.TrimSpace(out), "\n") {
+		if name == "" {
+			continue
+		}
+		names = append(names, name)
+	}
+	return names, nil
+}
+
 // LogsOptions configures log streaming behavior
 type LogsOptions struct {
 	Follow bool // Stream logs in real-time (-f)

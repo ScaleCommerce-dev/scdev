@@ -17,13 +17,14 @@ var cleanupForce bool
 
 var cleanupCmd = &cobra.Command{
 	Use:   "cleanup",
-	Short: "Remove unused volumes and stale project registrations",
+	Short: "Remove unused containers, volumes and stale project registrations",
 	Long: `Prune resources no longer associated with any live project:
 
+  - Orphaned Docker containers (labelled scdev.project but no matching registration)
   - Orphaned Docker volumes (not owned by any registered project)
   - Stale state entries whose project directory no longer exists on disk
 
-Volumes belonging to still-registered projects are never touched - remove those
+Resources belonging to still-registered projects are never touched - remove those
 explicitly with scdev remove.
 
 Use --force to skip the confirmation prompt.`,
@@ -63,6 +64,19 @@ func runCleanup(cmd *cobra.Command, args []string) error {
 		}
 
 		docker := runtime.NewDockerCLI()
+
+		containers, err := docker.ListContainers(ctx, "label=scdev.project")
+		if err != nil {
+			return fmt.Errorf("failed to list Docker containers: %w", err)
+		}
+
+		var orphanContainers []string
+		for _, name := range containers {
+			if !ownedByLiveProject(name, liveNames) {
+				orphanContainers = append(orphanContainers, name)
+			}
+		}
+
 		dockerVolumes, err := docker.ListVolumes(ctx, "name=.scdev")
 		if err != nil {
 			return fmt.Errorf("failed to list Docker volumes: %w", err)
@@ -70,15 +84,16 @@ func runCleanup(cmd *cobra.Command, args []string) error {
 
 		var orphanVolumes []string
 		for _, vol := range dockerVolumes {
-			if !volumeOwnedByLiveProject(vol.Name, liveNames) {
+			if !ownedByLiveProject(vol.Name, liveNames) {
 				orphanVolumes = append(orphanVolumes, vol.Name)
 			}
 		}
 
 		sort.Slice(staleProjects, func(i, j int) bool { return staleProjects[i].name < staleProjects[j].name })
+		sort.Strings(orphanContainers)
 		sort.Strings(orphanVolumes)
 
-		if len(staleProjects) == 0 && len(orphanVolumes) == 0 {
+		if len(staleProjects) == 0 && len(orphanContainers) == 0 && len(orphanVolumes) == 0 {
 			fmt.Println("Nothing to clean up.")
 			return nil
 		}
@@ -87,6 +102,14 @@ func runCleanup(cmd *cobra.Command, args []string) error {
 			fmt.Printf("Stale project registrations (%d) - directory missing on disk:\n", len(staleProjects))
 			for _, p := range staleProjects {
 				fmt.Printf("  - %s (%s)\n", p.name, p.path)
+			}
+			fmt.Println()
+		}
+
+		if len(orphanContainers) > 0 {
+			fmt.Printf("Orphaned containers (%d) - not owned by any registered project:\n", len(orphanContainers))
+			for _, name := range orphanContainers {
+				fmt.Printf("  - %s\n", name)
 			}
 			fmt.Println()
 		}
@@ -100,7 +123,7 @@ func runCleanup(cmd *cobra.Command, args []string) error {
 		}
 
 		if !cleanupForce {
-			if !confirm("Proceed? [y/N]: ") {
+			if !confirm("Delete the items above? [y/N]: ") {
 				fmt.Println("Aborted.")
 				return nil
 			}
@@ -115,9 +138,18 @@ func runCleanup(cmd *cobra.Command, args []string) error {
 			}
 		}
 
+		for _, name := range orphanContainers {
+			fmt.Printf("Removing container %s... ", name)
+			if err := docker.ForceRemoveContainer(ctx, name); err != nil {
+				fmt.Printf("failed: %v\n", err)
+			} else {
+				fmt.Println("done")
+			}
+		}
+
 		var deleted, failed int
 		for _, name := range orphanVolumes {
-			fmt.Printf("Removing %s... ", name)
+			fmt.Printf("Removing volume %s... ", name)
 			if err := docker.RemoveVolume(ctx, name); err != nil {
 				fmt.Printf("failed: %v\n", err)
 				failed++
@@ -139,14 +171,15 @@ func runCleanup(cmd *cobra.Command, args []string) error {
 	})
 }
 
-// volumeOwnedByLiveProject reports whether a Docker volume name
-// (<base>.<projectname>.scdev) belongs to a currently-registered project
-// whose directory still exists on disk.
-func volumeOwnedByLiveProject(volumeName string, liveNames map[string]bool) bool {
-	if !strings.HasSuffix(volumeName, ".scdev") {
+// ownedByLiveProject reports whether a scdev resource name
+// (<base>.<projectname>.scdev - shared by containers and volumes)
+// belongs to a currently-registered project whose directory still
+// exists on disk.
+func ownedByLiveProject(name string, liveNames map[string]bool) bool {
+	if !strings.HasSuffix(name, ".scdev") {
 		return false
 	}
-	trimmed := strings.TrimSuffix(volumeName, ".scdev")
+	trimmed := strings.TrimSuffix(name, ".scdev")
 	dot := strings.LastIndex(trimmed, ".")
 	if dot < 0 {
 		return false
