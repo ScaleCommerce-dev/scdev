@@ -1,3 +1,9 @@
+## v0.6.4
+
+### Bug Fixes
+
+- **Fix `scdev exec` printing `Error: exit status N` on non-zero shell exit** - when an interactive shell started via `scdev exec <service> sh` exited with a non-zero code (Ctrl+D on some shells returns 130, a failed command inside the shell returns its own code), cobra wrapped the child's exit in `Error: exit status N` and the scdev process itself exited with 1, losing the original exit code. Ctrl+D out of an exec'd shell now returns cleanly to the host shell with no error output, and any non-zero child exit code is propagated verbatim instead of being squashed to 1. Matches how `docker exec` and standard shells behave.
+
 ## v0.6.3
 
 ### Bug Fixes
