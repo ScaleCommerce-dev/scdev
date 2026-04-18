@@ -2,6 +2,9 @@ package cmd
 
 import (
 	"context"
+	"errors"
+	"os"
+	"os/exec"
 	"time"
 
 	"github.com/ScaleCommerce-DEV/scdev/internal/project"
@@ -44,11 +47,20 @@ func runExec(cmd *cobra.Command, args []string) error {
 		return cmd.Help()
 	}
 
-	return withProject(30*time.Minute, func(ctx context.Context, proj *project.Project) error {
+	err := withProject(30*time.Minute, func(ctx context.Context, proj *project.Project) error {
 		opts := project.ExecOptions{
 			User:    execUser,
 			Workdir: execWorkdir,
 		}
 		return proj.Exec(ctx, service, command, true, opts)
 	})
+
+	// Propagate the child process's exit code without letting cobra print
+	// "Error: exit status N". This matches how `docker exec` and shells behave:
+	// a non-zero exit from the inner command is not an scdev failure.
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) {
+		os.Exit(exitErr.ExitCode())
+	}
+	return err
 }
