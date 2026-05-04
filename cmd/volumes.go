@@ -6,9 +6,9 @@ import (
 	"sort"
 	"time"
 
-	"github.com/ScaleCommerce-DEV/scdev/internal/project"
-	"github.com/ScaleCommerce-DEV/scdev/internal/runtime"
-	"github.com/ScaleCommerce-DEV/scdev/internal/state"
+	"github.com/0ploy/zdev/internal/project"
+	"github.com/0ploy/zdev/internal/runtime"
+	"github.com/0ploy/zdev/internal/state"
 	"github.com/spf13/cobra"
 )
 
@@ -139,7 +139,7 @@ func listGlobalVolumes(ctx context.Context) error {
 
 	// Check for orphaned volumes (exist in Docker but not in any registered project)
 	docker := runtime.NewDockerCLI()
-	dockerVolumes, err := docker.ListVolumes(ctx, "name=.scdev")
+	dockerVolumes, err := docker.ListVolumes(ctx, "name=.zdev")
 	if err != nil {
 		// Non-fatal: just skip orphan detection
 		return nil

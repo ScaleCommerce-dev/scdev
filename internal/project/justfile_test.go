@@ -8,14 +8,14 @@ import (
 
 func TestGetJustfileFromDir(t *testing.T) {
 	// Create temp directory structure
-	tmpDir, err := os.MkdirTemp("", "scdev-test-*")
+	tmpDir, err := os.MkdirTemp("", "zdev-test-*")
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create .scdev/commands directory
-	commandsDir := filepath.Join(tmpDir, ".scdev", "commands")
+	// Create .zdev/commands directory
+	commandsDir := filepath.Join(tmpDir, ".zdev", "commands")
 	if err := os.MkdirAll(commandsDir, 0755); err != nil {
 		t.Fatalf("failed to create commands dir: %v", err)
 	}
@@ -65,14 +65,14 @@ func TestGetJustfileFromDir(t *testing.T) {
 
 func TestDiscoverJustfiles(t *testing.T) {
 	// Create temp directory structure
-	tmpDir, err := os.MkdirTemp("", "scdev-test-*")
+	tmpDir, err := os.MkdirTemp("", "zdev-test-*")
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create .scdev/commands directory
-	commandsDir := filepath.Join(tmpDir, ".scdev", "commands")
+	// Create .zdev/commands directory
+	commandsDir := filepath.Join(tmpDir, ".zdev", "commands")
 	if err := os.MkdirAll(commandsDir, 0755); err != nil {
 		t.Fatalf("failed to create commands dir: %v", err)
 	}
@@ -99,7 +99,7 @@ func TestDiscoverJustfiles(t *testing.T) {
 	}
 
 	// Create a minimal project config
-	configPath := filepath.Join(tmpDir, ".scdev", "config.yaml")
+	configPath := filepath.Join(tmpDir, ".zdev", "config.yaml")
 	configContent := `version: 1
 name: test-project
 services:
@@ -141,19 +141,19 @@ services:
 
 func TestDiscoverJustfilesNoCommandsDir(t *testing.T) {
 	// Create temp directory without commands dir
-	tmpDir, err := os.MkdirTemp("", "scdev-test-*")
+	tmpDir, err := os.MkdirTemp("", "zdev-test-*")
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create minimal .scdev directory with config only
-	scdevDir := filepath.Join(tmpDir, ".scdev")
-	if err := os.MkdirAll(scdevDir, 0755); err != nil {
-		t.Fatalf("failed to create .scdev dir: %v", err)
+	// Create minimal .zdev directory with config only
+	zdevDir := filepath.Join(tmpDir, ".zdev")
+	if err := os.MkdirAll(zdevDir, 0755); err != nil {
+		t.Fatalf("failed to create .zdev dir: %v", err)
 	}
 
-	configPath := filepath.Join(scdevDir, "config.yaml")
+	configPath := filepath.Join(zdevDir, "config.yaml")
 	configContent := `version: 1
 name: test-project
 services:
@@ -183,19 +183,19 @@ services:
 
 func TestBuildJustEnv(t *testing.T) {
 	// Create temp directory structure
-	tmpDir, err := os.MkdirTemp("", "scdev-test-*")
+	tmpDir, err := os.MkdirTemp("", "zdev-test-*")
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create .scdev directory
-	scdevDir := filepath.Join(tmpDir, ".scdev")
-	if err := os.MkdirAll(scdevDir, 0755); err != nil {
-		t.Fatalf("failed to create .scdev dir: %v", err)
+	// Create .zdev directory
+	zdevDir := filepath.Join(tmpDir, ".zdev")
+	if err := os.MkdirAll(zdevDir, 0755); err != nil {
+		t.Fatalf("failed to create .zdev dir: %v", err)
 	}
 
-	configPath := filepath.Join(scdevDir, "config.yaml")
+	configPath := filepath.Join(zdevDir, "config.yaml")
 	configContent := `version: 1
 name: my-project
 environment:
@@ -231,13 +231,13 @@ services:
 		t.Errorf("expected PROJECTDIR %q, got %q", filepath.Base(tmpDir), env["PROJECTDIR"])
 	}
 
-	// Check that SCDEV_DOMAIN and SCDEV_HOME are set (values depend on system)
-	if env["SCDEV_DOMAIN"] == "" {
-		t.Error("expected SCDEV_DOMAIN to be set")
+	// Check that ZDEV_DOMAIN and ZDEV_HOME are set (values depend on system)
+	if env["ZDEV_DOMAIN"] == "" {
+		t.Error("expected ZDEV_DOMAIN to be set")
 	}
 
-	if env["SCDEV_HOME"] == "" {
-		t.Error("expected SCDEV_HOME to be set")
+	if env["ZDEV_HOME"] == "" {
+		t.Error("expected ZDEV_HOME to be set")
 	}
 
 	// Check project environment variables

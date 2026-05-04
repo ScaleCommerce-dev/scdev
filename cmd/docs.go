@@ -4,17 +4,17 @@ import (
 	"context"
 	"sort"
 
-	"github.com/ScaleCommerce-DEV/scdev/internal/config"
-	"github.com/ScaleCommerce-DEV/scdev/internal/project"
-	"github.com/ScaleCommerce-DEV/scdev/internal/services"
-	"github.com/ScaleCommerce-DEV/scdev/internal/state"
+	"github.com/0ploy/zdev/internal/config"
+	"github.com/0ploy/zdev/internal/project"
+	"github.com/0ploy/zdev/internal/services"
+	"github.com/0ploy/zdev/internal/state"
 	"github.com/spf13/cobra"
 )
 
 var docsCmd = &cobra.Command{
 	Use:   "docs",
 	Short: "Open documentation page",
-	Long:  `Open the scdev documentation page in your default browser. This page provides quick reference and links to all shared services.`,
+	Long:  `Open the zdev documentation page in your default browser. This page provides quick reference and links to all shared services.`,
 	RunE:  runDocs,
 }
 

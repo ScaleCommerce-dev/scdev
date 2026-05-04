@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ScaleCommerce-DEV/scdev/internal/config"
-	"github.com/ScaleCommerce-DEV/scdev/internal/runtime"
+	"github.com/0ploy/zdev/internal/config"
+	"github.com/0ploy/zdev/internal/runtime"
 )
 
 // Integration tests require Docker to be running
@@ -147,7 +147,7 @@ func TestManager_RouterLifecycle(t *testing.T) {
 	// Test: Connect to project network
 	t.Run("ConnectRouterToProject", func(t *testing.T) {
 		// Create a test network
-		testNetwork := "scdev_test_project"
+		testNetwork := "zdev_test_project"
 		_ = docker.RemoveNetwork(ctx, testNetwork)
 		if err := docker.CreateNetwork(ctx, testNetwork); err != nil {
 			t.Fatalf("CreateNetwork failed: %v", err)
@@ -191,8 +191,8 @@ func TestManager_NetworkConnect(t *testing.T) {
 	defer cancel()
 
 	docker := runtime.NewDockerCLI()
-	testNetwork := "scdev_network_test"
-	testContainer := "scdev_network_test_container"
+	testNetwork := "zdev_network_test"
+	testContainer := "zdev_network_test_container"
 
 	// Cleanup
 	defer func() {
@@ -427,7 +427,7 @@ func TestManager_DBUILifecycle(t *testing.T) {
 	// Test: HTTP health check - verifies Adminer loads without PHP errors
 	t.Run("HTTPHealthCheck", func(t *testing.T) {
 		// Test HTTP routing via Traefik with retries (Traefik needs time to pick up labels)
-		// DefaultDomain (scalecommerce.site) is a wildcard that resolves to 127.0.0.1
+		// DefaultDomain (0ploy.dev) is a wildcard that resolves to 127.0.0.1
 		url := fmt.Sprintf("http://db.shared.%s", cfg.Domain)
 		client := &http.Client{Timeout: 5 * time.Second}
 
@@ -457,7 +457,7 @@ func TestManager_DBUILifecycle(t *testing.T) {
 	// Test: Connect to project network
 	t.Run("ConnectDBUIToProject", func(t *testing.T) {
 		// Create a test network
-		testNetwork := "scdev_dbui_test_project"
+		testNetwork := "zdev_dbui_test_project"
 		_ = docker.RemoveNetwork(ctx, testNetwork)
 		if err := docker.CreateNetwork(ctx, testNetwork); err != nil {
 			t.Fatalf("CreateNetwork failed: %v", err)

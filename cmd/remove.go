@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ScaleCommerce-DEV/scdev/internal/project"
-	"github.com/ScaleCommerce-DEV/scdev/internal/state"
+	"github.com/0ploy/zdev/internal/project"
+	"github.com/0ploy/zdev/internal/state"
 	"github.com/spf13/cobra"
 )
 
@@ -19,7 +19,7 @@ var removeCmd = &cobra.Command{
 	Use:               "remove NAME",
 	Short:             "Remove a project from the registry",
 	Long: `Remove a registered project by name. If the project directory still exists,
-containers and networks are cleaned up (like 'scdev down'). If the directory
+containers and networks are cleaned up (like 'zdev down'). If the directory
 no longer exists, the stale entry is simply removed from the registry.`,
 	Args:              cobra.ExactArgs(1),
 	ValidArgsFunction: completeProjectNames,

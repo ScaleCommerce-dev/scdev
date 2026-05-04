@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ScaleCommerce-DEV/scdev/internal/config"
-	"github.com/ScaleCommerce-DEV/scdev/internal/mutagen"
-	"github.com/ScaleCommerce-DEV/scdev/internal/runtime"
-	"github.com/ScaleCommerce-DEV/scdev/internal/tools"
+	"github.com/0ploy/zdev/internal/config"
+	"github.com/0ploy/zdev/internal/mutagen"
+	"github.com/0ploy/zdev/internal/runtime"
+	"github.com/0ploy/zdev/internal/tools"
 )
 
 // MutagenSyncMount describes a bind mount to be synced via Mutagen
@@ -24,15 +24,15 @@ type MutagenSyncMount struct {
 }
 
 // MutagenSessionName returns the Mutagen session name for a service
-// Pattern: scdev-<project>-<service> (hyphens - Mutagen only allows alphanumeric and hyphens)
+// Pattern: zdev-<project>-<service> (hyphens - Mutagen only allows alphanumeric and hyphens)
 func (p *Project) MutagenSessionName(serviceName string) string {
-	return fmt.Sprintf("scdev-%s-%s", p.Config.Name, serviceName)
+	return fmt.Sprintf("zdev-%s-%s", p.Config.Name, serviceName)
 }
 
 // MutagenVolumeName returns the Docker volume name for Mutagen sync
 // Same as session name for clarity
 func (p *Project) MutagenVolumeName(serviceName string) string {
-	return fmt.Sprintf("sync.%s.%s.scdev", serviceName, p.Config.Name)
+	return fmt.Sprintf("sync.%s.%s.zdev", serviceName, p.Config.Name)
 }
 
 // isBindMount checks if a volume string represents a bind mount (vs named volume)
@@ -336,7 +336,7 @@ func (p *Project) signalSyncReady(ctx context.Context, mounts []MutagenSyncMount
 	for _, mount := range mounts {
 		containerName := p.ContainerName(mount.ServiceName)
 		err := p.Runtime.Exec(ctx, containerName,
-			[]string{"sh", "-c", "touch /.scdev-sync-ready"}, false, runtime.ExecOptions{})
+			[]string{"sh", "-c", "touch /.zdev-sync-ready"}, false, runtime.ExecOptions{})
 		if err != nil {
 			fmt.Printf("Warning: could not signal sync-ready for %s: %v\n", mount.ServiceName, err)
 		}

@@ -15,10 +15,10 @@ import (
 
 const (
 	// DefaultGitHubOrg is the default GitHub organization for template shorthand names
-	DefaultGitHubOrg = "ScaleCommerce-DEV"
+	DefaultGitHubOrg = "0ploy"
 
 	// TemplateRepoPrefix is prepended to bare template names for GitHub resolution
-	TemplateRepoPrefix = "scdev-template-"
+	TemplateRepoPrefix = "zdev-template-"
 )
 
 // TemplateSource represents where a template comes from
@@ -55,7 +55,7 @@ func ValidateName(name string) error {
 // Resolution rules:
 //   - Starts with /, ./, ../, ~ -> local directory
 //   - Contains / (e.g. myorg/myrepo) -> GitHub owner/repo
-//   - Bare name (e.g. express) -> GitHub ScaleCommerce-DEV/scdev-template-<name>
+//   - Bare name (e.g. express) -> GitHub 0ploy/zdev-template-<name>
 func ResolveTemplate(template, branch, tag string) (*TemplateSource, error) {
 	if branch != "" && tag != "" {
 		return nil, fmt.Errorf("--branch and --tag are mutually exclusive")

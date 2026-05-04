@@ -3,8 +3,8 @@ package cmd
 import (
 	"strings"
 
-	"github.com/ScaleCommerce-DEV/scdev/internal/config"
-	"github.com/ScaleCommerce-DEV/scdev/internal/ui"
+	"github.com/0ploy/zdev/internal/config"
+	"github.com/0ploy/zdev/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -13,15 +13,15 @@ var stepCmd = &cobra.Command{
 	Short: "Print a visually distinct status step",
 	Long: `Print a visually distinct status step (two blank lines, colored prefix, bold text).
 
-Intended for use inside .scdev/commands/*.just recipes so template progress
+Intended for use inside .zdev/commands/*.just recipes so template progress
 markers stand out against verbose nested command output. Example:
 
     setup:
-        @scdev step "Installing PHP extensions"
-        scdev exec app sh -c "apk add ..."
+        @zdev step "Installing PHP extensions"
+        zdev exec app sh -c "apk add ..."
 
-        @scdev step "Scaffolding project"
-        scdev exec app composer create-project ...`,
+        @zdev step "Scaffolding project"
+        zdev exec app composer create-project ...`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		message := strings.Join(args, " ")

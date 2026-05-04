@@ -6,7 +6,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/ScaleCommerce-DEV/scdev/internal/ui"
+	"github.com/0ploy/zdev/internal/ui"
 )
 
 // DNSCheckResult contains the result of a DNS verification
@@ -92,7 +92,7 @@ func VerifyDomainDNS(domain string) (*DNSCheckResult, error) {
 
 	msg := fmt.Sprintf("domain %q does not resolve to 127.0.0.1\n"+
 		"  Resolved to: %v\n\n"+
-		"scdev requires the domain to have a wildcard DNS record pointing to 127.0.0.1.\n"+
+		"zdev requires the domain to have a wildcard DNS record pointing to 127.0.0.1.\n"+
 		"The default domain %q should work out of the box.\n"+
 		"If using a custom domain, ensure *.yourdomain.com resolves to 127.0.0.1",
 		domain, resolvedIPs, DefaultDomain)

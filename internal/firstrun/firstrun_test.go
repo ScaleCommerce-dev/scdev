@@ -5,19 +5,19 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/ScaleCommerce-DEV/scdev/internal/config"
+	"github.com/0ploy/zdev/internal/config"
 )
 
 func TestIsInitialized(t *testing.T) {
 	// Create a temp directory
-	tmpDir, err := os.MkdirTemp("", "scdev-firstrun-test-*")
+	tmpDir, err := os.MkdirTemp("", "zdev-firstrun-test-*")
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
 	defer os.RemoveAll(tmpDir)
 
 	mgr := &Manager{
-		scdevHome:  tmpDir,
+		zdevHome:  tmpDir,
 		domain:     config.DefaultDomain,
 		sslEnabled: true,
 	}
@@ -42,17 +42,17 @@ func TestIsInitialized(t *testing.T) {
 
 func TestMarkInitialized(t *testing.T) {
 	// Create a temp directory
-	tmpDir, err := os.MkdirTemp("", "scdev-firstrun-test-*")
+	tmpDir, err := os.MkdirTemp("", "zdev-firstrun-test-*")
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
 	defer os.RemoveAll(tmpDir)
 
 	// Use a subdirectory that doesn't exist yet
-	scdevHome := filepath.Join(tmpDir, "subdir", ".scdev")
+	zdevHome := filepath.Join(tmpDir, "subdir", ".zdev")
 
 	mgr := &Manager{
-		scdevHome:  scdevHome,
+		zdevHome:  zdevHome,
 		domain:     config.DefaultDomain,
 		sslEnabled: true,
 	}
@@ -62,7 +62,7 @@ func TestMarkInitialized(t *testing.T) {
 			t.Fatalf("MarkInitialized failed: %v", err)
 		}
 
-		markerPath := filepath.Join(scdevHome, InitializedFileName)
+		markerPath := filepath.Join(zdevHome, InitializedFileName)
 		if _, err := os.Stat(markerPath); err != nil {
 			t.Errorf("marker file should exist: %v", err)
 		}
@@ -75,7 +75,7 @@ func TestMarkInitialized(t *testing.T) {
 
 func TestNewManager(t *testing.T) {
 	cfg := &config.GlobalConfig{
-		Domain: "scalecommerce.site",
+		Domain: "0ploy.dev",
 		SSL: config.SSLConfig{
 			Enabled: true,
 		},
@@ -86,16 +86,16 @@ func TestNewManager(t *testing.T) {
 		t.Fatalf("NewManager failed: %v", err)
 	}
 
-	if mgr.domain != "scalecommerce.site" {
-		t.Errorf("expected domain 'scalecommerce.site', got %q", mgr.domain)
+	if mgr.domain != "0ploy.dev" {
+		t.Errorf("expected domain '0ploy.dev', got %q", mgr.domain)
 	}
 
 	if !mgr.sslEnabled {
 		t.Error("expected sslEnabled to be true")
 	}
 
-	if mgr.scdevHome == "" {
-		t.Error("expected scdevHome to be set")
+	if mgr.zdevHome == "" {
+		t.Error("expected zdevHome to be set")
 	}
 }
 

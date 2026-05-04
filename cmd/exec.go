@@ -7,7 +7,7 @@ import (
 	"os/exec"
 	"time"
 
-	"github.com/ScaleCommerce-DEV/scdev/internal/project"
+	"github.com/0ploy/zdev/internal/project"
 	"github.com/spf13/cobra"
 )
 
@@ -38,7 +38,7 @@ func runExec(cmd *cobra.Command, args []string) error {
 	service := args[0]
 	command := args[1:]
 
-	// Strip leading "--" separator if present (common pattern: scdev exec app -- cmd)
+	// Strip leading "--" separator if present (common pattern: zdev exec app -- cmd)
 	if len(command) > 0 && command[0] == "--" {
 		command = command[1:]
 	}
@@ -57,7 +57,7 @@ func runExec(cmd *cobra.Command, args []string) error {
 
 	// Propagate the child process's exit code without letting cobra print
 	// "Error: exit status N". This matches how `docker exec` and shells behave:
-	// a non-zero exit from the inner command is not an scdev failure.
+	// a non-zero exit from the inner command is not an zdev failure.
 	var exitErr *exec.ExitError
 	if errors.As(err, &exitErr) {
 		os.Exit(exitErr.ExitCode())

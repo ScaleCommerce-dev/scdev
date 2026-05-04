@@ -12,10 +12,10 @@ func TestCopyLocal_Integration(t *testing.T) {
 	// Create a realistic template structure
 	srcDir := t.TempDir()
 
-	// .scdev/config.yaml
-	os.MkdirAll(filepath.Join(srcDir, ".scdev", "commands"), 0755)
-	os.WriteFile(filepath.Join(srcDir, ".scdev", "config.yaml"), []byte("version: 1\nname: ${PROJECTDIR}\n"), 0644)
-	os.WriteFile(filepath.Join(srcDir, ".scdev", "commands", "setup.just"), []byte("default:\n    echo setup\n"), 0644)
+	// .zdev/config.yaml
+	os.MkdirAll(filepath.Join(srcDir, ".zdev", "commands"), 0755)
+	os.WriteFile(filepath.Join(srcDir, ".zdev", "config.yaml"), []byte("version: 1\nname: ${PROJECTDIR}\n"), 0644)
+	os.WriteFile(filepath.Join(srcDir, ".zdev", "commands", "setup.just"), []byte("default:\n    echo setup\n"), 0644)
 
 	// App files
 	os.WriteFile(filepath.Join(srcDir, "app.js"), []byte("console.log('hello');\n"), 0644)
@@ -34,8 +34,8 @@ func TestCopyLocal_Integration(t *testing.T) {
 
 	// Verify all expected files exist
 	expectedFiles := []string{
-		".scdev/config.yaml",
-		".scdev/commands/setup.just",
+		".zdev/config.yaml",
+		".zdev/commands/setup.just",
 		"app.js",
 		"package.json",
 		".gitignore",
@@ -52,7 +52,7 @@ func TestCopyLocal_Integration(t *testing.T) {
 	}
 
 	// Verify content integrity
-	data, _ := os.ReadFile(filepath.Join(dstDir, ".scdev", "config.yaml"))
+	data, _ := os.ReadFile(filepath.Join(dstDir, ".zdev", "config.yaml"))
 	if string(data) != "version: 1\nname: ${PROJECTDIR}\n" {
 		t.Errorf("config content mismatch: %q", string(data))
 	}
@@ -61,15 +61,15 @@ func TestCopyLocal_Integration(t *testing.T) {
 func TestCreateFromLocalTemplate_Integration(t *testing.T) {
 	// Create a template
 	templateDir := t.TempDir()
-	os.MkdirAll(filepath.Join(templateDir, ".scdev", "commands"), 0755)
-	os.WriteFile(filepath.Join(templateDir, ".scdev", "config.yaml"), []byte(`version: 1
+	os.MkdirAll(filepath.Join(templateDir, ".zdev", "commands"), 0755)
+	os.WriteFile(filepath.Join(templateDir, ".zdev", "config.yaml"), []byte(`version: 1
 name: ${PROJECTDIR}
 services:
   app:
     image: alpine:latest
     command: sleep infinity
 `), 0644)
-	os.WriteFile(filepath.Join(templateDir, ".scdev", "commands", "setup.just"), []byte("default:\n    echo setup\n"), 0644)
+	os.WriteFile(filepath.Join(templateDir, ".zdev", "commands", "setup.just"), []byte("default:\n    echo setup\n"), 0644)
 
 	// Create project from template
 	targetDir := filepath.Join(t.TempDir(), "my-project")
@@ -82,13 +82,13 @@ services:
 		t.Fatalf("CopyLocal failed: %v", err)
 	}
 
-	// Verify the project is a valid scdev project
-	configPath := filepath.Join(targetDir, ".scdev", "config.yaml")
+	// Verify the project is a valid zdev project
+	configPath := filepath.Join(targetDir, ".zdev", "config.yaml")
 	if _, err := os.Stat(configPath); err != nil {
 		t.Fatal("config.yaml not found in created project")
 	}
 
-	justfilePath := filepath.Join(targetDir, ".scdev", "commands", "setup.just")
+	justfilePath := filepath.Join(targetDir, ".zdev", "commands", "setup.just")
 	if _, err := os.Stat(justfilePath); err != nil {
 		t.Fatal("setup.just not found in created project")
 	}

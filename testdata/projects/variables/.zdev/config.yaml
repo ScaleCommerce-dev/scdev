@@ -20,7 +20,7 @@ services:
     command: sleep infinity
     routing:
       port: 4000
-      domain: api.${PROJECTNAME}.scalecommerce.site
+      domain: api.${PROJECTNAME}.0ploy.dev
 
   db:
     image: mysql:8.0

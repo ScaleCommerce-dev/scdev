@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/ScaleCommerce-DEV/scdev/cmd"
+	"github.com/0ploy/zdev/cmd"
 )
 
 func main() {

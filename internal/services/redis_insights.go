@@ -3,11 +3,11 @@ package services
 import (
 	"fmt"
 
-	"github.com/ScaleCommerce-DEV/scdev/internal/runtime"
+	"github.com/0ploy/zdev/internal/runtime"
 )
 
 // RedisInsightsContainerName is the name of the Redis Insights container
-const RedisInsightsContainerName = "scdev_redis"
+const RedisInsightsContainerName = "zdev_redis"
 
 // RedisInsightsServiceConfig holds configuration for the Redis Insights container
 type RedisInsightsServiceConfig struct {
@@ -21,8 +21,8 @@ func RedisInsightsContainerConfig(cfg RedisInsightsServiceConfig) runtime.Contai
 	redisHost := fmt.Sprintf("redis.shared.%s", cfg.Domain)
 
 	labels := map[string]string{
-		"scdev.managed":       "true",
-		"scdev.service":       "redis-insights",
+		"zdev.managed":       "true",
+		"zdev.service":       "redis-insights",
 		DozzleVisibilityLabel: "true",
 		DozzleGroupLabel:      DozzleSharedGroup,
 
@@ -31,20 +31,20 @@ func RedisInsightsContainerConfig(cfg RedisInsightsServiceConfig) runtime.Contai
 		"traefik.docker.network": SharedNetworkName,
 
 		// HTTP router for web UI
-		"traefik.http.routers.scdev-redis.rule":        fmt.Sprintf("Host(`%s`)", redisHost),
-		"traefik.http.routers.scdev-redis.entrypoints": "http",
-		"traefik.http.routers.scdev-redis.service":     "scdev-redis",
+		"traefik.http.routers.zdev-redis.rule":        fmt.Sprintf("Host(`%s`)", redisHost),
+		"traefik.http.routers.zdev-redis.entrypoints": "http",
+		"traefik.http.routers.zdev-redis.service":     "zdev-redis",
 
 		// Service pointing to Redis Insights web UI port
-		"traefik.http.services.scdev-redis.loadbalancer.server.port": "5540",
+		"traefik.http.services.zdev-redis.loadbalancer.server.port": "5540",
 	}
 
 	// Add HTTPS router if TLS is enabled
 	if cfg.TLSEnabled {
-		labels["traefik.http.routers.scdev-redis-https.rule"] = fmt.Sprintf("Host(`%s`)", redisHost)
-		labels["traefik.http.routers.scdev-redis-https.entrypoints"] = "https"
-		labels["traefik.http.routers.scdev-redis-https.tls"] = "true"
-		labels["traefik.http.routers.scdev-redis-https.service"] = "scdev-redis"
+		labels["traefik.http.routers.zdev-redis-https.rule"] = fmt.Sprintf("Host(`%s`)", redisHost)
+		labels["traefik.http.routers.zdev-redis-https.entrypoints"] = "https"
+		labels["traefik.http.routers.zdev-redis-https.tls"] = "true"
+		labels["traefik.http.routers.zdev-redis-https.service"] = "zdev-redis"
 	}
 
 	out := runtime.ContainerConfig{

@@ -123,15 +123,15 @@ func TestResolveTemplate_GitHub(t *testing.T) {
 		{
 			name:      "bare name",
 			template:  "express",
-			wantOwner: "ScaleCommerce-DEV",
-			wantRepo:  "scdev-template-express",
+			wantOwner: "0ploy",
+			wantRepo:  "zdev-template-express",
 		},
 		{
 			name:      "bare name with branch",
 			template:  "express",
 			branch:    "develop",
-			wantOwner: "ScaleCommerce-DEV",
-			wantRepo:  "scdev-template-express",
+			wantOwner: "0ploy",
+			wantRepo:  "zdev-template-express",
 			wantRef:   "develop",
 		},
 		{
@@ -198,9 +198,9 @@ func TestCopyLocal(t *testing.T) {
 	srcDir := t.TempDir()
 
 	// Create files and directories
-	os.MkdirAll(filepath.Join(srcDir, ".scdev", "commands"), 0755)
-	os.WriteFile(filepath.Join(srcDir, ".scdev", "config.yaml"), []byte("version: 1"), 0644)
-	os.WriteFile(filepath.Join(srcDir, ".scdev", "commands", "setup.just"), []byte("default:\n  echo hi"), 0644)
+	os.MkdirAll(filepath.Join(srcDir, ".zdev", "commands"), 0755)
+	os.WriteFile(filepath.Join(srcDir, ".zdev", "config.yaml"), []byte("version: 1"), 0644)
+	os.WriteFile(filepath.Join(srcDir, ".zdev", "commands", "setup.just"), []byte("default:\n  echo hi"), 0644)
 	os.WriteFile(filepath.Join(srcDir, "app.js"), []byte("console.log('hello')"), 0644)
 	os.WriteFile(filepath.Join(srcDir, "package.json"), []byte("{}"), 0644)
 
@@ -216,8 +216,8 @@ func TestCopyLocal(t *testing.T) {
 
 	// Verify expected files exist
 	expectedFiles := []string{
-		".scdev/config.yaml",
-		".scdev/commands/setup.just",
+		".zdev/config.yaml",
+		".zdev/commands/setup.just",
 		"app.js",
 		"package.json",
 	}
@@ -235,7 +235,7 @@ func TestCopyLocal(t *testing.T) {
 	}
 
 	// Verify file contents
-	data, err := os.ReadFile(filepath.Join(dstDir, ".scdev", "config.yaml"))
+	data, err := os.ReadFile(filepath.Join(dstDir, ".zdev", "config.yaml"))
 	if err != nil {
 		t.Fatalf("failed to read copied config: %v", err)
 	}

@@ -1,9 +1,9 @@
 #!/bin/sh
 set -e
 
-REPO="ScaleCommerce-DEV/scdev"
-BINARY="scdev"
-BIN_DIR="$HOME/.scdev/bin"
+REPO="0ploy/zdev"
+BINARY="zdev"
+BIN_DIR="$HOME/.zdev/bin"
 SYMLINK_DIR="/usr/local/bin"
 
 # Detect OS
@@ -24,14 +24,14 @@ esac
 
 # Check for Docker
 if ! command -v docker >/dev/null 2>&1; then
-  echo "Warning: Docker is not installed. scdev requires Docker to run."
+  echo "Warning: Docker is not installed. zdev requires Docker to run."
 fi
 
 ASSET="${BINARY}-${OS}-${ARCH}"
 URL="https://github.com/${REPO}/releases/latest/download/${ASSET}"
 CHECKSUMS_URL="https://github.com/${REPO}/releases/latest/download/checksums.txt"
 
-echo "Downloading scdev for ${OS}/${ARCH}..."
+echo "Downloading zdev for ${OS}/${ARCH}..."
 mkdir -p "$BIN_DIR"
 TMP_BIN="$(mktemp)"
 TMP_SUMS="$(mktemp)"
@@ -71,7 +71,7 @@ if [ "$OS" = "darwin" ] && command -v xattr >/dev/null 2>&1; then
 fi
 
 # Symlink into a PATH location. The real binary stays in the user-owned
-# $BIN_DIR so future `scdev self-update` runs never need sudo.
+# $BIN_DIR so future `zdev self-update` runs never need sudo.
 if [ -w "$SYMLINK_DIR" ]; then
   ln -sfn "$BIN_DIR/$BINARY" "$SYMLINK_DIR/$BINARY"
 else
@@ -79,6 +79,6 @@ else
   sudo ln -sfn "$BIN_DIR/$BINARY" "$SYMLINK_DIR/$BINARY"
 fi
 
-echo "scdev installed to ${BIN_DIR}/${BINARY}"
+echo "zdev installed to ${BIN_DIR}/${BINARY}"
 echo "  symlinked from ${SYMLINK_DIR}/${BINARY}"
-scdev version
+zdev version

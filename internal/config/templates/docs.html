@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>scdev - Local Development Environment</title>
+    <title>zdev - Local Development Environment</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -726,11 +726,11 @@ ${PROJECTS_SECTION}
                 </div>
                 <div class="config-item">
                     <span class="label">Global Config</span>
-                    <span class="value">~/.scdev/global-config.yaml</span>
+                    <span class="value">~/.zdev/global-config.yaml</span>
                 </div>
                 <div class="config-item">
                     <span class="label">Project Config</span>
-                    <span class="value">.scdev/config.yaml</span>
+                    <span class="value">.zdev/config.yaml</span>
                 </div>
             </div>
         </div>
@@ -739,20 +739,20 @@ ${PROJECTS_SECTION}
             <div class="section-label">Commands</div>
             <div class="cmd-table">
                 <div class="cmd-group-label">Project</div>
-                <div class="cmd-row"><code>scdev start</code> <span>Start project services</span></div>
-                <div class="cmd-row"><code>scdev stop</code> <span>Stop project services</span></div>
-                <div class="cmd-row"><code>scdev down [-v]</code> <span>Remove containers, optionally volumes</span></div>
-                <div class="cmd-row"><code>scdev restart</code> <span>Stop and start project</span></div>
-                <div class="cmd-row"><code>scdev exec &lt;svc&gt; &lt;cmd&gt;</code> <span>Run command in container</span></div>
-                <div class="cmd-row"><code>scdev logs [-f] [svc]</code> <span>View service logs</span></div>
-                <div class="cmd-row"><code>scdev info</code> <span>Show project details</span></div>
-                <div class="cmd-row"><code>scdev list</code> <span>List all projects</span></div>
+                <div class="cmd-row"><code>zdev start</code> <span>Start project services</span></div>
+                <div class="cmd-row"><code>zdev stop</code> <span>Stop project services</span></div>
+                <div class="cmd-row"><code>zdev down [-v]</code> <span>Remove containers, optionally volumes</span></div>
+                <div class="cmd-row"><code>zdev restart</code> <span>Stop and start project</span></div>
+                <div class="cmd-row"><code>zdev exec &lt;svc&gt; &lt;cmd&gt;</code> <span>Run command in container</span></div>
+                <div class="cmd-row"><code>zdev logs [-f] [svc]</code> <span>View service logs</span></div>
+                <div class="cmd-row"><code>zdev info</code> <span>Show project details</span></div>
+                <div class="cmd-row"><code>zdev list</code> <span>List all projects</span></div>
                 <div class="cmd-group-label">Shared Services</div>
-                <div class="cmd-row"><code>scdev services start|stop</code> <span>Start or stop shared services</span></div>
-                <div class="cmd-row"><code>scdev mail</code> <span>Open Mailpit</span></div>
-                <div class="cmd-row"><code>scdev db</code> <span>Open Adminer</span></div>
-                <div class="cmd-row"><code>scdev redis</code> <span>Open Redis Insights</span></div>
-                <div class="cmd-row"><code>scdev logs --open</code> <span>Open Dozzle log viewer</span></div>
+                <div class="cmd-row"><code>zdev services start|stop</code> <span>Start or stop shared services</span></div>
+                <div class="cmd-row"><code>zdev mail</code> <span>Open Mailpit</span></div>
+                <div class="cmd-row"><code>zdev db</code> <span>Open Adminer</span></div>
+                <div class="cmd-row"><code>zdev redis</code> <span>Open Redis Insights</span></div>
+                <div class="cmd-row"><code>zdev logs --open</code> <span>Open Dozzle log viewer</span></div>
             </div>
         </div>
 
@@ -763,8 +763,8 @@ ${PROJECTS_SECTION}
                     <div class="step">
                         <div class="step-num">1</div>
                         <div class="step-content">
-                            <p>Create <code>.scdev/config.yaml</code> in your project:</p>
-                            <pre><span class="file-label">.scdev/config.yaml</span><code><span class="y-k">version</span>: <span class="y-n">1</span>
+                            <p>Create <code>.zdev/config.yaml</code> in your project:</p>
+                            <pre><span class="file-label">.zdev/config.yaml</span><code><span class="y-k">version</span>: <span class="y-n">1</span>
 <span class="y-k">name</span>: <span class="y-s">my-project</span>
 <span class="y-k">domain</span>: <span class="y-s">my-project.${DOMAIN}</span>
 
@@ -785,7 +785,7 @@ ${PROJECTS_SECTION}
                         <div class="step-num">2</div>
                         <div class="step-content">
                             <p>Start everything:</p>
-                            <div class="terminal-line"><span class="prompt">$</span> scdev start</div>
+                            <div class="terminal-line"><span class="prompt">$</span> zdev start</div>
                         </div>
                     </div>
                     <div class="step">
@@ -799,8 +799,8 @@ ${PROJECTS_SECTION}
         </div>
 
         <footer>
-            <p>scdev &mdash; local development environment</p>
-            <a href="https://github.com/ScaleCommerce-DEV/scdev">github</a>
+            <p>zdev &mdash; local development environment</p>
+            <a href="https://github.com/0ploy/zdev">github</a>
         </footer>
     </div>
 </body>

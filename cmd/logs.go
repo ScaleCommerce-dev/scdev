@@ -6,8 +6,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/ScaleCommerce-DEV/scdev/internal/project"
-	"github.com/ScaleCommerce-DEV/scdev/internal/services"
+	"github.com/0ploy/zdev/internal/project"
+	"github.com/0ploy/zdev/internal/services"
 	"github.com/spf13/cobra"
 )
 

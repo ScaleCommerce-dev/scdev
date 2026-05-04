@@ -11,14 +11,14 @@ func TestSelfUpdateBinaryName(t *testing.T) {
 	if name == "" {
 		t.Error("selfUpdateBinaryName() returned empty string")
 	}
-	if name[:6] != "scdev-" {
-		t.Errorf("selfUpdateBinaryName() = %q, want prefix 'scdev-'", name)
+	if name[:5] != "zdev-" {
+		t.Errorf("selfUpdateBinaryName() = %q, want prefix 'zdev-'", name)
 	}
 }
 
 func TestAtomicSymlinkFresh(t *testing.T) {
 	dir := t.TempDir()
-	linkPath := filepath.Join(dir, "scdev")
+	linkPath := filepath.Join(dir, "zdev")
 	target := filepath.Join(dir, "real-target")
 
 	// Create the target so the symlink isn't dangling (not required, but
@@ -42,7 +42,7 @@ func TestAtomicSymlinkFresh(t *testing.T) {
 
 func TestAtomicSymlinkReplacesExistingFile(t *testing.T) {
 	dir := t.TempDir()
-	linkPath := filepath.Join(dir, "scdev")
+	linkPath := filepath.Join(dir, "zdev")
 	target := filepath.Join(dir, "real-target")
 
 	// Pre-existing plain file at linkPath - simulates the legacy layout.
@@ -84,7 +84,7 @@ func TestAtomicSymlinkFailsOnUnwritableParent(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = os.Chmod(parent, 0o755) })
 
-	linkPath := filepath.Join(parent, "scdev")
+	linkPath := filepath.Join(parent, "zdev")
 	err := atomicSymlink(linkPath, "/some/target")
 	if err == nil {
 		t.Errorf("expected error on read-only parent, got nil")
@@ -93,7 +93,7 @@ func TestAtomicSymlinkFailsOnUnwritableParent(t *testing.T) {
 
 func TestMigrateToSymlinkIsIdempotent(t *testing.T) {
 	dir := t.TempDir()
-	linkPath := filepath.Join(dir, "scdev")
+	linkPath := filepath.Join(dir, "zdev")
 	target := filepath.Join(dir, "real-target")
 
 	if err := os.WriteFile(target, []byte("bin"), 0o755); err != nil {
@@ -112,7 +112,7 @@ func TestMigrateToSymlinkIsIdempotent(t *testing.T) {
 
 func TestMigrateToSymlinkConvertsFileWithoutSudo(t *testing.T) {
 	dir := t.TempDir()
-	linkPath := filepath.Join(dir, "scdev")
+	linkPath := filepath.Join(dir, "zdev")
 	target := filepath.Join(dir, "real-target")
 
 	if err := os.WriteFile(linkPath, []byte("legacy"), 0o755); err != nil {
@@ -139,14 +139,14 @@ func TestMigrateToSymlinkConvertsFileWithoutSudo(t *testing.T) {
 
 func TestMigrateIfNeededNoOpWhenAlreadySymlinked(t *testing.T) {
 	dir := t.TempDir()
-	canonical := filepath.Join(dir, "canonical", "scdev")
+	canonical := filepath.Join(dir, "canonical", "zdev")
 	if err := os.MkdirAll(filepath.Dir(canonical), 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
 	if err := os.WriteFile(canonical, []byte("real"), 0o755); err != nil {
 		t.Fatalf("seed canonical: %v", err)
 	}
-	execPath := filepath.Join(dir, "scdev")
+	execPath := filepath.Join(dir, "zdev")
 	if err := os.Symlink(canonical, execPath); err != nil {
 		t.Fatalf("seed symlink: %v", err)
 	}
@@ -168,13 +168,13 @@ func TestMigrateIfNeededNoOpWhenAlreadySymlinked(t *testing.T) {
 
 func TestMigrateIfNeededConvertsLegacyLayout(t *testing.T) {
 	dir := t.TempDir()
-	canonical := filepath.Join(dir, "canonical", "scdev")
-	execPath := filepath.Join(dir, "bin", "scdev")
+	canonical := filepath.Join(dir, "canonical", "zdev")
+	execPath := filepath.Join(dir, "bin", "zdev")
 	if err := os.MkdirAll(filepath.Dir(execPath), 0o755); err != nil {
 		t.Fatalf("mkdir execPath: %v", err)
 	}
 	// Legacy: plain file at execPath, no canonical yet.
-	legacyBytes := []byte("#!/bin/sh\necho legacy scdev\n")
+	legacyBytes := []byte("#!/bin/sh\necho legacy zdev\n")
 	if err := os.WriteFile(execPath, legacyBytes, 0o755); err != nil {
 		t.Fatalf("seed legacy: %v", err)
 	}

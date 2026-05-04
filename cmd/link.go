@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ScaleCommerce-DEV/scdev/internal/config"
-	"github.com/ScaleCommerce-DEV/scdev/internal/project"
-	runtimePkg "github.com/ScaleCommerce-DEV/scdev/internal/runtime"
-	"github.com/ScaleCommerce-DEV/scdev/internal/state"
+	"github.com/0ploy/zdev/internal/config"
+	"github.com/0ploy/zdev/internal/project"
+	runtimePkg "github.com/0ploy/zdev/internal/runtime"
+	"github.com/0ploy/zdev/internal/state"
 	"github.com/spf13/cobra"
 )
 
@@ -178,7 +178,7 @@ func runLinkJoinImpl(ctx context.Context, name string, memberArgs []string) erro
 		return err
 	}
 	if link == nil {
-		return fmt.Errorf("link %q does not exist - create it first with: scdev link create %s", name, name)
+		return fmt.Errorf("link %q does not exist - create it first with: zdev link create %s", name, name)
 	}
 
 	// Parse and validate members
@@ -192,7 +192,7 @@ func runLinkJoinImpl(ctx context.Context, name string, memberArgs []string) erro
 			return err
 		}
 		if proj == nil {
-			return fmt.Errorf("project %q is not registered - start it first with: scdev start", member.Project)
+			return fmt.Errorf("project %q is not registered - start it first with: zdev start", member.Project)
 		}
 
 		// Validate service exists if specified

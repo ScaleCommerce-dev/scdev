@@ -6,28 +6,28 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/ScaleCommerce-DEV/scdev/internal/config"
-	"github.com/ScaleCommerce-DEV/scdev/internal/runtime"
-	"github.com/ScaleCommerce-DEV/scdev/internal/state"
+	"github.com/0ploy/zdev/internal/config"
+	"github.com/0ploy/zdev/internal/runtime"
+	"github.com/0ploy/zdev/internal/state"
 )
 
 const (
 	// SharedNetworkName is the name of the shared Docker network
-	SharedNetworkName = "scdev_shared"
+	SharedNetworkName = "zdev_shared"
 
 	// RouterContainerName is the name of the Traefik router container
-	RouterContainerName = "scdev_router"
+	RouterContainerName = "zdev_router"
 
 	// DozzleGroupLabel is the Docker label key Dozzle reads to cluster
 	// containers in the UI sidebar (https://dozzle.dev/guide/container-groups).
 	DozzleGroupLabel = "dev.dozzle.group"
 
-	// DozzleVisibilityLabel is the scdev-defined label key that gates
+	// DozzleVisibilityLabel is the zdev-defined label key that gates
 	// Dozzle visibility. Dozzle is started with DOZZLE_FILTER set to this
 	// label so containers without it are hidden, even though Dozzle has
 	// full Docker socket access. Shared services always set it; project
 	// containers only set it when shared.logs: true.
-	DozzleVisibilityLabel = "scdev.shared.logs"
+	DozzleVisibilityLabel = "zdev.shared.logs"
 
 	// DozzleSharedGroup is the dev.dozzle.group value stamped on every
 	// shared service container so they cluster together in the Dozzle UI
@@ -199,7 +199,7 @@ func (m *Manager) connectServiceToProject(ctx context.Context, containerName, di
 	}
 
 	if !status.Running {
-		return fmt.Errorf("%s is not running (start with: scdev services start)", strings.ToLower(displayName))
+		return fmt.Errorf("%s is not running (start with: zdev services start)", strings.ToLower(displayName))
 	}
 
 	if err := m.runtime.NetworkConnect(ctx, projectNetwork, containerName, aliases...); err != nil {
@@ -271,8 +271,8 @@ func (m *Manager) StartRouter(ctx context.Context) error {
 
 		// Union current + required so a smaller required set doesn't trigger
 		// a recreate - preserves "extra ports are fine" behavior.
-		effectiveTCP := unionPortSets(parsePortCSV(currentLabels["scdev.tcp-ports"]), tcpPorts)
-		effectiveUDP := unionPortSets(parsePortCSV(currentLabels["scdev.udp-ports"]), udpPorts)
+		effectiveTCP := unionPortSets(parsePortCSV(currentLabels["zdev.tcp-ports"]), tcpPorts)
+		effectiveUDP := unionPortSets(parsePortCSV(currentLabels["zdev.udp-ports"]), udpPorts)
 		expectedCfg := m.buildRouterContainerConfig(effectiveTCP, effectiveUDP)
 
 		if currentLabels[runtime.ConfigHashLabel] != expectedCfg.Labels[runtime.ConfigHashLabel] {
@@ -383,8 +383,8 @@ func (m *Manager) RefreshRouter(ctx context.Context) error {
 		return fmt.Errorf("failed to get router labels: %w", err)
 	}
 
-	currentTCP := labels["scdev.tcp-ports"]
-	currentUDP := labels["scdev.udp-ports"]
+	currentTCP := labels["zdev.tcp-ports"]
+	currentUDP := labels["zdev.udp-ports"]
 	requiredTCP := intsToString(tcpPorts)
 	requiredUDP := intsToString(udpPorts)
 
@@ -402,7 +402,7 @@ func (m *Manager) RefreshRouter(ctx context.Context) error {
 }
 
 // parsePortCSV parses the comma-separated port list stored in
-// scdev.tcp-ports / scdev.udp-ports labels back into []int. Empty or
+// zdev.tcp-ports / zdev.udp-ports labels back into []int. Empty or
 // malformed entries are skipped rather than erroring - a drifted label
 // just leads to a recreate, which is the fallback behavior we want.
 func parsePortCSV(s string) []int {

@@ -6,39 +6,39 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/ScaleCommerce-DEV/scdev/internal/config"
-	"github.com/ScaleCommerce-DEV/scdev/internal/runtime"
+	"github.com/0ploy/zdev/internal/config"
+	"github.com/0ploy/zdev/internal/runtime"
 )
 
-// setupTestEnv creates a temporary SCDEV_HOME and HOME directory with a
+// setupTestEnv creates a temporary ZDEV_HOME and HOME directory with a
 // global-config.yaml that has Mutagen disabled. Returns a cleanup function.
 func setupTestEnv(t *testing.T) func() {
 	t.Helper()
 
 	tmpDir := t.TempDir()
 
-	// Create .scdev dir inside tmp (for state.DefaultManager which uses HOME)
-	scdevDir := filepath.Join(tmpDir, ".scdev")
-	if err := os.MkdirAll(scdevDir, 0755); err != nil {
-		t.Fatalf("failed to create .scdev dir: %v", err)
+	// Create .zdev dir inside tmp (for state.DefaultManager which uses HOME)
+	zdevDir := filepath.Join(tmpDir, ".zdev")
+	if err := os.MkdirAll(zdevDir, 0755); err != nil {
+		t.Fatalf("failed to create .zdev dir: %v", err)
 	}
 
 	// Write global-config.yaml with Mutagen disabled
-	globalConfig := []byte("version: 1\ndomain: scalecommerce.site\nruntime: docker\nmutagen:\n  enabled: \"false\"\n")
-	if err := os.WriteFile(filepath.Join(scdevDir, "global-config.yaml"), globalConfig, 0644); err != nil {
+	globalConfig := []byte("version: 1\ndomain: 0ploy.dev\nruntime: docker\nmutagen:\n  enabled: \"false\"\n")
+	if err := os.WriteFile(filepath.Join(zdevDir, "global-config.yaml"), globalConfig, 0644); err != nil {
 		t.Fatalf("failed to write global-config.yaml: %v", err)
 	}
 
 	// Save and override env vars
 	oldHome := os.Getenv("HOME")
-	oldScdevHome := os.Getenv("SCDEV_HOME")
+	oldZdevHome := os.Getenv("ZDEV_HOME")
 
 	os.Setenv("HOME", tmpDir)
-	os.Setenv("SCDEV_HOME", scdevDir)
+	os.Setenv("ZDEV_HOME", zdevDir)
 
 	return func() {
 		os.Setenv("HOME", oldHome)
-		os.Setenv("SCDEV_HOME", oldScdevHome)
+		os.Setenv("ZDEV_HOME", oldZdevHome)
 	}
 }
 
@@ -164,7 +164,7 @@ func TestTransformVolumesForMutagen_NamedVolumePassesThrough(t *testing.T) {
 		t.Fatalf("got %d volumes, want 1", len(result))
 	}
 	// Named volume should be prefixed with project name
-	expected := "db_data.testproject.scdev"
+	expected := "db_data.testproject.zdev"
 	if result[0].Source != expected {
 		t.Errorf("source = %q, want %q", result[0].Source, expected)
 	}
@@ -182,8 +182,8 @@ func TestTransformVolumesForMutagen_BindMountWithMutagenMatch(t *testing.T) {
 			ServiceName:   "app",
 			HostPath:      "/tmp/test",
 			ContainerPath: "/var/www/html",
-			VolumeName:    "sync.app.testproject.scdev",
-			SessionName:   "scdev-testproject-app",
+			VolumeName:    "sync.app.testproject.zdev",
+			SessionName:   "zdev-testproject-app",
 		},
 	}
 	volumes := []string{".:/var/www/html"}
@@ -193,8 +193,8 @@ func TestTransformVolumesForMutagen_BindMountWithMutagenMatch(t *testing.T) {
 	if len(result) != 1 {
 		t.Fatalf("got %d volumes, want 1", len(result))
 	}
-	if result[0].Source != "sync.app.testproject.scdev" {
-		t.Errorf("source = %q, want %q", result[0].Source, "sync.app.testproject.scdev")
+	if result[0].Source != "sync.app.testproject.zdev" {
+		t.Errorf("source = %q, want %q", result[0].Source, "sync.app.testproject.zdev")
 	}
 	if result[0].Target != "/var/www/html" {
 		t.Errorf("target = %q, want %q", result[0].Target, "/var/www/html")
@@ -231,8 +231,8 @@ func TestTransformVolumesForMutagen_MixedVolumes(t *testing.T) {
 			ServiceName:   "app",
 			HostPath:      "/tmp/test",
 			ContainerPath: "/app",
-			VolumeName:    "sync.app.testproject.scdev",
-			SessionName:   "scdev-testproject-app",
+			VolumeName:    "sync.app.testproject.zdev",
+			SessionName:   "zdev-testproject-app",
 		},
 	}
 	volumes := []string{
@@ -248,13 +248,13 @@ func TestTransformVolumesForMutagen_MixedVolumes(t *testing.T) {
 	}
 
 	// Named volume - prefixed
-	if result[0].Source != "db_data.testproject.scdev" {
-		t.Errorf("vol[0] source = %q, want %q", result[0].Source, "db_data.testproject.scdev")
+	if result[0].Source != "db_data.testproject.zdev" {
+		t.Errorf("vol[0] source = %q, want %q", result[0].Source, "db_data.testproject.zdev")
 	}
 
 	// Bind mount replaced with Mutagen volume
-	if result[1].Source != "sync.app.testproject.scdev" {
-		t.Errorf("vol[1] source = %q, want %q", result[1].Source, "sync.app.testproject.scdev")
+	if result[1].Source != "sync.app.testproject.zdev" {
+		t.Errorf("vol[1] source = %q, want %q", result[1].Source, "sync.app.testproject.zdev")
 	}
 
 	// Bind mount without match stays as-is
@@ -272,13 +272,13 @@ func TestContainerName(t *testing.T) {
 	p := newTestProject(mock)
 
 	got := p.ContainerName("app")
-	want := "app.testproject.scdev"
+	want := "app.testproject.zdev"
 	if got != want {
 		t.Errorf("ContainerName = %q, want %q", got, want)
 	}
 
 	got = p.ContainerName("db")
-	want = "db.testproject.scdev"
+	want = "db.testproject.zdev"
 	if got != want {
 		t.Errorf("ContainerName = %q, want %q", got, want)
 	}
@@ -289,7 +289,7 @@ func TestNetworkName(t *testing.T) {
 	p := newTestProject(mock)
 
 	got := p.NetworkName()
-	want := "testproject.scdev"
+	want := "testproject.zdev"
 	if got != want {
 		t.Errorf("NetworkName = %q, want %q", got, want)
 	}
@@ -300,13 +300,13 @@ func TestVolumeName(t *testing.T) {
 	p := newTestProject(mock)
 
 	got := p.VolumeName("data")
-	want := "data.testproject.scdev"
+	want := "data.testproject.zdev"
 	if got != want {
 		t.Errorf("VolumeName = %q, want %q", got, want)
 	}
 
 	got = p.VolumeName("db_data")
-	want = "db_data.testproject.scdev"
+	want = "db_data.testproject.zdev"
 	if got != want {
 		t.Errorf("VolumeName = %q, want %q", got, want)
 	}
@@ -317,7 +317,7 @@ func TestMutagenSessionName(t *testing.T) {
 	p := newTestProject(mock)
 
 	got := p.MutagenSessionName("app")
-	want := "scdev-testproject-app"
+	want := "zdev-testproject-app"
 	if got != want {
 		t.Errorf("MutagenSessionName = %q, want %q", got, want)
 	}
@@ -328,7 +328,7 @@ func TestMutagenVolumeName(t *testing.T) {
 	p := newTestProject(mock)
 
 	got := p.MutagenVolumeName("app")
-	want := "sync.app.testproject.scdev"
+	want := "sync.app.testproject.zdev"
 	if got != want {
 		t.Errorf("MutagenVolumeName = %q, want %q", got, want)
 	}
@@ -351,22 +351,22 @@ func TestStart_CreatesNetworkAndVolumesAndContainers(t *testing.T) {
 	}
 
 	// Network should be created
-	if !mock.NetworksExist["testproject.scdev"] {
-		t.Error("network testproject.scdev was not created")
+	if !mock.NetworksExist["testproject.zdev"] {
+		t.Error("network testproject.zdev was not created")
 	}
 
 	// Volume should be created
-	if !mock.VolumesExist["data.testproject.scdev"] {
-		t.Error("volume data.testproject.scdev was not created")
+	if !mock.VolumesExist["data.testproject.zdev"] {
+		t.Error("volume data.testproject.zdev was not created")
 	}
 
 	// Container should exist and be running
-	containerName := "app.testproject.scdev"
+	containerName := "app.testproject.zdev"
 	if !mock.ContainersExist[containerName] {
-		t.Error("container app.testproject.scdev was not created")
+		t.Error("container app.testproject.zdev was not created")
 	}
 	if !mock.ContainersRunning[containerName] {
-		t.Error("container app.testproject.scdev is not running")
+		t.Error("container app.testproject.zdev is not running")
 	}
 
 	// Verify CreateNetwork was called
@@ -385,7 +385,7 @@ func TestStart_SkipsNetworkCreationIfExists(t *testing.T) {
 	defer cleanup()
 
 	mock := runtime.NewMockRuntime()
-	mock.NetworksExist["testproject.scdev"] = true
+	mock.NetworksExist["testproject.zdev"] = true
 
 	p := newTestProject(mock)
 
@@ -405,7 +405,7 @@ func TestStart_SkipsVolumeCreationIfExists(t *testing.T) {
 	defer cleanup()
 
 	mock := runtime.NewMockRuntime()
-	mock.VolumesExist["data.testproject.scdev"] = true
+	mock.VolumesExist["data.testproject.zdev"] = true
 
 	p := newTestProject(mock)
 
@@ -424,8 +424,8 @@ func TestStart_SkipsAlreadyRunningContainer(t *testing.T) {
 	defer cleanup()
 
 	mock := runtime.NewMockRuntime()
-	mock.ContainersExist["app.testproject.scdev"] = true
-	mock.ContainersRunning["app.testproject.scdev"] = true
+	mock.ContainersExist["app.testproject.zdev"] = true
+	mock.ContainersRunning["app.testproject.zdev"] = true
 
 	p := newTestProject(mock)
 
@@ -449,8 +449,8 @@ func TestStart_StartsStoppedContainer(t *testing.T) {
 	defer cleanup()
 
 	mock := runtime.NewMockRuntime()
-	mock.ContainersExist["app.testproject.scdev"] = true
-	mock.ContainersRunning["app.testproject.scdev"] = false
+	mock.ContainersExist["app.testproject.zdev"] = true
+	mock.ContainersRunning["app.testproject.zdev"] = false
 
 	p := newTestProject(mock)
 
@@ -477,8 +477,8 @@ func TestStop_StopsRunningContainers(t *testing.T) {
 	defer cleanup()
 
 	mock := runtime.NewMockRuntime()
-	mock.ContainersExist["app.testproject.scdev"] = true
-	mock.ContainersRunning["app.testproject.scdev"] = true
+	mock.ContainersExist["app.testproject.zdev"] = true
+	mock.ContainersRunning["app.testproject.zdev"] = true
 
 	p := newTestProject(mock)
 
@@ -490,8 +490,8 @@ func TestStop_StopsRunningContainers(t *testing.T) {
 	if mock.CallCount("StopContainer") != 1 {
 		t.Errorf("StopContainer called %d times, want 1", mock.CallCount("StopContainer"))
 	}
-	if !mock.CalledWith("StopContainer", "app.testproject.scdev") {
-		t.Error("StopContainer was not called with app.testproject.scdev")
+	if !mock.CalledWith("StopContainer", "app.testproject.zdev") {
+		t.Error("StopContainer was not called with app.testproject.zdev")
 	}
 }
 
@@ -518,8 +518,8 @@ func TestStop_SkipsAlreadyStoppedContainers(t *testing.T) {
 	defer cleanup()
 
 	mock := runtime.NewMockRuntime()
-	mock.ContainersExist["app.testproject.scdev"] = true
-	mock.ContainersRunning["app.testproject.scdev"] = false
+	mock.ContainersExist["app.testproject.zdev"] = true
+	mock.ContainersRunning["app.testproject.zdev"] = false
 
 	p := newTestProject(mock)
 
@@ -542,9 +542,9 @@ func TestDown_StopsAndRemovesContainersAndNetwork(t *testing.T) {
 	defer cleanup()
 
 	mock := runtime.NewMockRuntime()
-	mock.ContainersExist["app.testproject.scdev"] = true
-	mock.ContainersRunning["app.testproject.scdev"] = true
-	mock.NetworksExist["testproject.scdev"] = true
+	mock.ContainersExist["app.testproject.zdev"] = true
+	mock.ContainersRunning["app.testproject.zdev"] = true
+	mock.NetworksExist["testproject.zdev"] = true
 
 	p := newTestProject(mock)
 
@@ -574,9 +574,9 @@ func TestDown_SkipsStopForNonRunningContainers(t *testing.T) {
 	defer cleanup()
 
 	mock := runtime.NewMockRuntime()
-	mock.ContainersExist["app.testproject.scdev"] = true
-	mock.ContainersRunning["app.testproject.scdev"] = false
-	mock.NetworksExist["testproject.scdev"] = true
+	mock.ContainersExist["app.testproject.zdev"] = true
+	mock.ContainersRunning["app.testproject.zdev"] = false
+	mock.NetworksExist["testproject.zdev"] = true
 
 	p := newTestProject(mock)
 
@@ -599,7 +599,7 @@ func TestDown_SkipsNonExistentContainers(t *testing.T) {
 	defer cleanup()
 
 	mock := runtime.NewMockRuntime()
-	mock.NetworksExist["testproject.scdev"] = true
+	mock.NetworksExist["testproject.zdev"] = true
 
 	p := newTestProject(mock)
 
@@ -625,10 +625,10 @@ func TestDown_WithRemoveVolumes(t *testing.T) {
 	defer cleanup()
 
 	mock := runtime.NewMockRuntime()
-	mock.ContainersExist["app.testproject.scdev"] = true
-	mock.ContainersRunning["app.testproject.scdev"] = true
-	mock.NetworksExist["testproject.scdev"] = true
-	mock.VolumesExist["data.testproject.scdev"] = true
+	mock.ContainersExist["app.testproject.zdev"] = true
+	mock.ContainersRunning["app.testproject.zdev"] = true
+	mock.NetworksExist["testproject.zdev"] = true
+	mock.VolumesExist["data.testproject.zdev"] = true
 
 	p := newTestProject(mock)
 
@@ -641,8 +641,8 @@ func TestDown_WithRemoveVolumes(t *testing.T) {
 	if mock.CallCount("RemoveVolume") != 1 {
 		t.Errorf("RemoveVolume called %d times, want 1", mock.CallCount("RemoveVolume"))
 	}
-	if !mock.CalledWith("RemoveVolume", "data.testproject.scdev") {
-		t.Error("RemoveVolume was not called with data.testproject.scdev")
+	if !mock.CalledWith("RemoveVolume", "data.testproject.zdev") {
+		t.Error("RemoveVolume was not called with data.testproject.zdev")
 	}
 }
 
@@ -651,10 +651,10 @@ func TestDown_WithoutRemoveVolumes(t *testing.T) {
 	defer cleanup()
 
 	mock := runtime.NewMockRuntime()
-	mock.ContainersExist["app.testproject.scdev"] = true
-	mock.ContainersRunning["app.testproject.scdev"] = true
-	mock.NetworksExist["testproject.scdev"] = true
-	mock.VolumesExist["data.testproject.scdev"] = true
+	mock.ContainersExist["app.testproject.zdev"] = true
+	mock.ContainersRunning["app.testproject.zdev"] = true
+	mock.NetworksExist["testproject.zdev"] = true
+	mock.VolumesExist["data.testproject.zdev"] = true
 
 	p := newTestProject(mock)
 
@@ -669,8 +669,8 @@ func TestDown_WithoutRemoveVolumes(t *testing.T) {
 	}
 
 	// Volume should still exist in mock state
-	if !mock.VolumesExist["data.testproject.scdev"] {
-		t.Error("volume data.testproject.scdev should still exist")
+	if !mock.VolumesExist["data.testproject.zdev"] {
+		t.Error("volume data.testproject.zdev should still exist")
 	}
 }
 
@@ -679,7 +679,7 @@ func TestDown_RemovesNetworkEvenIfNoContainers(t *testing.T) {
 	defer cleanup()
 
 	mock := runtime.NewMockRuntime()
-	mock.NetworksExist["testproject.scdev"] = true
+	mock.NetworksExist["testproject.zdev"] = true
 
 	p := newTestProject(mock)
 
@@ -688,11 +688,11 @@ func TestDown_RemovesNetworkEvenIfNoContainers(t *testing.T) {
 		t.Fatalf("Down() error: %v", err)
 	}
 
-	if !mock.CalledWith("RemoveNetwork", "testproject.scdev") {
-		t.Error("RemoveNetwork was not called with testproject.scdev")
+	if !mock.CalledWith("RemoveNetwork", "testproject.zdev") {
+		t.Error("RemoveNetwork was not called with testproject.zdev")
 	}
-	if mock.NetworksExist["testproject.scdev"] {
-		t.Error("network testproject.scdev should have been removed")
+	if mock.NetworksExist["testproject.zdev"] {
+		t.Error("network testproject.zdev should have been removed")
 	}
 }
 

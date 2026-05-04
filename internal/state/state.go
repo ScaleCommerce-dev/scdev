@@ -36,7 +36,7 @@ type LinkEntry struct {
 	Members []LinkMember `yaml:"members"`
 }
 
-// State represents the global scdev state
+// State represents the global zdev state
 type State struct {
 	Projects map[string]ProjectEntry `yaml:"projects"`
 	Links    map[string]LinkEntry    `yaml:"links,omitempty"`
@@ -55,13 +55,13 @@ func DefaultManager() (*Manager, error) {
 		return nil, fmt.Errorf("failed to get home directory: %w", err)
 	}
 
-	scdevDir := filepath.Join(homeDir, ".scdev")
-	if err := os.MkdirAll(scdevDir, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create .scdev directory: %w", err)
+	zdevDir := filepath.Join(homeDir, ".zdev")
+	if err := os.MkdirAll(zdevDir, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create .zdev directory: %w", err)
 	}
 
 	return &Manager{
-		path: filepath.Join(scdevDir, "state.yaml"),
+		path: filepath.Join(zdevDir, "state.yaml"),
 	}, nil
 }
 
@@ -90,7 +90,7 @@ func (m *Manager) Save(state *State) error {
 // The entire load-modify-save cycle holds the manager's lock, so concurrent
 // goroutines in the same process cannot clobber each other's changes.
 // (Cross-process concurrency is not protected - callers running multiple
-// scdev invocations simultaneously on the same state file can still race.)
+// zdev invocations simultaneously on the same state file can still race.)
 func (m *Manager) Mutate(fn func(*State) error) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -322,7 +322,7 @@ func ValidateLinkName(name string) error {
 
 // LinkNetworkName returns the Docker network name for a link
 func LinkNetworkName(name string) string {
-	return fmt.Sprintf("scdev_link_%s", name)
+	return fmt.Sprintf("zdev_link_%s", name)
 }
 
 // ParseMember parses a member string like "myproject" or "myproject.app"

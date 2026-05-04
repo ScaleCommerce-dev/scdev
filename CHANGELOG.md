@@ -1,4 +1,27 @@
-## v0.6.8
+## v0.7.0
+
+### BREAKING: Project renamed scdev → zdev, moved to github.com/0ploy
+
+- **Binary renamed `scdev` → `zdev`.** The CLI, all subcommands, and the install path (`~/.zdev/bin/zdev`) follow.
+- **Module path is now `github.com/0ploy/zdev`.** Old `github.com/ScaleCommerce-DEV/scdev` URLs redirect (GitHub permanent transfer redirect), but the canonical home is `github.com/0ploy/zdev`. Old `git clone` and `raw.githubusercontent.com` URLs continue to resolve via the redirect.
+- **Default domain changed `scalecommerce.site` → `0ploy.dev`.** Projects are now reachable at `https://<name>.0ploy.dev`, shared services at `https://<svc>.shared.0ploy.dev`. Wildcard DNS `*.0ploy.dev` resolves to `127.0.0.1`.
+- **Global state directory `~/.scdev/` → `~/.zdev/`.** Project marker `.scdev/` → `.zdev/`. Container hostname suffix `.scdev` → `.zdev`. Container labels `scdev.*` → `zdev.*`. Network prefix `scdev_link_*` → `zdev_link_*`. Sync-volume names `sync.<svc>.<project>.scdev` → `sync.<svc>.<project>.zdev`.
+- **Template repos renamed `scdev-template-*` → `zdev-template-*`** under the `0ploy` org. `zdev create <name>` resolves against `github.com/0ploy/zdev-template-<name>`.
+
+### Upgrade (clean break - no in-place migration)
+
+There is no automatic state migration from scdev. Old `~/.scdev/state.yaml` references containers/volumes/networks under the previous naming scheme; the new binary will not see them.
+
+1. With the **old `scdev` binary**: `scdev down -v` in every project you have registered (or `scdev list` then loop). This stops containers, removes networks, and (with `-v`) removes named volumes you don't need anymore.
+2. Stop the old shared services: `scdev services stop`. Then remove the old state directory: `rm -rf ~/.scdev`.
+3. Install zdev: `curl -fsSL https://raw.githubusercontent.com/0ploy/zdev/main/install.sh | sh`
+4. `zdev systemcheck` - regenerates the mkcert wildcard cert for `*.0ploy.dev` (the local mkcert root CA from the previous install is reused, so browsers keep trusting).
+5. In each project on disk: `mv .scdev .zdev`. The contents of the directory (config.yaml, commands/) are unchanged in shape; their previously-loaded `${SCDEV_DOMAIN}` / `${SCDEV_HOME}` placeholders are now `${ZDEV_DOMAIN}` / `${ZDEV_HOME}`. If you wrote any custom `.just` files that referenced these, update them.
+6. `zdev start` - fresh containers, fresh certs, fresh state.
+
+`zdev self-update` is broken across this rename (the binary you have was built against the old module path and old release URL). Use the install.sh one-liner above; future `zdev self-update` runs (against `0ploy/zdev` releases) will work normally.
+
+
 
 ### Features
 

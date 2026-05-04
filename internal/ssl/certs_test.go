@@ -7,13 +7,13 @@ import (
 )
 
 func TestBuildDomainList(t *testing.T) {
-	domain := "scalecommerce.site"
+	domain := "0ploy.dev"
 	domains := buildDomainList(domain)
 
 	expected := []string{
-		"*.scalecommerce.site",
-		"*.shared.scalecommerce.site",
-		"scalecommerce.site",
+		"*.0ploy.dev",
+		"*.shared.0ploy.dev",
+		"0ploy.dev",
 		"localhost",
 		"127.0.0.1",
 	}
@@ -53,8 +53,8 @@ func TestBuildDomainListCustomDomain(t *testing.T) {
 }
 
 func TestGetCertPaths(t *testing.T) {
-	// Create a temp directory to simulate ~/.scdev/certs
-	tmpDir, err := os.MkdirTemp("", "scdev-ssl-test-*")
+	// Create a temp directory to simulate ~/.zdev/certs
+	tmpDir, err := os.MkdirTemp("", "zdev-ssl-test-*")
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
@@ -87,7 +87,7 @@ func TestGetCertPaths(t *testing.T) {
 
 func TestCertsExist(t *testing.T) {
 	// Create a temp directory
-	tmpDir, err := os.MkdirTemp("", "scdev-ssl-test-*")
+	tmpDir, err := os.MkdirTemp("", "zdev-ssl-test-*")
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}

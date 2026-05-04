@@ -8,7 +8,7 @@ import (
 
 func TestManager_RegisterAndList(t *testing.T) {
 	// Create temp directory for test
-	tmpDir, err := os.MkdirTemp("", "scdev-state-test")
+	tmpDir, err := os.MkdirTemp("", "zdev-state-test")
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
@@ -68,7 +68,7 @@ func TestManager_RegisterAndList(t *testing.T) {
 }
 
 func TestManager_GetProject(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "scdev-state-test")
+	tmpDir, err := os.MkdirTemp("", "zdev-state-test")
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
@@ -105,7 +105,7 @@ func TestManager_GetProject(t *testing.T) {
 }
 
 func TestManager_UnregisterProject(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "scdev-state-test")
+	tmpDir, err := os.MkdirTemp("", "zdev-state-test")
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
@@ -140,7 +140,7 @@ func TestManager_UnregisterProject(t *testing.T) {
 }
 
 func TestManager_UpdateExistingProject(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "scdev-state-test")
+	tmpDir, err := os.MkdirTemp("", "zdev-state-test")
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}

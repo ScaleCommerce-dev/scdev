@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ScaleCommerce-DEV/scdev/internal/config"
-	"github.com/ScaleCommerce-DEV/scdev/internal/runtime"
-	"github.com/ScaleCommerce-DEV/scdev/internal/services"
+	"github.com/0ploy/zdev/internal/config"
+	"github.com/0ploy/zdev/internal/runtime"
+	"github.com/0ploy/zdev/internal/services"
 	"github.com/spf13/cobra"
 )
 
@@ -48,7 +48,7 @@ var servicesStatusCmd = &cobra.Command{
 var servicesRecreateCmd = &cobra.Command{
 	Use:   "recreate",
 	Short: "Recreate shared services",
-	Long:  `Stop, remove, and recreate all shared service containers. Use this after updating scdev or when containers need to be rebuilt with new configuration.`,
+	Long:  `Stop, remove, and recreate all shared service containers. Use this after updating zdev or when containers need to be rebuilt with new configuration.`,
 	RunE:  runServicesRecreate,
 }
 

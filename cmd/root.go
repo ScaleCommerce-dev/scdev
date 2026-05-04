@@ -7,11 +7,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ScaleCommerce-DEV/scdev/internal/config"
-	"github.com/ScaleCommerce-DEV/scdev/internal/project"
-	"github.com/ScaleCommerce-DEV/scdev/internal/tools"
-	"github.com/ScaleCommerce-DEV/scdev/internal/ui"
-	"github.com/ScaleCommerce-DEV/scdev/internal/updatecheck"
+	"github.com/0ploy/zdev/internal/config"
+	"github.com/0ploy/zdev/internal/project"
+	"github.com/0ploy/zdev/internal/tools"
+	"github.com/0ploy/zdev/internal/ui"
+	"github.com/0ploy/zdev/internal/updatecheck"
 	"github.com/spf13/cobra"
 )
 
@@ -20,9 +20,9 @@ var (
 	configDir string
 
 	rootCmd = &cobra.Command{
-		Use:          "scdev",
+		Use:          "zdev",
 		Short:        "Local development environment framework",
-		Long:         `scdev is a local development environment framework for web applications.`,
+		Long:         `zdev is a local development environment framework for web applications.`,
 		SilenceUsage: true, // Don't show usage on runtime errors (only on invalid args)
 		RunE:         runRoot,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
@@ -37,7 +37,7 @@ var (
 
 func init() {
 	// Global flags
-	rootCmd.PersistentFlags().StringVar(&configDir, "config", "", "Path to project directory containing .scdev/ (overrides auto-discovery)")
+	rootCmd.PersistentFlags().StringVar(&configDir, "config", "", "Path to project directory containing .zdev/ (overrides auto-discovery)")
 
 	// Set custom help template to include project commands before flags
 	rootCmd.SetHelpTemplate(`{{with (or .Long .Short)}}{{. | trimTrailingWhitespaces}}
@@ -203,7 +203,7 @@ func getProjectCommandsString() string {
 			listOutput, err := just.List(ctx, jf.Path)
 			if err != nil {
 				// Show syntax error in red
-				errMsg := fmt.Sprintf("Syntax error in .scdev/commands/%s.just", jf.Name)
+				errMsg := fmt.Sprintf("Syntax error in .zdev/commands/%s.just", jf.Name)
 				sb.WriteString(fmt.Sprintf("      %s\n", ui.Color(errMsg, "red", false)))
 			} else {
 				// Parse the recipes, skipping the "Available recipes:" header

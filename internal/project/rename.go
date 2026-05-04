@@ -8,7 +8,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/ScaleCommerce-DEV/scdev/internal/state"
+	"github.com/0ploy/zdev/internal/state"
 )
 
 var nameLineRegex = regexp.MustCompile(`(?m)^name:\s*.*$`)
@@ -153,19 +153,19 @@ func (p *Project) firstServiceImage() string {
 // VolumeNameFor returns the full volume name for a given volume and project name.
 // Standalone version of Project.VolumeName() for use without a loaded Project.
 func VolumeNameFor(volume, projectName string) string {
-	return fmt.Sprintf("%s.%s.scdev", volume, projectName)
+	return fmt.Sprintf("%s.%s.zdev", volume, projectName)
 }
 
 // MutagenVolumeNameFor returns the Mutagen sync volume name for a given service and project.
 // Standalone version of Project.MutagenVolumeName() for use without a loaded Project.
 func MutagenVolumeNameFor(service, projectName string) string {
-	return fmt.Sprintf("sync.%s.%s.scdev", service, projectName)
+	return fmt.Sprintf("sync.%s.%s.zdev", service, projectName)
 }
 
 // updateConfigName reads the config file and sets the name field.
 // Uses targeted replacement to preserve YAML formatting and comments.
 func updateConfigName(projectDir, newName string) error {
-	configPath := filepath.Join(projectDir, ".scdev", "config.yaml")
+	configPath := filepath.Join(projectDir, ".zdev", "config.yaml")
 
 	data, err := os.ReadFile(configPath)
 	if err != nil {

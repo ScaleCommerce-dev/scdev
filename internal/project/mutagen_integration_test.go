@@ -12,17 +12,17 @@ import (
 	"testing"
 	"time"
 
-	dockerRuntime "github.com/ScaleCommerce-DEV/scdev/internal/runtime"
+	dockerRuntime "github.com/0ploy/zdev/internal/runtime"
 )
 
 // getMutagenBinaryPath returns the path to the mutagen binary
-// It checks scdev's bin directory first, then PATH
+// It checks zdev's bin directory first, then PATH
 func getMutagenBinaryPath() string {
 	homeDir, err := os.UserHomeDir()
 	if err == nil {
-		scdevPath := filepath.Join(homeDir, ".scdev", "bin", "mutagen")
-		if _, err := os.Stat(scdevPath); err == nil {
-			return scdevPath
+		zdevPath := filepath.Join(homeDir, ".zdev", "bin", "mutagen")
+		if _, err := os.Stat(zdevPath); err == nil {
+			return zdevPath
 		}
 	}
 
@@ -84,7 +84,7 @@ func TestProject_MutagenLifecycle(t *testing.T) {
 
 	// Expected resource names
 	containerName := proj.ContainerName("app")
-	sessionName := "scdev-mutagen-test-app" // Pattern: scdev-<project>-<service>
+	sessionName := "zdev-mutagen-test-app" // Pattern: zdev-<project>-<service>
 
 	// Start the project (should create container and Mutagen session)
 	t.Log("Starting project with Mutagen...")
@@ -212,7 +212,7 @@ func TestProject_MutagenVolumeCleanup(t *testing.T) {
 	_ = proj.Down(ctx, true)
 
 	// Expected sync volume name
-	syncVolumeName := "sync.app.mutagen-test.scdev"
+	syncVolumeName := "sync.app.mutagen-test.zdev"
 
 	// Start the project
 	t.Log("Starting project...")
@@ -260,8 +260,8 @@ func TestProject_MutagenVolumeCleanup(t *testing.T) {
 }
 
 // TestProject_MutagenUpdatePreservesSyncVolume guards against a regression where
-// scdev update would recreate a service without Mutagen context, silently
-// swapping the sync.<service>.<project>.scdev named volume back to a raw bind
+// zdev update would recreate a service without Mutagen context, silently
+// swapping the sync.<service>.<project>.zdev named volume back to a raw bind
 // mount. Anything written inside the container at a Mutagen-ignored path
 // (vendor/, .setup-complete, etc.) lives only inside the named volume - so
 // the swap drops it on the floor. Update must use the same Mutagen mounts as
@@ -297,7 +297,7 @@ func TestProject_MutagenUpdatePreservesSyncVolume(t *testing.T) {
 	})
 
 	containerName := proj.ContainerName("app")
-	syncVolumeName := "sync.app.mutagen-test.scdev"
+	syncVolumeName := "sync.app.mutagen-test.zdev"
 
 	if err := proj.Start(ctx); err != nil {
 		t.Fatalf("Start failed: %v", err)
@@ -306,7 +306,7 @@ func TestProject_MutagenUpdatePreservesSyncVolume(t *testing.T) {
 	// Write a marker inside the container at a Mutagen-ignored path. This
 	// stand-in for vendor/ or .setup-complete lives only in the sync volume;
 	// if Update swaps the named volume for a bind mount it will disappear.
-	const markerPath = "/app/var/cache/scdev-update-regression"
+	const markerPath = "/app/var/cache/zdev-update-regression"
 	mkdir := exec.CommandContext(ctx, "docker", "exec", containerName, "mkdir", "-p", "/app/var/cache")
 	if out, err := mkdir.CombinedOutput(); err != nil {
 		t.Fatalf("mkdir in container: %v (%s)", err, out)
@@ -321,7 +321,7 @@ func TestProject_MutagenUpdatePreservesSyncVolume(t *testing.T) {
 	if svc.Environment == nil {
 		svc.Environment = map[string]string{}
 	}
-	svc.Environment["SCDEV_REGRESSION_TRIGGER"] = "1"
+	svc.Environment["ZDEV_REGRESSION_TRIGGER"] = "1"
 	proj.Config.Services["app"] = svc
 
 	updated, err := proj.Update(ctx)

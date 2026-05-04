@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ScaleCommerce-DEV/scdev/internal/config"
-	"github.com/ScaleCommerce-DEV/scdev/internal/runtime"
+	"github.com/0ploy/zdev/internal/config"
+	"github.com/0ploy/zdev/internal/runtime"
 )
 
 // RouterConfig holds configuration for the router container
@@ -67,24 +67,24 @@ func RouterContainerConfig(cfg RouterConfig) runtime.ContainerConfig {
 	}
 
 	labels := map[string]string{
-		"scdev.managed":       "true",
-		"scdev.service":       "router",
+		"zdev.managed":       "true",
+		"zdev.service":       "router",
 		DozzleVisibilityLabel: "true",
 		DozzleGroupLabel:      DozzleSharedGroup,
 	}
 
 	// Store configured ports in labels for later comparison
-	labels["scdev.tcp-ports"] = intsToString(cfg.TCPPorts)
-	labels["scdev.udp-ports"] = intsToString(cfg.UDPPorts)
+	labels["zdev.tcp-ports"] = intsToString(cfg.TCPPorts)
+	labels["zdev.udp-ports"] = intsToString(cfg.UDPPorts)
 
 	// Store TLS status in labels
 	if tlsEnabled {
-		labels["scdev.tls-enabled"] = "true"
+		labels["zdev.tls-enabled"] = "true"
 	}
 
 	// Store docs status in labels
 	if docsEnabled {
-		labels["scdev.docs-enabled"] = "true"
+		labels["zdev.docs-enabled"] = "true"
 	}
 
 	// Enable dashboard if configured (accessible via router.shared.<domain>)
@@ -170,7 +170,7 @@ func RouterContainerConfig(cfg RouterConfig) runtime.ContainerConfig {
 
 // intsToString converts a slice of ints to a sorted comma-separated string.
 // Sorted so the output is deterministic across runs - both the router's
-// scdev.tcp-ports / scdev.udp-ports labels and the config hash derived
+// zdev.tcp-ports / zdev.udp-ports labels and the config hash derived
 // from them are stable.
 func intsToString(ports []int) string {
 	if len(ports) == 0 {

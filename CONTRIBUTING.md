@@ -1,10 +1,10 @@
-# Contributing to scdev
+# Contributing to zdev
 
 ## Getting Started
 
 ```bash
-git clone https://github.com/ScaleCommerce-DEV/scdev.git
-cd scdev
+git clone https://github.com/0ploy/zdev.git
+cd zdev
 make build    # Build binary
 make test     # Run unit tests
 ```
@@ -17,17 +17,17 @@ Requirements: Go 1.25+, Docker Desktop (for integration tests)
 cmd/                     # Cobra commands (one file per command)
 internal/
   config/                # Config parsing, defaults, variable substitution
-  create/                # Template resolution, download, copy (scdev create)
+  create/                # Template resolution, download, copy (zdev create)
   project/               # Project lifecycle (start, stop, down, exec, routing)
   runtime/               # Docker abstraction (interface + DockerCLI implementation)
   services/              # Shared infrastructure (router, mail, adminer, redis)
   mutagen/               # Mutagen binary wrapper
-  state/                 # Global project registry (~/.scdev/state.yaml)
+  state/                 # Global project registry (~/.zdev/state.yaml)
   tools/                 # External tool management (mkcert, just, mutagen)
   firstrun/              # First-time setup (certs, shared network)
   ssl/                   # Certificate management
   ui/                    # Terminal output (colors, hyperlinks, markdown)
-skills/scdev/            # AI agent skill (SKILL.md + references/)
+skills/zdev/            # AI agent skill (SKILL.md + references/)
 templates/               # Template authoring guide
 testdata/projects/       # Test fixtures (minimal, full, variables, mutagen)
 ```
@@ -104,7 +104,7 @@ This has multiple touch points that are easy to miss:
 
 1. Create `internal/services/<service>.go` with container name constant and config function
 2. Add `Start<Service>`, `Stop<Service>`, `<Service>Status`, `Connect<Service>ToProject`, `Disconnect<Service>FromProject` methods to `manager.go`
-3. **Pass network aliases in `Connect<Service>ToProject`** - without aliases, the service won't be resolvable by its short name from project containers (e.g., `mail` instead of `scdev_mail`)
+3. **Pass network aliases in `Connect<Service>ToProject`** - without aliases, the service won't be resolvable by its short name from project containers (e.g., `mail` instead of `zdev_mail`)
 4. Add entry to `sharedServiceRegistry()` in `cmd/services.go` (handles start/stop/status/recreate)
 5. Add connect/disconnect methods to `internal/project/shared_services.go` using `connectSharedService` helper
 6. Add image constant to `internal/config/defaults.go`
@@ -119,13 +119,13 @@ Link networks enable cross-project container communication. The implementation s
 - **`internal/project/links.go`** - `connectLinks()` and `disconnectLinks()` called during Start/Down lifecycle
 - **`cmd/link.go`** - All subcommands (create, delete, join, leave, ls, status)
 
-Links are stored in the global state file (`~/.scdev/state.yaml`), not in project config. They are a runtime relationship between projects, not a property of any single project. Each link creates a dedicated Docker network (`scdev_link_<name>`) so different link groups stay isolated from each other.
+Links are stored in the global state file (`~/.zdev/state.yaml`), not in project config. They are a runtime relationship between projects, not a property of any single project. Each link creates a dedicated Docker network (`zdev_link_<name>`) so different link groups stay isolated from each other.
 
-On `scdev start`, a project checks if it's a member of any links and auto-connects. On `scdev down`, it disconnects. Container DNS resolution happens automatically via Docker's embedded DNS - no explicit network aliases are needed since containers are already named with the `<service>.<project>.scdev` pattern.
+On `zdev start`, a project checks if it's a member of any links and auto-connects. On `zdev down`, it disconnects. Container DNS resolution happens automatically via Docker's embedded DNS - no explicit network aliases are needed since containers are already named with the `<service>.<project>.zdev` pattern.
 
 ## Project Rename
 
-`scdev rename` changes the project name and migrates all Docker resources. The implementation lives in:
+`zdev rename` changes the project name and migrates all Docker resources. The implementation lives in:
 
 - **`internal/project/rename.go`** - Core `Rename()` method and `updateConfigName()` helper
 - **`internal/state/state.go`** - `RenameProject()` atomically updates the project entry and all link memberships
@@ -141,17 +141,17 @@ Enables future Podman support. The `Runtime` interface (`internal/runtime/runtim
 
 ### Why justfiles for custom commands?
 
-Each `.scdev/commands/<name>.just` file becomes a `scdev <name>` command. We chose [just](https://github.com/casey/just) over Makefiles because:
+Each `.zdev/commands/<name>.just` file becomes a `zdev <name>` command. We chose [just](https://github.com/casey/just) over Makefiles because:
 - No build system baggage (no implicit rules, no tab sensitivity issues)
-- Multiple recipes per file (e.g., `scdev test` runs default, `scdev test watch` runs the `watch` recipe)
-- Justfiles are discoverable - agents and developers can `ls .scdev/commands/` to see all available commands
+- Multiple recipes per file (e.g., `zdev test` runs default, `zdev test watch` runs the `watch` recipe)
+- Justfiles are discoverable - agents and developers can `ls .zdev/commands/` to see all available commands
 - Just supports arguments, dependencies, and conditional logic
 
-Commands run on the **host**, not in containers. Use `scdev exec app <cmd>` inside justfiles to run commands in containers.
+Commands run on the **host**, not in containers. Use `zdev exec app <cmd>` inside justfiles to run commands in containers.
 
 ### Why auto-discover named volumes?
 
-Unlike Docker Compose, scdev does not require a top-level `volumes:` section. Named volumes are detected automatically from service `volumes:` entries - if the source doesn't start with `/`, `.`, or `${`, it's a named volume. This reduces config boilerplate and eliminates a common source of "volume not declared" errors.
+Unlike Docker Compose, zdev does not require a top-level `volumes:` section. Named volumes are detected automatically from service `volumes:` entries - if the source doesn't start with `/`, `.`, or `${`, it's a named volume. This reduces config boilerplate and eliminates a common source of "volume not declared" errors.
 
 ### Why variables AND environment?
 
@@ -168,12 +168,12 @@ Docker bind mounts on macOS are slow - `pnpm install` takes 5x longer than nativ
 ## Config System
 
 Two-pass variable substitution in `internal/config/loader.go`:
-1. First pass: substitute built-in variables (`${PROJECTDIR}`, `${PROJECTPATH}`, `${SCDEV_DOMAIN}`, etc.) to resolve the `name:` field
+1. First pass: substitute built-in variables (`${PROJECTDIR}`, `${PROJECTPATH}`, `${ZDEV_DOMAIN}`, etc.) to resolve the `name:` field
 2. Second pass: add `${PROJECTNAME}` + user-defined `variables:` to the map, re-substitute everything
 
 User variables can reference built-in vars (e.g., `DB_NAME: ${PROJECTNAME}_db`) but not other user variables (map iteration order is undefined in Go).
 
-`buildContainerConfig()` in `project.go` is the single source of truth for container configuration. Both `startServiceWithMutagen()` (creating containers) and `serviceNeedsRecreate()` (comparing against running containers) use it. It stamps a `scdev.config-hash` label (deterministic sha256 of image, env, volumes, command, working dir, routing labels, ports, aliases, and network). `scdev update` recreates any service whose stamped hash differs from the freshly built one. Pre-hash containers have no label and get recreated once on first update after upgrading.
+`buildContainerConfig()` in `project.go` is the single source of truth for container configuration. Both `startServiceWithMutagen()` (creating containers) and `serviceNeedsRecreate()` (comparing against running containers) use it. It stamps a `zdev.config-hash` label (deterministic sha256 of image, env, volumes, command, working dir, routing labels, ports, aliases, and network). `zdev update` recreates any service whose stamped hash differs from the freshly built one. Pre-hash containers have no label and get recreated once on first update after upgrading.
 
 ## Documentation
 
@@ -189,7 +189,7 @@ Don't duplicate information across docs. README has config reference and example
 
 ## Creating Templates
 
-Templates enable `scdev create <template> <name>` for one-command project scaffolding. See the [Template Authoring Guide](templates/README.md) for the full reference.
+Templates enable `zdev create <template> <name>` for one-command project scaffolding. See the [Template Authoring Guide](templates/README.md) for the full reference.
 
 Key patterns:
 - **`.setup-complete` marker** solves the container startup vs setup circular dependency
@@ -202,7 +202,7 @@ Key patterns:
 - Never use em-dashes (-). Use regular hyphens (-) everywhere.
 - Error messages: `fmt.Errorf("failed to <action>: %w", err)` - wrap with context
 - User-facing output: `fmt.Printf` for status, `fmt.Println` for section headers
-- Top-level progress markers during multi-step flows (setup, start, sync): use `ui.StatusStep(msg, plainMode)` instead of plain `fmt.Println`. Adds two blank lines + cyan `▶` + bold text so framework messages stand out from verbose nested command output. Same styling is exposed as `scdev step <msg>` for template justfiles.
+- Top-level progress markers during multi-step flows (setup, start, sync): use `ui.StatusStep(msg, plainMode)` instead of plain `fmt.Println`. Adds two blank lines + cyan `▶` + bold text so framework messages stand out from verbose nested command output. Same styling is exposed as `zdev step <msg>` for template justfiles.
 - Commands return errors (Cobra handles display with `SilenceUsage: true`)
 
 ## Release Process
@@ -215,4 +215,4 @@ Key patterns:
    git tag vX.Y.Z && git push origin main && git push origin vX.Y.Z
    ```
 4. CI builds binaries for darwin/linux (arm64/amd64) and creates a GitHub Release with changelog
-5. Users update via `scdev self-update`
+5. Users update via `zdev self-update`

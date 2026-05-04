@@ -7,8 +7,8 @@ import (
 
 func TestPlainMode(t *testing.T) {
 	// Save original env
-	origEnv := os.Getenv("SCDEV_PLAIN")
-	defer os.Setenv("SCDEV_PLAIN", origEnv)
+	origEnv := os.Getenv("ZDEV_PLAIN")
+	defer os.Setenv("ZDEV_PLAIN", origEnv)
 
 	tests := []struct {
 		name        string
@@ -25,7 +25,7 @@ func TestPlainMode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			os.Setenv("SCDEV_PLAIN", tt.envValue)
+			os.Setenv("ZDEV_PLAIN", tt.envValue)
 			result := PlainMode(tt.configPlain)
 			if result != tt.expected {
 				t.Errorf("expected %v, got %v", tt.expected, result)

@@ -133,7 +133,7 @@ func (d *DockerCLI) ForceRemoveContainer(ctx context.Context, nameOrID string) e
 }
 
 // ListContainers returns the names of containers matching the given filter
-// (e.g. "label=scdev.project"). Includes stopped containers.
+// (e.g. "label=zdev.project"). Includes stopped containers.
 func (d *DockerCLI) ListContainers(ctx context.Context, filter string) ([]string, error) {
 	args := []string{"ps", "-a", "--format", "{{.Names}}"}
 	if filter != "" {
@@ -402,7 +402,7 @@ func (d *DockerCLI) CopyVolume(ctx context.Context, srcVolume, dstVolume, image 
 	return err
 }
 
-// ListVolumes lists volumes matching the filter (e.g., "name=.scdev")
+// ListVolumes lists volumes matching the filter (e.g., "name=.zdev")
 func (d *DockerCLI) ListVolumes(ctx context.Context, filter string) ([]Volume, error) {
 	args := []string{"volume", "ls", "--format", "{{.Name}}"}
 	if filter != "" {

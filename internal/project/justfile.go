@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/ScaleCommerce-DEV/scdev/internal/config"
+	"github.com/0ploy/zdev/internal/config"
 )
 
 // JustfileInfo represents a discovered justfile
@@ -16,7 +16,7 @@ type JustfileInfo struct {
 
 // GetJustfile returns the justfile for a command name, if it exists
 func (p *Project) GetJustfile(name string) (*JustfileInfo, error) {
-	justfilePath := filepath.Join(p.Dir, ".scdev", "commands", name+".just")
+	justfilePath := filepath.Join(p.Dir, ".zdev", "commands", name+".just")
 	if _, err := os.Stat(justfilePath); err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil // Not found, not an error
@@ -29,9 +29,9 @@ func (p *Project) GetJustfile(name string) (*JustfileInfo, error) {
 	}, nil
 }
 
-// DiscoverJustfiles finds all .just files in .scdev/commands/
+// DiscoverJustfiles finds all .just files in .zdev/commands/
 func (p *Project) DiscoverJustfiles() ([]JustfileInfo, error) {
-	commandsDir := filepath.Join(p.Dir, ".scdev", "commands")
+	commandsDir := filepath.Join(p.Dir, ".zdev", "commands")
 
 	entries, err := os.ReadDir(commandsDir)
 	if err != nil {
@@ -69,12 +69,12 @@ func (p *Project) BuildJustEnv() map[string]string {
 		}
 	}
 
-	// Add scdev-specific variables (override any existing)
+	// Add zdev-specific variables (override any existing)
 	env["PROJECTNAME"] = p.Config.Name
 	env["PROJECTPATH"] = p.Dir
 	env["PROJECTDIR"] = filepath.Base(p.Dir)
-	env["SCDEV_DOMAIN"] = config.GetScdevDomain()
-	env["SCDEV_HOME"] = config.GetScdevHome()
+	env["ZDEV_DOMAIN"] = config.GetZdevDomain()
+	env["ZDEV_HOME"] = config.GetZdevHome()
 
 	// Add project environment variables from config
 	for k, v := range p.Config.Environment {
@@ -87,7 +87,7 @@ func (p *Project) BuildJustEnv() map[string]string {
 // GetJustfileFromDir returns the justfile for a command name from a specific directory
 // This is useful when we don't have a full project loaded
 func GetJustfileFromDir(dir, name string) (*JustfileInfo, error) {
-	justfilePath := filepath.Join(dir, ".scdev", "commands", name+".just")
+	justfilePath := filepath.Join(dir, ".zdev", "commands", name+".just")
 	if _, err := os.Stat(justfilePath); err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil // Not found, not an error

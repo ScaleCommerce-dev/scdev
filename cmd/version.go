@@ -17,7 +17,7 @@ var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print version information",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("scdev version %s (%s/%s)\n", Version, runtime.GOOS, runtime.GOARCH)
+		fmt.Printf("zdev version %s (%s/%s)\n", Version, runtime.GOOS, runtime.GOARCH)
 		if BuildTime != "unknown" {
 			fmt.Printf("  built: %s\n", BuildTime)
 		}

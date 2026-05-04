@@ -4,7 +4,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/ScaleCommerce-DEV/scdev/internal/config"
+	"github.com/0ploy/zdev/internal/config"
 )
 
 func TestFindInPath(t *testing.T) {
@@ -28,7 +28,7 @@ func TestFindInPath(t *testing.T) {
 	})
 
 	t.Run("does not find nonexistent command", func(t *testing.T) {
-		path, found := FindInPath("scdev-nonexistent-command-12345")
+		path, found := FindInPath("zdev-nonexistent-command-12345")
 		if found {
 			t.Error("expected not to find nonexistent command")
 		}

@@ -13,7 +13,7 @@ import (
 // compare this label against a freshly computed hash; any mismatch means
 // the container's baked config has diverged from what the current code
 // would produce, and the container must be recreated.
-const ConfigHashLabel = "scdev.config-hash"
+const ConfigHashLabel = "zdev.config-hash"
 
 // ComputeConfigHash returns a deterministic sha256 of the fields that
 // define container identity for recreation purposes. The ConfigHashLabel

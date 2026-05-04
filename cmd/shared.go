@@ -10,12 +10,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ScaleCommerce-DEV/scdev/internal/config"
-	"github.com/ScaleCommerce-DEV/scdev/internal/project"
-	runtimePkg "github.com/ScaleCommerce-DEV/scdev/internal/runtime"
-	"github.com/ScaleCommerce-DEV/scdev/internal/services"
-	"github.com/ScaleCommerce-DEV/scdev/internal/state"
-	"github.com/ScaleCommerce-DEV/scdev/internal/ui"
+	"github.com/0ploy/zdev/internal/config"
+	"github.com/0ploy/zdev/internal/project"
+	runtimePkg "github.com/0ploy/zdev/internal/runtime"
+	"github.com/0ploy/zdev/internal/services"
+	"github.com/0ploy/zdev/internal/state"
+	"github.com/0ploy/zdev/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -86,7 +86,7 @@ func openSharedServiceURL(
 	}
 
 	if !status.Running {
-		return fmt.Errorf("%s service is not running\n\nStart it with: scdev services start", serviceName)
+		return fmt.Errorf("%s service is not running\n\nStart it with: zdev services start", serviceName)
 	}
 
 	protocol := "http"
