@@ -14,10 +14,15 @@ import (
 var startQuiet bool
 
 var startCmd = &cobra.Command{
-	Use:   "start",
-	Short: "Start the project",
-	Long:  `Start all services defined in the project configuration.`,
-	RunE:  runStart,
+	Use:   "start [service]",
+	Short: "Start the project or a single service",
+	Long: `Start project services.
+
+Without arguments, starts every service in the project.
+With a service name, starts only that one (project-wide setup like
+network and volumes still runs idempotently).`,
+	Args: cobra.MaximumNArgs(1),
+	RunE: runStart,
 }
 
 func init() {
@@ -31,10 +36,12 @@ func runStart(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	return withProject(5*time.Minute, runStartImpl)
+	return withProject(5*time.Minute, func(ctx context.Context, proj *project.Project) error {
+		return runStartImpl(ctx, proj, args)
+	})
 }
 
-func runStartImpl(ctx context.Context, proj *project.Project) error {
+func runStartImpl(ctx context.Context, proj *project.Project, args []string) error {
 	// Verify domain DNS resolves to 127.0.0.1
 	if _, err := config.VerifyDomainDNS(proj.Config.Domain); err != nil {
 		return fmt.Errorf("DNS verification failed: %w", err)
@@ -44,6 +51,16 @@ func runStartImpl(ctx context.Context, proj *project.Project) error {
 	if gcfg, err := config.LoadGlobalConfig(); err == nil && gcfg != nil {
 		plainMode = ui.PlainMode(gcfg.Terminal.Plain)
 	}
+
+	if len(args) == 1 {
+		service := args[0]
+		ui.StatusStep(fmt.Sprintf("Starting service %s", service), plainMode)
+		if err := proj.StartService(ctx, service); err != nil {
+			return err
+		}
+		return nil
+	}
+
 	ui.StatusStep(fmt.Sprintf("Starting project %s", proj.Config.Name), plainMode)
 
 	if err := proj.Start(ctx); err != nil {

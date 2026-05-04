@@ -10,10 +10,15 @@ import (
 )
 
 var restartCmd = &cobra.Command{
-	Use:   "restart",
-	Short: "Restart the project",
-	Long:  `Stop and start all services in the project.`,
-	RunE:  runRestart,
+	Use:   "restart [service]",
+	Short: "Restart the project or a single service",
+	Long: `Stop and start project services.
+
+Without arguments, restarts every service in the project.
+With a service name, restarts only that container in-place. Use this for
+quick bounces; to pick up config changes use 'zdev update'.`,
+	Args: cobra.MaximumNArgs(1),
+	RunE: runRestart,
 }
 
 func init() {
@@ -22,6 +27,12 @@ func init() {
 
 func runRestart(cmd *cobra.Command, args []string) error {
 	return withProject(7*time.Minute, func(ctx context.Context, proj *project.Project) error {
+		if len(args) == 1 {
+			service := args[0]
+			fmt.Printf("Restarting service %s...\n", service)
+			return proj.RestartService(ctx, service)
+		}
+
 		fmt.Printf("Restarting project %s...\n", proj.Config.Name)
 
 		if err := proj.Restart(ctx); err != nil {

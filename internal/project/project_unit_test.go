@@ -534,6 +534,168 @@ func TestStop_SkipsAlreadyStoppedContainers(t *testing.T) {
 }
 
 // =============================================================================
+// Lifecycle tests: StartService
+// =============================================================================
+
+// newMultiServiceTestProject builds a project with two services for filter tests.
+func newMultiServiceTestProject(mock *runtime.MockRuntime) *Project {
+	return &Project{
+		Dir: "/tmp/test",
+		Config: &config.ProjectConfig{
+			Name: "testproject",
+			Services: map[string]config.ServiceConfig{
+				"app": {Image: "alpine:latest", Command: "sleep infinity"},
+				"db":  {Image: "postgres:16", Command: "postgres"},
+			},
+		},
+		Runtime: mock,
+	}
+}
+
+func TestStartService_StartsOnlyNamedService(t *testing.T) {
+	cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	mock := runtime.NewMockRuntime()
+	p := newMultiServiceTestProject(mock)
+
+	ctx := context.Background()
+	if err := p.StartService(ctx, "app"); err != nil {
+		t.Fatalf("StartService() error: %v", err)
+	}
+
+	if !mock.ContainersRunning["app.testproject.zdev"] {
+		t.Error("app container should be running")
+	}
+	if mock.ContainersExist["db.testproject.zdev"] {
+		t.Error("db container should NOT have been created")
+	}
+}
+
+func TestStartService_FailsForUnknownService(t *testing.T) {
+	cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	mock := runtime.NewMockRuntime()
+	p := newMultiServiceTestProject(mock)
+
+	ctx := context.Background()
+	err := p.StartService(ctx, "doesnotexist")
+	if err == nil {
+		t.Fatal("StartService() expected error for unknown service, got nil")
+	}
+	if mock.CallCount("CreateContainer") != 0 {
+		t.Error("Expected no container operations for unknown service")
+	}
+}
+
+func TestStartService_RunsProjectSetupIdempotently(t *testing.T) {
+	cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	mock := runtime.NewMockRuntime()
+	p := newMultiServiceTestProject(mock)
+
+	ctx := context.Background()
+	if err := p.StartService(ctx, "app"); err != nil {
+		t.Fatalf("StartService() error: %v", err)
+	}
+
+	// Network should be created on first single-service start
+	if !mock.NetworksExist["testproject.zdev"] {
+		t.Error("network was not created")
+	}
+}
+
+// =============================================================================
+// Lifecycle tests: RestartService
+// =============================================================================
+
+func TestRestartService_StopsAndStartsRunningContainer(t *testing.T) {
+	cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	mock := runtime.NewMockRuntime()
+	mock.ContainersExist["app.testproject.zdev"] = true
+	mock.ContainersRunning["app.testproject.zdev"] = true
+
+	p := newTestProject(mock)
+
+	ctx := context.Background()
+	if err := p.RestartService(ctx, "app"); err != nil {
+		t.Fatalf("RestartService() error: %v", err)
+	}
+
+	if mock.CallCount("StopContainer") != 1 {
+		t.Errorf("StopContainer called %d times, want 1", mock.CallCount("StopContainer"))
+	}
+	if mock.CallCount("StartContainer") != 1 {
+		t.Errorf("StartContainer called %d times, want 1", mock.CallCount("StartContainer"))
+	}
+	if !mock.CalledWith("StartContainer", "app.testproject.zdev") {
+		t.Error("StartContainer was not called with app.testproject.zdev")
+	}
+}
+
+func TestRestartService_StartsAlreadyStoppedContainer(t *testing.T) {
+	cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	mock := runtime.NewMockRuntime()
+	mock.ContainersExist["app.testproject.zdev"] = true
+	mock.ContainersRunning["app.testproject.zdev"] = false
+
+	p := newTestProject(mock)
+
+	ctx := context.Background()
+	if err := p.RestartService(ctx, "app"); err != nil {
+		t.Fatalf("RestartService() error: %v", err)
+	}
+
+	if mock.CallCount("StopContainer") != 0 {
+		t.Errorf("StopContainer called %d times, want 0 (already stopped)", mock.CallCount("StopContainer"))
+	}
+	if mock.CallCount("StartContainer") != 1 {
+		t.Errorf("StartContainer called %d times, want 1", mock.CallCount("StartContainer"))
+	}
+}
+
+func TestRestartService_FailsForUnknownService(t *testing.T) {
+	cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	mock := runtime.NewMockRuntime()
+	p := newTestProject(mock)
+
+	ctx := context.Background()
+	err := p.RestartService(ctx, "doesnotexist")
+	if err == nil {
+		t.Fatal("RestartService() expected error for unknown service, got nil")
+	}
+	if mock.CallCount("StopContainer") != 0 || mock.CallCount("StartContainer") != 0 {
+		t.Error("Expected no container operations for unknown service")
+	}
+}
+
+func TestRestartService_FailsWhenContainerMissing(t *testing.T) {
+	cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	mock := runtime.NewMockRuntime()
+	// Container intentionally not created
+	p := newTestProject(mock)
+
+	ctx := context.Background()
+	err := p.RestartService(ctx, "app")
+	if err == nil {
+		t.Fatal("RestartService() expected error when container missing, got nil")
+	}
+	if mock.CallCount("StartContainer") != 0 {
+		t.Error("StartContainer should not be called when container is missing")
+	}
+}
+
+// =============================================================================
 // Lifecycle tests: Down
 // =============================================================================
 

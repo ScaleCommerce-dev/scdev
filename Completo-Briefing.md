@@ -37,7 +37,7 @@ Default project lifecycle: `zdev start` -> develop -> `zdev stop` (or `zdev down
 
 **Start sequence:** check ports -> create network -> create volumes (auto-discovered) -> pull images -> create containers (stamped with `zdev.config-hash` label) -> connect shared services -> connect to member link networks -> start Mutagen sync -> start containers -> register in state.
 
-**Restart vs Update:** `zdev restart` stops and starts the existing containers (no recreate). `zdev update` diffs the current config-hash against what the code would produce now and recreates only services whose config drifted (image, env, volumes, command, working dir, routing labels, ports, aliases).
+**Restart vs Update:** `zdev restart` stops and starts the existing containers (no recreate). `zdev update` diffs the current config-hash against what the code would produce now and recreates only services whose config drifted (image, env, volumes, command, working dir, routing labels, ports, aliases). Both `zdev start` and `zdev restart` accept an optional service name to scope the action to a single container; project-wide setup (network, volumes, state) still runs idempotently.
 
 **Stop:** pause Mutagen -> stop containers -> disconnect shared services.
 

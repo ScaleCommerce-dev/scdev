@@ -155,8 +155,9 @@ func parseVolumeMount(volume string) (source, target string, isNamedVolume bool)
 	return source, target, isNamedVolume
 }
 
-// checkPortAvailability checks if all configured routing ports are available
-func (p *Project) checkPortAvailability(ctx context.Context) error {
+// checkPortAvailability checks if all configured routing ports are available.
+// If services is non-empty, only those services' ports are checked.
+func (p *Project) checkPortAvailability(ctx context.Context, services map[string]bool) error {
 	if !p.Config.Shared.Router {
 		return nil // No routing ports to check if not using shared router
 	}
@@ -167,6 +168,9 @@ func (p *Project) checkPortAvailability(ctx context.Context) error {
 	}
 
 	for serviceName, svc := range p.Config.Services {
+		if len(services) > 0 && !services[serviceName] {
+			continue
+		}
 		if svc.Routing == nil || svc.Routing.HostPort == 0 {
 			continue
 		}
@@ -220,8 +224,27 @@ func isPortAvailable(hostPort string) bool {
 
 // Start starts all project services
 func (p *Project) Start(ctx context.Context) error {
+	return p.start(ctx, nil)
+}
+
+// StartService starts a single project service. Project-wide setup
+// (network, volumes, state registration, shared service connections) runs
+// idempotently, so calling this on a never-started project still works.
+func (p *Project) StartService(ctx context.Context, name string) error {
+	if _, ok := p.Config.Services[name]; !ok {
+		return fmt.Errorf("service %q not found in project config (available: %s)", name, strings.Join(p.ServiceNames(), ", "))
+	}
+	return p.start(ctx, map[string]bool{name: true})
+}
+
+// start is the shared implementation behind Start and StartService.
+// When filter is nil all services run; otherwise only services whose names
+// are keys with a true value are started. Port checks, Mutagen finalization,
+// and state/shared/link wiring all respect the same filter so single-service
+// starts don't touch unrelated state.
+func (p *Project) start(ctx context.Context, filter map[string]bool) error {
 	// Check port availability before starting anything
-	if err := p.checkPortAvailability(ctx); err != nil {
+	if err := p.checkPortAvailability(ctx, filter); err != nil {
 		return err
 	}
 
@@ -260,14 +283,28 @@ func (p *Project) Start(ctx context.Context) error {
 		}
 	}
 
-	// Start all services
+	// Start services (filtered)
 	for serviceName, serviceCfg := range p.Config.Services {
+		if len(filter) > 0 && !filter[serviceName] {
+			continue
+		}
 		if err := p.startServiceWithMutagen(ctx, serviceName, serviceCfg, mutagenEnabled, mutagenMountMap); err != nil {
 			return fmt.Errorf("failed to start service %s: %w", serviceName, err)
 		}
 	}
 
-	if err := p.finalizeMutagen(ctx, m, mutagenMounts); err != nil {
+	// Only finalize Mutagen sessions for the services that actually started,
+	// so single-service starts don't touch sessions tied to other services.
+	finalizedMounts := mutagenMounts
+	if len(filter) > 0 {
+		finalizedMounts = finalizedMounts[:0]
+		for _, mount := range mutagenMounts {
+			if filter[mount.ServiceName] {
+				finalizedMounts = append(finalizedMounts, mount)
+			}
+		}
+	}
+	if err := p.finalizeMutagen(ctx, m, finalizedMounts); err != nil {
 		return err
 	}
 
@@ -491,7 +528,7 @@ func (p *Project) Down(ctx context.Context, removeVolumes bool) error {
 // Returns true if any changes were made
 func (p *Project) Update(ctx context.Context) (bool, error) {
 	// Check port availability for new ports
-	if err := p.checkPortAvailability(ctx); err != nil {
+	if err := p.checkPortAvailability(ctx, nil); err != nil {
 		return false, err
 	}
 
@@ -836,6 +873,74 @@ func (p *Project) Restart(ctx context.Context) error {
 
 	if err := p.Start(ctx); err != nil {
 		return fmt.Errorf("failed to start: %w", err)
+	}
+
+	return nil
+}
+
+// RestartService bounces a single service container in-place. Skips the
+// project-wide setup (network, volumes, state, shared services) since
+// those are assumed to already be in place from a prior `zdev start`.
+// Pauses and resumes only the Mutagen sync sessions tied to this service.
+// To pick up config changes, use `zdev update` instead.
+func (p *Project) RestartService(ctx context.Context, name string) error {
+	if _, ok := p.Config.Services[name]; !ok {
+		return fmt.Errorf("service %q not found in project config (available: %s)", name, strings.Join(p.ServiceNames(), ", "))
+	}
+
+	containerName := p.ContainerName(name)
+	exists, err := p.Runtime.ContainerExists(ctx, containerName)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return fmt.Errorf("service %s container does not exist - run 'zdev start' first", name)
+	}
+
+	var serviceMounts []MutagenSyncMount
+	if p.IsMutagenEnabled() {
+		for _, m := range p.GetMutagenSyncMounts() {
+			if m.ServiceName == name {
+				serviceMounts = append(serviceMounts, m)
+			}
+		}
+	}
+
+	if len(serviceMounts) > 0 {
+		if m, err := p.EnsureMutagen(ctx); err == nil {
+			for _, mount := range serviceMounts {
+				if existsSess, _ := m.SessionExists(ctx, mount.SessionName); existsSess {
+					fmt.Printf("Pausing sync session %s...\n", mount.SessionName)
+					if err := m.PauseSession(ctx, mount.SessionName); err != nil {
+						fmt.Printf("Warning: could not pause session %s: %v\n", mount.SessionName, err)
+					}
+				}
+			}
+		}
+	}
+
+	running, err := p.Runtime.IsContainerRunning(ctx, containerName)
+	if err != nil {
+		return err
+	}
+	if running {
+		fmt.Printf("Stopping service %s...\n", name)
+		if err := p.Runtime.StopContainer(ctx, containerName); err != nil {
+			return fmt.Errorf("failed to stop service %s: %w", name, err)
+		}
+	}
+
+	fmt.Printf("Starting service %s...\n", name)
+	if err := p.Runtime.StartContainer(ctx, containerName); err != nil {
+		return fmt.Errorf("failed to start service %s: %w", name, err)
+	}
+
+	if len(serviceMounts) > 0 {
+		if m, err := p.EnsureMutagen(ctx); err == nil {
+			if err := p.finalizeMutagen(ctx, m, serviceMounts); err != nil {
+				return err
+			}
+		}
 	}
 
 	return nil

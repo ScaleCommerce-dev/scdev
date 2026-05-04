@@ -35,9 +35,11 @@ zdev version  # Check if installed
 # Project lifecycle
 zdev create <template> [name]   # Create from template (GitHub repo or local dir)
 zdev start                      # Start project
+zdev start <service>            # Start one service (project setup runs idempotently)
 zdev start -q                   # Start quietly (no info display, for scripts)
 zdev stop                       # Stop containers
-zdev restart                    # Stop + start
+zdev restart                    # Stop + start every service
+zdev restart <service>          # Bounce one service container in-place
 zdev down                       # Remove containers and network
 zdev down -v                    # Remove everything including volumes
 
@@ -303,13 +305,14 @@ wrapping an existing repo or authoring a template.
 
 ## Debugging
 
-**Container crashes:** `zdev logs -f app` to see why. `zdev restart` fixes most transient issues.
-`zdev down && zdev start` for a full clean restart.
+**Container crashes:** `zdev logs -f app` to see why. `zdev restart app` bounces just that one
+container; `zdev restart` does the whole project. `zdev down && zdev start` for a full clean restart.
 
-**Config changes aren't taking effect:** `zdev restart` just stops+starts the existing container,
-so edits to `environment:`, `image:`, `command:`, routing, or volume mounts don't apply. Use
-`zdev update` — it diffs the config against the running containers and recreates only the services
-that actually changed. Code changes are live via bind mount / Mutagen — no restart or update needed.
+**Config changes aren't taking effect:** `zdev restart` (with or without a service name) just
+stops+starts the existing container, so edits to `environment:`, `image:`, `command:`, routing, or
+volume mounts don't apply. Use `zdev update` — it diffs the config against the running containers
+and recreates only the services that actually changed. Code changes are live via bind mount /
+Mutagen — no restart or update needed.
 
 **Redirects to docs page:** Either the container isn't running or `routing.port` doesn't match the
 app's port. For shared service UIs (mail, db, redis), also check `zdev services status` - the

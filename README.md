@@ -321,9 +321,11 @@ Each project runs in its own isolated network. Services within a project reach e
 ### Lifecycle
 
 ```bash
-zdev start       # Start the project
-zdev stop        # Stop containers (keeps them for quick restart)
-zdev restart     # Stop + start
+zdev start              # Start every service in the project
+zdev start <service>    # Start a single service (project setup runs idempotently)
+zdev stop               # Stop containers (keeps them for quick restart)
+zdev restart            # Stop + start every service
+zdev restart <service>  # Bounce a single service container in-place
 zdev down        # Remove containers and network
 zdev down -v     # Remove everything including volumes
 zdev rename <n>  # Rename project, migrate volumes, restart
