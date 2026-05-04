@@ -357,3 +357,95 @@ func TestProject_Volumes(t *testing.T) {
 		t.Error("expected node_modules volume to be removed")
 	}
 }
+
+// TestProject_PerServiceLifecycle exercises StartService, StopService, and
+// RestartService against real Docker on a multi-service project. Locks down
+// the contract that the per-service variants only touch the named container
+// and leave siblings untouched.
+func TestProject_PerServiceLifecycle(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	projectDir, err := filepath.Abs(filepath.Join("..", "..", "testdata", "projects", "full"))
+	if err != nil {
+		t.Fatalf("failed to get absolute path: %v", err)
+	}
+
+	proj, err := LoadFromDir(projectDir)
+	if err != nil {
+		t.Fatalf("LoadFromDir failed: %v", err)
+	}
+
+	docker := runtime.NewDockerCLI()
+	appContainer := proj.ContainerName("app")
+	dbContainer := proj.ContainerName("db")
+
+	// Clean slate
+	_ = proj.Down(ctx, false)
+	defer func() {
+		_ = proj.Down(ctx, false)
+		if mgr, mgrErr := state.DefaultManager(); mgrErr == nil {
+			_ = mgr.UnregisterProject(proj.Config.Name)
+		}
+	}()
+
+	// 1. zdev start app on a never-started project: only app comes up.
+	t.Log("StartService(app) on fresh project")
+	if err := proj.StartService(ctx, "app"); err != nil {
+		t.Fatalf("StartService(app) failed: %v", err)
+	}
+	if running, _ := docker.IsContainerRunning(ctx, appContainer); !running {
+		t.Error("expected app to be running after StartService(app)")
+	}
+	if exists, _ := docker.ContainerExists(ctx, dbContainer); exists {
+		t.Error("expected db container to NOT exist after StartService(app) on fresh project")
+	}
+
+	// 2. zdev start db: now both should be up.
+	t.Log("StartService(db)")
+	if err := proj.StartService(ctx, "db"); err != nil {
+		t.Fatalf("StartService(db) failed: %v", err)
+	}
+	if running, _ := docker.IsContainerRunning(ctx, dbContainer); !running {
+		t.Error("expected db to be running after StartService(db)")
+	}
+	if running, _ := docker.IsContainerRunning(ctx, appContainer); !running {
+		t.Error("expected app to STILL be running after StartService(db)")
+	}
+
+	// 3. zdev stop app: only app stops, db keeps running.
+	t.Log("StopService(app)")
+	if err := proj.StopService(ctx, "app"); err != nil {
+		t.Fatalf("StopService(app) failed: %v", err)
+	}
+	if running, _ := docker.IsContainerRunning(ctx, appContainer); running {
+		t.Error("expected app to NOT be running after StopService(app)")
+	}
+	if running, _ := docker.IsContainerRunning(ctx, dbContainer); !running {
+		t.Error("expected db to STILL be running after StopService(app)")
+	}
+
+	// 4. zdev restart db: db stays up, app stays stopped.
+	t.Log("RestartService(db)")
+	if err := proj.RestartService(ctx, "db"); err != nil {
+		t.Fatalf("RestartService(db) failed: %v", err)
+	}
+	if running, _ := docker.IsContainerRunning(ctx, dbContainer); !running {
+		t.Error("expected db to be running after RestartService(db)")
+	}
+	if running, _ := docker.IsContainerRunning(ctx, appContainer); running {
+		t.Error("expected app to STILL be stopped after RestartService(db)")
+	}
+
+	// 5. Unknown service name: error, no Docker side effects.
+	t.Log("StartService(bogus) errors out")
+	if err := proj.StartService(ctx, "bogus"); err == nil {
+		t.Error("expected StartService(bogus) to error")
+	}
+	if err := proj.StopService(ctx, "bogus"); err == nil {
+		t.Error("expected StopService(bogus) to error")
+	}
+	if err := proj.RestartService(ctx, "bogus"); err == nil {
+		t.Error("expected RestartService(bogus) to error")
+	}
+}
