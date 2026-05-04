@@ -1,4 +1,4 @@
-# scdev
+# zdev
 
 Local development environment framework for web applications. Go CLI that shells out to the `docker` CLI (never the Docker SDK - keeps the door open for Podman). Single command startup, shared infrastructure (Traefik, Mailpit, Adminer), project isolation via Docker networks.
 
@@ -24,20 +24,20 @@ Release process:
 
 - **No top-level `volumes:` in project config.** Unlike Docker Compose, named volumes don't need separate declaration - anything in a service `volumes:` entry that doesn't start with `/` or `.` is auto-discovered as a named volume (`parseVolumeMount()`).
 - **Config `variables:` are NOT env vars.** They're `${VAR}` placeholders substituted at config-load time (second pass of `LoadProject()`, after `PROJECTNAME` resolves). They don't reach containers - that's what `environment:` is for.
-- **Justfile commands** live in `.scdev/commands/<name>.just`, not a single Justfile. Resolution order: built-in > justfile > error.
-- **Mutagen auto-detection:** enabled on macOS, disabled on Linux. Controlled by `~/.scdev/global-config.yaml`, not project config.
+- **Justfile commands** live in `.zdev/commands/<name>.just`, not a single Justfile. Resolution order: built-in > justfile > error.
+- **Mutagen auto-detection:** enabled on macOS, disabled on Linux. Controlled by `~/.zdev/global-config.yaml`, not project config.
 - **`routing.domain`** on a service enables a per-service custom domain (HTTP/HTTPS only). Without it, services share the project domain. Useful for frontend + backend splits.
-- **Default domain `scalecommerce.site`** is wildcard DNS resolving to 127.0.0.1 - not a real site, just a resolver trick.
-- **Framework progress messages use `ui.StatusStep()`**, not `fmt.Println` - two blank lines + cyan `▶` + bold text, so they stand out from verbose nested command output. Mirrored by the `scdev step <message>` subcommand for template justfiles (templates should call `@scdev step "..."` instead of `@echo "..."` for top-level progress markers).
+- **Default domain `0ploy.dev`** is wildcard DNS resolving to 127.0.0.1 - not a real site, just a resolver trick.
+- **Framework progress messages use `ui.StatusStep()`**, not `fmt.Println` - two blank lines + cyan `▶` + bold text, so they stand out from verbose nested command output. Mirrored by the `zdev step <message>` subcommand for template justfiles (templates should call `@zdev step "..."` instead of `@echo "..."` for top-level progress markers).
 
 ## Architecture Anchors
 
 - **`internal/config/defaults.go`** is the single source of truth for images, versions, and the default domain. Change once, everything picks it up.
-- **`buildContainerConfig()` in `internal/project/project.go`** is the single source of truth for container configuration. It stamps an `scdev.config-hash` label covering image, env, volumes, command, working dir, routing labels, ports, and network aliases. `scdev update` recreates any service whose stamped hash differs. **Any new service config field that should shape a container must flow through `buildContainerConfig` - otherwise `scdev update` won't detect changes to it.**
-- **`runtime.ComputeConfigHash` / `runtime.StampConfigHash` in `internal/runtime/confighash.go`** are the shared hash helpers. Project `buildContainerConfig` and every shared-service `*ContainerConfig` function (`internal/services/adminer.go`, `mail.go`, `redis_insights.go`, `router.go`, `logs.go`) stamp the same `scdev.config-hash` label. `services.Manager.startService` compares the running container's hash to the freshly built expected config on every call and recreates on mismatch - this is what makes `scdev services start` pick up SSL/image/domain changes instead of silently starting a stale container. **Any new shared-service config field that should shape the container must flow through the `*ContainerConfig` function so it ends up in the hash; don't add per-field comparators.** The router has a port-superset carve-out: `StartRouter` hashes against the UNION of the running container's ports and state-required ports, so extra ports from a now-removed project don't force a recreate. Intentional port shrinking still happens via `RefreshRouter` on project removal.
-- **`ContainerNameFor(service, project)`** builds container names without a loaded `Project`. Use it instead of `fmt.Sprintf("%s.%s.scdev", ...)`.
-- **Link networks** are runtime relationships between projects, stored in global state (`~/.scdev/state.yaml`), not project config. Each creates a `scdev_link_<name>` network. Containers resolve each other by container name via Docker's embedded DNS.
-- **Template repos** follow the naming convention `scdev-template-<name>` (matters for `scdev create` resolution).
+- **`buildContainerConfig()` in `internal/project/project.go`** is the single source of truth for container configuration. It stamps an `zdev.config-hash` label covering image, env, volumes, command, working dir, routing labels, ports, and network aliases. `zdev update` recreates any service whose stamped hash differs. **Any new service config field that should shape a container must flow through `buildContainerConfig` - otherwise `zdev update` won't detect changes to it.**
+- **`runtime.ComputeConfigHash` / `runtime.StampConfigHash` in `internal/runtime/confighash.go`** are the shared hash helpers. Project `buildContainerConfig` and every shared-service `*ContainerConfig` function (`internal/services/adminer.go`, `mail.go`, `redis_insights.go`, `router.go`, `logs.go`) stamp the same `zdev.config-hash` label. `services.Manager.startService` compares the running container's hash to the freshly built expected config on every call and recreates on mismatch - this is what makes `zdev services start` pick up SSL/image/domain changes instead of silently starting a stale container. **Any new shared-service config field that should shape the container must flow through the `*ContainerConfig` function so it ends up in the hash; don't add per-field comparators.** The router has a port-superset carve-out: `StartRouter` hashes against the UNION of the running container's ports and state-required ports, so extra ports from a now-removed project don't force a recreate. Intentional port shrinking still happens via `RefreshRouter` on project removal.
+- **`ContainerNameFor(service, project)`** builds container names without a loaded `Project`. Use it instead of `fmt.Sprintf("%s.%s.zdev", ...)`.
+- **Link networks** are runtime relationships between projects, stored in global state (`~/.zdev/state.yaml`), not project config. Each creates a `zdev_link_<name>` network. Containers resolve each other by container name via Docker's embedded DNS.
+- **Template repos** follow the naming convention `zdev-template-<name>` (matters for `zdev create` resolution).
 
 ## Adding Docker-Dependent Commands
 
@@ -57,13 +57,13 @@ Easy-to-miss steps when wiring a new shared service:
 
 ## Gotchas
 
-- **Project domains don't work for inter-container communication.** `*.scalecommerce.site` resolves to 127.0.0.1, which inside a container points at the container itself, not Traefik. Cross-project containers must use container names (`app.project-b.scdev`) - this is why `scdev link` uses Docker DNS, not routing.
+- **Project domains don't work for inter-container communication.** `*.0ploy.dev` resolves to 127.0.0.1, which inside a container points at the container itself, not Traefik. Cross-project containers must use container names (`app.project-b.zdev`) - this is why `zdev link` uses Docker DNS, not routing.
 - **Mutagen ignored paths are not synced either way.** `node_modules` and `.pnpm-store` must be ignored for Node.js projects so they stay inside the container at native speed. IDE autocomplete still works via the host's own `pnpm install` / host `node_modules`.
 - **`.pnpm-store` MUST be in the mutagen ignore list for pnpm projects.** pnpm builds a ~500MB content-addressable store with platform-specific native binaries (glibc vs musl) inside the project dir. Without ignoring it, syncing those binaries to the host breaks the next time the container image changes.
 - **Only directory bind mounts sync via Mutagen.** Single-file mounts stay as regular bind mounts.
-- **Sync-ready gate:** `buildContainerConfig` wraps commands with a wait on `/.scdev-sync-ready` when Mutagen is enabled for that service. Don't add your own `while [ ! -f ... ]` workaround - it's already there.
-- **Every container-creation path must run `prepareMutagen()` first and pass the resulting `mountMap` into `startServiceWithMutagen` / `buildContainerConfig`.** Building a container with `mutagenEnabled=false` while the project actually has Mutagen mounts swaps the named `sync.<svc>.<project>.scdev` volume for a raw bind mount - dropping anything in the Mutagen ignore list (`vendor/`, `.setup-complete`) that lived only inside the volume. Has burned `scdev update` twice; covered by `TestProject_MutagenUpdatePreservesSyncVolume`.
-- **`scdev rename` migrates volumes via a temp container** using a project service image (guaranteed present locally). Docker has no native volume rename. See `CopyVolume` on the Runtime interface. All copies happen before any old volumes are removed, to bound blast radius on failure.
+- **Sync-ready gate:** `buildContainerConfig` wraps commands with a wait on `/.zdev-sync-ready` when Mutagen is enabled for that service. Don't add your own `while [ ! -f ... ]` workaround - it's already there.
+- **Every container-creation path must run `prepareMutagen()` first and pass the resulting `mountMap` into `startServiceWithMutagen` / `buildContainerConfig`.** Building a container with `mutagenEnabled=false` while the project actually has Mutagen mounts swaps the named `sync.<svc>.<project>.zdev` volume for a raw bind mount - dropping anything in the Mutagen ignore list (`vendor/`, `.setup-complete`) that lived only inside the volume. Has burned `zdev update` twice; covered by `TestProject_MutagenUpdatePreservesSyncVolume`.
+- **`zdev rename` migrates volumes via a temp container** using a project service image (guaranteed present locally). Docker has no native volume rename. See `CopyVolume` on the Runtime interface. All copies happen before any old volumes are removed, to bound blast radius on failure.
 - **The docs page (`docs.shared.<domain>`) is also Traefik's 404 catch-all** - unmatched URLs land there, not a generic error page.
 - **Integration tests that tear down shared services** (router, mail, db, redis, logs) must snapshot beforehand and restore afterward via `snapshotSharedServices` / `restoreSharedServices`. Forgetting this silently breaks the developer's running environment.
 

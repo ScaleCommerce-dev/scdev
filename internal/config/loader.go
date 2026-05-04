@@ -32,7 +32,7 @@ type ProjectInfo struct {
 
 // LoadProject loads and parses a project config from the given directory
 func LoadProject(projectDir string) (*ProjectConfig, error) {
-	configPath := filepath.Join(projectDir, ".scdev", "config.yaml")
+	configPath := filepath.Join(projectDir, ".zdev", "config.yaml")
 
 	data, err := os.ReadFile(configPath)
 	if err != nil {
@@ -92,7 +92,7 @@ func LoadProject(projectDir string) (*ProjectConfig, error) {
 		cfg.Name = projectName
 	}
 
-	// Default domain to {name}.{scdev_domain}
+	// Default domain to {name}.{zdev_domain}
 	if cfg.Domain == "" {
 		cfg.Domain = cfg.Name + "." + DefaultDomain
 	}
@@ -161,8 +161,8 @@ func buildVariables(projectDir string) map[string]string {
 	// PROJECTNAME = will be set later to the parsed 'name:' field value
 	vars["PROJECTDIR"] = filepath.Base(projectDir)
 	vars["PROJECTPATH"] = projectDir
-	vars["SCDEV_HOME"] = getScdevHome()
-	vars["SCDEV_DOMAIN"] = getScdevDomain()
+	vars["ZDEV_HOME"] = getZdevHome()
+	vars["ZDEV_DOMAIN"] = getZdevDomain()
 	vars["USER"] = os.Getenv("USER")
 	vars["HOME"] = os.Getenv("HOME")
 
@@ -198,29 +198,29 @@ func substituteVariables(content string, vars map[string]string) string {
 	})
 }
 
-// getScdevHome returns the scdev home directory
-func getScdevHome() string {
-	if home := os.Getenv("SCDEV_HOME"); home != "" {
+// getZdevHome returns the zdev home directory
+func getZdevHome() string {
+	if home := os.Getenv("ZDEV_HOME"); home != "" {
 		return home
 	}
-	return filepath.Join(os.Getenv("HOME"), ".scdev")
+	return filepath.Join(os.Getenv("HOME"), ".zdev")
 }
 
-// GetScdevHome returns the scdev home directory (exported version)
-func GetScdevHome() string {
-	return getScdevHome()
+// GetZdevHome returns the zdev home directory (exported version)
+func GetZdevHome() string {
+	return getZdevHome()
 }
 
-// getScdevDomain returns the default domain
-// Priority: 1. SCDEV_DOMAIN env var, 2. global config, 3. default
-func getScdevDomain() string {
+// getZdevDomain returns the default domain
+// Priority: 1. ZDEV_DOMAIN env var, 2. global config, 3. default
+func getZdevDomain() string {
 	// Check environment variable first
-	if domain := os.Getenv("SCDEV_DOMAIN"); domain != "" {
+	if domain := os.Getenv("ZDEV_DOMAIN"); domain != "" {
 		return domain
 	}
 
 	// Try to read from global config
-	globalConfigPath := filepath.Join(getScdevHome(), GlobalConfigFilename)
+	globalConfigPath := filepath.Join(getZdevHome(), GlobalConfigFilename)
 	if data, err := os.ReadFile(globalConfigPath); err == nil {
 		var globalCfg GlobalConfig
 		if err := yaml.Unmarshal(data, &globalCfg); err == nil && globalCfg.Domain != "" {
@@ -231,12 +231,12 @@ func getScdevDomain() string {
 	return DefaultDomain
 }
 
-// GetScdevDomain returns the default domain (exported version)
-func GetScdevDomain() string {
-	return getScdevDomain()
+// GetZdevDomain returns the default domain (exported version)
+func GetZdevDomain() string {
+	return getZdevDomain()
 }
 
-// LoadGlobalConfig loads the global config from ~/.scdev/global-config.yaml
+// LoadGlobalConfig loads the global config from ~/.zdev/global-config.yaml
 // Returns default config if file doesn't exist
 // defaultGlobalConfig returns a GlobalConfig with all defaults populated.
 // Single source of truth — used for both "file missing" and "file exists" paths.
@@ -273,7 +273,7 @@ func newDefaultGlobalConfig() GlobalConfig {
 }
 
 func LoadGlobalConfig() (*GlobalConfig, error) {
-	globalConfigPath := filepath.Join(getScdevHome(), GlobalConfigFilename)
+	globalConfigPath := filepath.Join(getZdevHome(), GlobalConfigFilename)
 
 	data, err := os.ReadFile(globalConfigPath)
 	if err != nil {
@@ -297,9 +297,9 @@ func LoadGlobalConfig() (*GlobalConfig, error) {
 // EnsureGlobalConfig creates the global config file if it doesn't exist
 // Returns the path to the config and whether it was newly created
 func EnsureGlobalConfig() (string, bool, error) {
-	scdevHome := getScdevHome()
-	configPath := filepath.Join(scdevHome, GlobalConfigFilename)
-	oldConfigPath := filepath.Join(scdevHome, "config.yaml")
+	zdevHome := getZdevHome()
+	configPath := filepath.Join(zdevHome, GlobalConfigFilename)
+	oldConfigPath := filepath.Join(zdevHome, "config.yaml")
 
 	// Migrate old config.yaml to global-config.yaml if needed
 	if _, err := os.Stat(oldConfigPath); err == nil {
@@ -318,8 +318,8 @@ func EnsureGlobalConfig() (string, bool, error) {
 	}
 
 	// Create directory if needed
-	if err := os.MkdirAll(scdevHome, 0755); err != nil {
-		return "", false, fmt.Errorf("failed to create %s: %w", scdevHome, err)
+	if err := os.MkdirAll(zdevHome, 0755); err != nil {
+		return "", false, fmt.Errorf("failed to create %s: %w", zdevHome, err)
 	}
 
 	// Generate config with current version constants
@@ -361,7 +361,7 @@ func substituteConfigVars(content string, vars map[string]string) string {
 var projectDirOverride string
 
 // SetProjectDirOverride sets an explicit project directory, bypassing discovery
-// The path should be the directory containing .scdev/ (not .scdev/ itself)
+// The path should be the directory containing .zdev/ (not .zdev/ itself)
 func SetProjectDirOverride(dir string) {
 	projectDirOverride = dir
 }
@@ -371,16 +371,16 @@ func GetProjectDirOverride() string {
 	return projectDirOverride
 }
 
-// FindProjectDir walks up from the current directory to find a .scdev/config.yaml
+// FindProjectDir walks up from the current directory to find a .zdev/config.yaml
 // If a project directory override is set (via --config flag), it returns that instead
 func FindProjectDir() (string, error) {
 	// Check for explicit override first
 	if projectDirOverride != "" {
 		// Verify the config exists at the override path
-		configPath := filepath.Join(projectDirOverride, ".scdev", "config.yaml")
+		configPath := filepath.Join(projectDirOverride, ".zdev", "config.yaml")
 		if _, err := os.Stat(configPath); err != nil {
 			if os.IsNotExist(err) {
-				return "", fmt.Errorf("no .scdev/config.yaml found at %s", projectDirOverride)
+				return "", fmt.Errorf("no .zdev/config.yaml found at %s", projectDirOverride)
 			}
 			return "", fmt.Errorf("failed to access config at %s: %w", projectDirOverride, err)
 		}
@@ -398,15 +398,15 @@ func FindProjectDir() (string, error) {
 		return "", fmt.Errorf("failed to resolve symlinks: %w", err)
 	}
 
-	// Get home directory to exclude ~/.scdev (global config, not a project)
+	// Get home directory to exclude ~/.zdev (global config, not a project)
 	homeDir, _ := os.UserHomeDir()
 
 	for {
-		configPath := filepath.Join(dir, ".scdev", "config.yaml")
+		configPath := filepath.Join(dir, ".zdev", "config.yaml")
 		if _, err := os.Stat(configPath); err == nil {
-			// Skip if this is the global scdev home (~/.scdev), not a project
+			// Skip if this is the global zdev home (~/.zdev), not a project
 			if homeDir != "" && dir == homeDir {
-				// This is ~/.scdev/config.yaml - the global config, not a project
+				// This is ~/.zdev/config.yaml - the global config, not a project
 				// Continue searching in parent (will eventually fail at root)
 			} else {
 				return dir, nil
@@ -417,7 +417,7 @@ func FindProjectDir() (string, error) {
 		parent := filepath.Dir(dir)
 		if parent == dir {
 			// Reached root
-			return "", fmt.Errorf("no .scdev/config.yaml found in current directory or any parent")
+			return "", fmt.Errorf("no .zdev/config.yaml found in current directory or any parent")
 		}
 		dir = parent
 	}
@@ -425,12 +425,12 @@ func FindProjectDir() (string, error) {
 
 // GetTraefikConfigDir returns the path to the Traefik config directory
 func GetTraefikConfigDir() string {
-	return filepath.Join(getScdevHome(), "traefik")
+	return filepath.Join(getZdevHome(), "traefik")
 }
 
 // GetCertsDir returns the path to the certificates directory
 func GetCertsDir() string {
-	return filepath.Join(getScdevHome(), "certs")
+	return filepath.Join(getZdevHome(), "certs")
 }
 
 // EnsureTraefikConfig creates the Traefik dynamic config file if certs exist
@@ -465,7 +465,7 @@ func EnsureTraefikConfig() (string, error) {
 
 // GetDocsDir returns the path to the docs directory
 func GetDocsDir() string {
-	return filepath.Join(getScdevHome(), "docs")
+	return filepath.Join(getZdevHome(), "docs")
 }
 
 // EnsureDocsConfig creates the docs HTML file and Traefik routing config
@@ -526,7 +526,7 @@ func generateProjectsSection(projects []ProjectInfo, protocol string) string {
 	if len(projects) == 0 {
 		return `<div class="section">
             <div class="section-label">Projects</div>
-            <p class="no-projects">No projects configured yet. Create a project with <code>.scdev/config.yaml</code> and run <code>scdev start</code>.</p>
+            <p class="no-projects">No projects configured yet. Create a project with <code>.zdev/config.yaml</code> and run <code>zdev start</code>.</p>
         </div>`
 	}
 
@@ -617,60 +617,60 @@ func generateDocsTraefikConfig(domain string, tlsEnabled bool) string {
 	redirectURL := protocol + "://docs.shared." + domain + "/"
 
 	var sb strings.Builder
-	sb.WriteString("# Auto-generated by scdev - do not edit manually\n")
+	sb.WriteString("# Auto-generated by zdev - do not edit manually\n")
 	sb.WriteString("# Docs routing configuration\n\n")
 	sb.WriteString("http:\n")
 	sb.WriteString("  middlewares:\n")
 	sb.WriteString("    # Statiq plugin serves static files from /docs\n")
-	sb.WriteString("    scdev-docs:\n")
+	sb.WriteString("    zdev-docs:\n")
 	sb.WriteString("      plugin:\n")
 	sb.WriteString("        statiq:\n")
 	sb.WriteString("          root: \"/docs\"\n\n")
 	sb.WriteString("    # Redirect middleware for catch-all\n")
-	sb.WriteString("    scdev-docs-redirect:\n")
+	sb.WriteString("    zdev-docs-redirect:\n")
 	sb.WriteString("      redirectRegex:\n")
 	sb.WriteString("        regex: \".*\"\n")
 	sb.WriteString(fmt.Sprintf("        replacement: \"%s\"\n", redirectURL))
 	sb.WriteString("        permanent: false\n\n")
 	sb.WriteString("  routers:\n")
 	sb.WriteString("    # Direct docs access (HTTP)\n")
-	sb.WriteString("    scdev-docs-http:\n")
+	sb.WriteString("    zdev-docs-http:\n")
 	sb.WriteString(fmt.Sprintf("      rule: \"Host(`%s`)\"\n", docsHost))
 	sb.WriteString("      entryPoints:\n")
 	sb.WriteString("        - http\n")
 	sb.WriteString("      middlewares:\n")
-	sb.WriteString("        - scdev-docs\n")
+	sb.WriteString("        - zdev-docs\n")
 	sb.WriteString("      service: noop@internal\n")
 	sb.WriteString("      priority: 100\n\n")
 	sb.WriteString("    # Catch-all redirect (HTTP)\n")
-	sb.WriteString("    scdev-catchall-http:\n")
+	sb.WriteString("    zdev-catchall-http:\n")
 	sb.WriteString(fmt.Sprintf("      rule: \"HostRegexp(`.*\\\\.%s`)\"\n", escapedDomain))
 	sb.WriteString("      entryPoints:\n")
 	sb.WriteString("        - http\n")
 	sb.WriteString("      middlewares:\n")
-	sb.WriteString("        - scdev-docs-redirect\n")
+	sb.WriteString("        - zdev-docs-redirect\n")
 	sb.WriteString("      service: noop@internal\n")
 	sb.WriteString("      priority: 1\n")
 
 	// Add HTTPS routers if TLS is enabled
 	if tlsEnabled {
 		sb.WriteString("\n    # Direct docs access (HTTPS)\n")
-		sb.WriteString("    scdev-docs-https:\n")
+		sb.WriteString("    zdev-docs-https:\n")
 		sb.WriteString(fmt.Sprintf("      rule: \"Host(`%s`)\"\n", docsHost))
 		sb.WriteString("      entryPoints:\n")
 		sb.WriteString("        - https\n")
 		sb.WriteString("      middlewares:\n")
-		sb.WriteString("        - scdev-docs\n")
+		sb.WriteString("        - zdev-docs\n")
 		sb.WriteString("      service: noop@internal\n")
 		sb.WriteString("      priority: 100\n")
 		sb.WriteString("      tls: {}\n\n")
 		sb.WriteString("    # Catch-all redirect (HTTPS)\n")
-		sb.WriteString("    scdev-catchall-https:\n")
+		sb.WriteString("    zdev-catchall-https:\n")
 		sb.WriteString(fmt.Sprintf("      rule: \"HostRegexp(`.*\\\\.%s`)\"\n", escapedDomain))
 		sb.WriteString("      entryPoints:\n")
 		sb.WriteString("        - https\n")
 		sb.WriteString("      middlewares:\n")
-		sb.WriteString("        - scdev-docs-redirect\n")
+		sb.WriteString("        - zdev-docs-redirect\n")
 		sb.WriteString("      service: noop@internal\n")
 		sb.WriteString("      priority: 1\n")
 		sb.WriteString("      tls: {}\n")

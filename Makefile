@@ -1,10 +1,10 @@
-# scdev Makefile
+# zdev Makefile
 
-BINARY_NAME=scdev
+BINARY_NAME=zdev
 VERSION=$(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 BUILD_TIME=$(shell date -u '+%Y-%m-%dT%H:%M:%SZ')
-LDFLAGS=-ldflags "-s -w -X github.com/ScaleCommerce-DEV/scdev/cmd.Version=$(VERSION) \
-                  -X github.com/ScaleCommerce-DEV/scdev/cmd.BuildTime=$(BUILD_TIME)"
+LDFLAGS=-ldflags "-s -w -X github.com/0ploy/zdev/cmd.Version=$(VERSION) \
+                  -X github.com/0ploy/zdev/cmd.BuildTime=$(BUILD_TIME)"
 
 .PHONY: build build-all test test-integration clean install test-server
 
@@ -41,10 +41,10 @@ clean:
 	rm -f $(BINARY_NAME) $(BINARY_NAME)-*
 	go clean
 
-# Install to ~/.scdev/bin
+# Install to ~/.zdev/bin
 install: build
-	mkdir -p $(HOME)/.scdev/bin
-	cp $(BINARY_NAME) $(HOME)/.scdev/bin/
+	mkdir -p $(HOME)/.zdev/bin
+	cp $(BINARY_NAME) $(HOME)/.zdev/bin/
 
 # Format code
 fmt:

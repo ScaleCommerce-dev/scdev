@@ -1,4 +1,4 @@
-module github.com/ScaleCommerce-DEV/scdev
+module github.com/0ploy/zdev
 
 go 1.26.2
 

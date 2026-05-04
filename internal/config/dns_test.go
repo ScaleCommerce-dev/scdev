@@ -53,18 +53,18 @@ func TestContainsLoopback(t *testing.T) {
 }
 
 func TestVerifyDomainDNS_DefaultDomain(t *testing.T) {
-	// Test that the default domain resolves correctly via system DNS
-	// This test may fail if your system DNS doesn't resolve the domain
-	// (even if public DNS does) - that's expected behavior
-	result, err := VerifyDomainDNS(DefaultDomain)
+	// Verify the wildcard under DefaultDomain resolves to 127.0.0.1.
+	// We test a subdomain rather than the apex because zdev only uses
+	// `*.<domain>` (project URLs are always `<project>.<domain>`); the
+	// apex itself need not have an A record.
+	probe := "zdev-dns-probe." + DefaultDomain
+	result, err := VerifyDomainDNS(probe)
 
-	// If there's an error, check if it's because public DNS works but system doesn't
-	// In that case, the domain IS correctly configured, just not locally resolvable
 	if err != nil {
 		if result != nil && result.ResolvesTo127 {
-			t.Skipf("Domain %s is correctly configured but system DNS doesn't resolve it: %v", DefaultDomain, err)
+			t.Skipf("Domain %s is correctly configured but system DNS doesn't resolve it: %v", probe, err)
 		}
-		t.Errorf("Default domain %s should resolve to 127.0.0.1: %v", DefaultDomain, err)
+		t.Errorf("Wildcard under %s should resolve to 127.0.0.1: %v", DefaultDomain, err)
 	}
 }
 

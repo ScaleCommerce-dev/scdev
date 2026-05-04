@@ -6,10 +6,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/ScaleCommerce-DEV/scdev/internal/config"
-	"github.com/ScaleCommerce-DEV/scdev/internal/ssl"
-	"github.com/ScaleCommerce-DEV/scdev/internal/tools"
-	"github.com/ScaleCommerce-DEV/scdev/internal/ui"
+	"github.com/0ploy/zdev/internal/config"
+	"github.com/0ploy/zdev/internal/ssl"
+	"github.com/0ploy/zdev/internal/tools"
+	"github.com/0ploy/zdev/internal/ui"
 )
 
 const (
@@ -19,7 +19,7 @@ const (
 
 // Manager handles first-run detection and setup
 type Manager struct {
-	scdevHome string
+	zdevHome string
 	domain    string
 	sslEnabled bool
 }
@@ -31,29 +31,29 @@ func NewManager(cfg *config.GlobalConfig) (*Manager, error) {
 		return nil, fmt.Errorf("failed to get home directory: %w", err)
 	}
 
-	scdevHome := filepath.Join(homeDir, ".scdev")
+	zdevHome := filepath.Join(homeDir, ".zdev")
 
 	return &Manager{
-		scdevHome: scdevHome,
+		zdevHome: zdevHome,
 		domain:    cfg.Domain,
 		sslEnabled: cfg.SSL.Enabled,
 	}, nil
 }
 
-// IsInitialized checks if scdev has been initialized
+// IsInitialized checks if zdev has been initialized
 func (m *Manager) IsInitialized() bool {
-	markerPath := filepath.Join(m.scdevHome, InitializedFileName)
+	markerPath := filepath.Join(m.zdevHome, InitializedFileName)
 	_, err := os.Stat(markerPath)
 	return err == nil
 }
 
 // MarkInitialized creates the .initialized marker file
 func (m *Manager) MarkInitialized() error {
-	if err := os.MkdirAll(m.scdevHome, 0755); err != nil {
-		return fmt.Errorf("failed to create scdev home: %w", err)
+	if err := os.MkdirAll(m.zdevHome, 0755); err != nil {
+		return fmt.Errorf("failed to create zdev home: %w", err)
 	}
 
-	markerPath := filepath.Join(m.scdevHome, InitializedFileName)
+	markerPath := filepath.Join(m.zdevHome, InitializedFileName)
 	if err := os.WriteFile(markerPath, []byte(""), 0644); err != nil {
 		return fmt.Errorf("failed to create marker file: %w", err)
 	}
@@ -69,7 +69,7 @@ func (m *Manager) RunSetup(ctx context.Context) (bool, error) {
 	}
 
 	fmt.Println()
-	fmt.Println("Welcome to scdev!")
+	fmt.Println("Welcome to zdev!")
 	fmt.Println()
 	fmt.Println("Performing first-time setup...")
 	fmt.Println()
@@ -134,14 +134,14 @@ func (m *Manager) RunSetup(ctx context.Context) (bool, error) {
 			// CA not trusted - prompt for installation
 			fmt.Printf("      %s\n", ui.Color("CA is not trusted by your system.", "red", false))
 			fmt.Println()
-			fmt.Println("      scdev uses mkcert (https://mkcert.dev) to generate locally-trusted")
+			fmt.Println("      zdev uses mkcert (https://mkcert.dev) to generate locally-trusted")
 			fmt.Println("      certificates for HTTPS. To trust these certificates, the CA must be")
 			fmt.Println("      installed in your system keychain.")
 			fmt.Println()
 			fmt.Println("      You may be prompted for your password (possibly twice).")
 			fmt.Println()
 			fmt.Println("      To skip HTTPS setup, cancel the prompt and disable SSL in")
-			fmt.Println("      ~/.scdev/global-config.yaml:")
+			fmt.Println("      ~/.zdev/global-config.yaml:")
 			fmt.Printf("        %s\n", ui.Color("ssl:", "cyan", false))
 			fmt.Printf("          %s\n", ui.Color("enabled: false", "cyan", false))
 			fmt.Println()
@@ -157,11 +157,11 @@ func (m *Manager) RunSetup(ctx context.Context) (bool, error) {
 				fmt.Println("        1. Run CA installation later:")
 				fmt.Printf("           %s\n", ui.Color(mkcertPath+" -install", "cyan", false))
 				fmt.Println()
-				fmt.Println("        2. Disable SSL in ~/.scdev/global-config.yaml:")
+				fmt.Println("        2. Disable SSL in ~/.zdev/global-config.yaml:")
 				fmt.Printf("           %s\n", ui.Color("ssl:", "cyan", false))
 				fmt.Printf("             %s\n", ui.Color("enabled: false", "cyan", false))
 				fmt.Println()
-				fmt.Println("Setup incomplete. Run 'scdev systemcheck' again after resolving.")
+				fmt.Println("Setup incomplete. Run 'zdev systemcheck' again after resolving.")
 				fmt.Println()
 				// Don't mark as initialized so user can retry
 				return false, nil
@@ -173,7 +173,7 @@ func (m *Manager) RunSetup(ctx context.Context) (bool, error) {
 				fmt.Println("      CA installation completed but verification still fails.")
 				fmt.Println("      You may need to restart your browser or system.")
 				fmt.Println()
-				fmt.Println("Setup incomplete. Run 'scdev systemcheck' again after resolving.")
+				fmt.Println("Setup incomplete. Run 'zdev systemcheck' again after resolving.")
 				fmt.Println()
 				return false, nil
 			}

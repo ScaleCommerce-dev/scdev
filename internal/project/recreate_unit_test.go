@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/ScaleCommerce-DEV/scdev/internal/config"
-	"github.com/ScaleCommerce-DEV/scdev/internal/runtime"
+	"github.com/0ploy/zdev/internal/config"
+	"github.com/0ploy/zdev/internal/runtime"
 )
 
 // =============================================================================
@@ -14,22 +14,22 @@ import (
 
 func baseCfg() runtime.ContainerConfig {
 	return runtime.ContainerConfig{
-		Name:        "app.testproject.scdev",
+		Name:        "app.testproject.zdev",
 		Image:       "alpine:3.18",
 		WorkingDir:  "/app",
 		Command:     []string{"sh", "-c", "sleep infinity"},
-		NetworkName: "testproject.scdev",
+		NetworkName: "testproject.zdev",
 		Aliases:     []string{"app"},
 		Env: map[string]string{
 			"FOO": "bar",
 			"BAZ": "qux",
 		},
 		Labels: map[string]string{
-			"scdev.project": "testproject",
-			"scdev.service": "app",
+			"zdev.project": "testproject",
+			"zdev.service": "app",
 		},
 		Volumes: []runtime.VolumeMount{
-			{Source: "data.testproject.scdev", Target: "/data"},
+			{Source: "data.testproject.zdev", Target: "/data"},
 		},
 		Ports: []string{"127.0.0.1:5432:5432"},
 	}
@@ -42,7 +42,7 @@ func TestComputeConfigHash_Deterministic(t *testing.T) {
 	// Rebuild with maps inserted in different order - hash must match
 	cfg2 := baseCfg()
 	cfg2.Env = map[string]string{"BAZ": "qux", "FOO": "bar"}
-	cfg2.Labels = map[string]string{"scdev.service": "app", "scdev.project": "testproject"}
+	cfg2.Labels = map[string]string{"zdev.service": "app", "zdev.project": "testproject"}
 	h2 := runtime.ComputeConfigHash(cfg2)
 
 	if h1 != h2 {
@@ -75,15 +75,15 @@ func TestComputeConfigHash_DetectsChanges(t *testing.T) {
 		{"env key removed", func(c *runtime.ContainerConfig) { delete(c.Env, "FOO") }},
 		{"working dir change", func(c *runtime.ContainerConfig) { c.WorkingDir = "/elsewhere" }},
 		{"command change", func(c *runtime.ContainerConfig) { c.Command = []string{"sh", "-c", "sleep 1"} }},
-		{"volume source change", func(c *runtime.ContainerConfig) { c.Volumes[0].Source = "other.testproject.scdev" }},
+		{"volume source change", func(c *runtime.ContainerConfig) { c.Volumes[0].Source = "other.testproject.zdev" }},
 		{"volume target change", func(c *runtime.ContainerConfig) { c.Volumes[0].Target = "/other" }},
 		{"volume added", func(c *runtime.ContainerConfig) {
 			c.Volumes = append(c.Volumes, runtime.VolumeMount{Source: "b", Target: "/b"})
 		}},
 		{"label added", func(c *runtime.ContainerConfig) { c.Labels["traefik.enable"] = "true" }},
-		{"label removed", func(c *runtime.ContainerConfig) { delete(c.Labels, "scdev.service") }},
+		{"label removed", func(c *runtime.ContainerConfig) { delete(c.Labels, "zdev.service") }},
 		{"port change", func(c *runtime.ContainerConfig) { c.Ports = []string{"127.0.0.1:5433:5432"} }},
-		{"network change", func(c *runtime.ContainerConfig) { c.NetworkName = "other.scdev" }},
+		{"network change", func(c *runtime.ContainerConfig) { c.NetworkName = "other.zdev" }},
 		{"alias change", func(c *runtime.ContainerConfig) { c.Aliases = []string{"renamed"} }},
 	}
 
@@ -208,7 +208,7 @@ func TestServiceNeedsRecreate_CommandChange(t *testing.T) {
 
 func TestServiceNeedsRecreate_MissingHashLabelRecreates(t *testing.T) {
 	// Simulate a container created before the hash label existed:
-	// labels are present but scdev.config-hash is missing.
+	// labels are present but zdev.config-hash is missing.
 	p, mock := seedRunningService(t, nil)
 	containerName := p.ContainerName("app")
 	labels := mock.Containers[containerName].Labels
@@ -251,7 +251,7 @@ func TestUpdate_RecreatesOnEnvChange(t *testing.T) {
 	mock.NetworksExist[p.NetworkName()] = true
 	mock.VolumesExist[p.VolumeName("data")] = true
 
-	// Change env - simulates user editing config and running `scdev update`
+	// Change env - simulates user editing config and running `zdev update`
 	svc := p.Config.Services["app"]
 	svc.Environment = map[string]string{"SYMFONY_TRUSTED_PROXIES": "0.0.0.0/0"}
 	p.Config.Services["app"] = svc

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ScaleCommerce-DEV/scdev/internal/project"
+	"github.com/0ploy/zdev/internal/project"
 	"github.com/spf13/cobra"
 )
 
@@ -16,10 +16,10 @@ var updateCmd = &cobra.Command{
 
 This command detects changes in the config and only recreates
 containers that need to be updated. Use this after modifying
-your config file instead of running 'scdev down && scdev start'.
+your config file instead of running 'zdev down && zdev start'.
 
 If the project hasn't been started yet (no network exists), update
-will start it from scratch - equivalent to running 'scdev start'.
+will start it from scratch - equivalent to running 'zdev start'.
 
 Changes detected (via a config hash stamped on each container):
 - Image changes

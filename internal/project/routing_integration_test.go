@@ -16,26 +16,26 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ScaleCommerce-DEV/scdev/internal/config"
-	"github.com/ScaleCommerce-DEV/scdev/internal/runtime"
-	"github.com/ScaleCommerce-DEV/scdev/internal/services"
-	"github.com/ScaleCommerce-DEV/scdev/internal/state"
+	"github.com/0ploy/zdev/internal/config"
+	"github.com/0ploy/zdev/internal/runtime"
+	"github.com/0ploy/zdev/internal/services"
+	"github.com/0ploy/zdev/internal/state"
 )
 
 // createTempProject creates a temporary project directory with the given config
 func createTempProject(t *testing.T, name string, cfg string) string {
 	t.Helper()
-	tmpDir, err := os.MkdirTemp("", "scdev-test-"+name)
+	tmpDir, err := os.MkdirTemp("", "zdev-test-"+name)
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
 
-	scdevDir := filepath.Join(tmpDir, ".scdev")
-	if err := os.MkdirAll(scdevDir, 0755); err != nil {
-		t.Fatalf("failed to create .scdev dir: %v", err)
+	zdevDir := filepath.Join(tmpDir, ".zdev")
+	if err := os.MkdirAll(zdevDir, 0755); err != nil {
+		t.Fatalf("failed to create .zdev dir: %v", err)
 	}
 
-	configPath := filepath.Join(scdevDir, "config.yaml")
+	configPath := filepath.Join(zdevDir, "config.yaml")
 	if err := os.WriteFile(configPath, []byte(cfg), 0644); err != nil {
 		t.Fatalf("failed to write config: %v", err)
 	}
@@ -46,7 +46,7 @@ func createTempProject(t *testing.T, name string, cfg string) string {
 // updateProjectConfig overwrites the project config file
 func updateProjectConfig(t *testing.T, projectDir string, cfg string) {
 	t.Helper()
-	configPath := filepath.Join(projectDir, ".scdev", "config.yaml")
+	configPath := filepath.Join(projectDir, ".zdev", "config.yaml")
 	if err := os.WriteFile(configPath, []byte(cfg), 0644); err != nil {
 		t.Fatalf("failed to update config: %v", err)
 	}
@@ -184,7 +184,7 @@ services:
 	}
 
 	// Test HTTP routing with retries (Traefik needs time to pick up labels)
-	// DefaultDomain (scalecommerce.site) resolves to 127.0.0.1
+	// DefaultDomain (0ploy.dev) resolves to 127.0.0.1
 	t.Log("Testing HTTP routing...")
 	url := fmt.Sprintf("http://%s", projectDomain)
 	client := &http.Client{Timeout: 5 * time.Second}
@@ -633,10 +633,10 @@ func TestRouting_HTTPS(t *testing.T) {
 	keyPath := filepath.Join(certsDir, "key.pem")
 
 	if _, err := os.Stat(certPath); err != nil {
-		t.Skip("TLS certs not found - run 'scdev systemcheck' first to generate certificates")
+		t.Skip("TLS certs not found - run 'zdev systemcheck' first to generate certificates")
 	}
 	if _, err := os.Stat(keyPath); err != nil {
-		t.Skip("TLS key not found - run 'scdev systemcheck' first to generate certificates")
+		t.Skip("TLS key not found - run 'zdev systemcheck' first to generate certificates")
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
@@ -700,7 +700,7 @@ services:
 	}
 
 	// Test HTTP routing with retries
-	// DefaultDomain (scalecommerce.site) resolves to 127.0.0.1
+	// DefaultDomain (0ploy.dev) resolves to 127.0.0.1
 	httpURL := fmt.Sprintf("http://%s", projectDomain)
 	t.Logf("Testing HTTP routing: %s", httpURL)
 	var lastErr error

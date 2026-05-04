@@ -1,8 +1,8 @@
-// Package updatecheck implements a once-a-day update check for scdev.
+// Package updatecheck implements a once-a-day update check for zdev.
 //
 // Design:
 //   - MaybeAutoUpdate runs on every CLI invocation.
-//   - It reads a cached result from ~/.scdev/update-check.json. If a prior
+//   - It reads a cached result from ~/.zdev/update-check.json. If a prior
 //     install has already landed a newer version at the canonical path, it
 //     prints a one-line banner to stderr informing the user that the next
 //     invocation will pick it up.
@@ -10,8 +10,8 @@
 //     GET (ETag) against the GitHub API synchronously, bounded by apiTimeout.
 //     If a newer release exists AND the running binary is in the symlink
 //     layout, it downloads the matching asset and atomically replaces
-//     ~/.scdev/bin/scdev. No sudo. No re-exec. The current process keeps
-//     running its in-memory code; the NEXT scdev invocation transparently
+//     ~/.zdev/bin/zdev. No sudo. No re-exec. The current process keeps
+//     running its in-memory code; the NEXT zdev invocation transparently
 //     uses the new binary via the symlink.
 //
 // Blocking is deliberate: an earlier fire-and-forget goroutine version got
@@ -40,7 +40,7 @@ const (
 )
 
 // apiURL is a var (not a const) so tests can point it at an httptest server.
-var apiURL = "https://api.github.com/repos/ScaleCommerce-DEV/scdev/releases/latest"
+var apiURL = "https://api.github.com/repos/0ploy/zdev/releases/latest"
 
 // canInstallFn is the predicate that decides whether we're in a layout
 // where atomic install is safe (symlink layout with canonical target).
@@ -85,13 +85,13 @@ func MaybeAutoUpdate(currentVersion string) {
 		switch {
 		case c.InstalledTag != "" && IsNewer(c.InstalledTag, currentVersion):
 			fmt.Fprintf(os.Stderr,
-				"\x1b[33m✓ scdev updated to %s; next run will use it.\x1b[0m\n",
+				"\x1b[33m✓ zdev updated to %s; next run will use it.\x1b[0m\n",
 				c.InstalledTag)
 		case c.LatestTag != "" && IsNewer(c.LatestTag, currentVersion):
 			// Seen a newer release but haven't installed it (likely on a
 			// legacy layout that needs migration). Fall back to a notify.
 			fmt.Fprintf(os.Stderr,
-				"\x1b[33m→ scdev %s is available. Run `scdev self-update` to migrate.\x1b[0m\n",
+				"\x1b[33m→ zdev %s is available. Run `zdev self-update` to migrate.\x1b[0m\n",
 				c.LatestTag)
 		}
 	}
@@ -187,7 +187,7 @@ func fetchLatest(ctx context.Context, prev *cache) (*release, string, error) {
 // rejected - silent installs without integrity checks are not worth the
 // supply-chain risk.
 func installAsset(ctx context.Context, rel *release) error {
-	assetName := "scdev-" + runtime.GOOS + "-" + runtime.GOARCH
+	assetName := "zdev-" + runtime.GOOS + "-" + runtime.GOARCH
 	var downloadURL, checksumsURL string
 	for _, a := range rel.Assets {
 		switch a.Name {
@@ -309,14 +309,14 @@ func defaultCanInstall() bool {
 	return realPath == realCanonical
 }
 
-// CanonicalPath returns the user-owned location where the real scdev binary
+// CanonicalPath returns the user-owned location where the real zdev binary
 // should live. Callers typically pair this with a symlink in a PATH dir.
 func CanonicalPath() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".scdev", "bin", "scdev"), nil
+	return filepath.Join(home, ".zdev", "bin", "zdev"), nil
 }
 
 // shouldSkip returns true for cases where an update check is unwanted:
@@ -325,7 +325,7 @@ func shouldSkip(v string) bool {
 	if v == "" || v == "dev" {
 		return true
 	}
-	if os.Getenv("CI") != "" || os.Getenv("SCDEV_NO_UPDATE_CHECK") != "" {
+	if os.Getenv("CI") != "" || os.Getenv("ZDEV_NO_UPDATE_CHECK") != "" {
 		return true
 	}
 	return false
@@ -336,7 +336,7 @@ func cachePath() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".scdev", "update-check.json"), nil
+	return filepath.Join(home, ".zdev", "update-check.json"), nil
 }
 
 func loadCache(path string) (*cache, error) {

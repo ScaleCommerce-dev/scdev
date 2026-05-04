@@ -9,10 +9,10 @@ import (
 
 func TestUpdateConfigName_ReplacesExisting(t *testing.T) {
 	dir := t.TempDir()
-	scdevDir := filepath.Join(dir, ".scdev")
-	os.MkdirAll(scdevDir, 0755)
+	zdevDir := filepath.Join(dir, ".zdev")
+	os.MkdirAll(zdevDir, 0755)
 
-	configPath := filepath.Join(scdevDir, "config.yaml")
+	configPath := filepath.Join(zdevDir, "config.yaml")
 	original := "name: old-project\n\nservices:\n  app:\n    image: nginx\n"
 	os.WriteFile(configPath, []byte(original), 0644)
 
@@ -37,10 +37,10 @@ func TestUpdateConfigName_ReplacesExisting(t *testing.T) {
 
 func TestUpdateConfigName_AddsWhenMissing(t *testing.T) {
 	dir := t.TempDir()
-	scdevDir := filepath.Join(dir, ".scdev")
-	os.MkdirAll(scdevDir, 0755)
+	zdevDir := filepath.Join(dir, ".zdev")
+	os.MkdirAll(zdevDir, 0755)
 
-	configPath := filepath.Join(scdevDir, "config.yaml")
+	configPath := filepath.Join(zdevDir, "config.yaml")
 	original := "services:\n  app:\n    image: nginx\n"
 	os.WriteFile(configPath, []byte(original), 0644)
 
@@ -61,10 +61,10 @@ func TestUpdateConfigName_AddsWhenMissing(t *testing.T) {
 
 func TestUpdateConfigName_PreservesComments(t *testing.T) {
 	dir := t.TempDir()
-	scdevDir := filepath.Join(dir, ".scdev")
-	os.MkdirAll(scdevDir, 0755)
+	zdevDir := filepath.Join(dir, ".zdev")
+	os.MkdirAll(zdevDir, 0755)
 
-	configPath := filepath.Join(scdevDir, "config.yaml")
+	configPath := filepath.Join(zdevDir, "config.yaml")
 	original := "# My project config\nname: old-name\n\n# Services\nservices:\n  app:\n    image: nginx\n"
 	os.WriteFile(configPath, []byte(original), 0644)
 
@@ -88,10 +88,10 @@ func TestUpdateConfigName_PreservesComments(t *testing.T) {
 
 func TestUpdateConfigName_HandlesQuotedName(t *testing.T) {
 	dir := t.TempDir()
-	scdevDir := filepath.Join(dir, ".scdev")
-	os.MkdirAll(scdevDir, 0755)
+	zdevDir := filepath.Join(dir, ".zdev")
+	os.MkdirAll(zdevDir, 0755)
 
-	configPath := filepath.Join(scdevDir, "config.yaml")
+	configPath := filepath.Join(zdevDir, "config.yaml")
 	original := "name: \"old-name\"\nservices:\n  app:\n    image: nginx\n"
 	os.WriteFile(configPath, []byte(original), 0644)
 

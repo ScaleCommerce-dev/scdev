@@ -1,55 +1,55 @@
-# scdev
+# zdev
 
 **Ever seen a developer and an AI agent fall in love with a dev environment?** 🧑‍💻🤖❤️
 
-scdev is a local development tool that gets you from `git clone` to coding in seconds. One command starts your entire project - HTTPS, routing, shared services, and all. Simple enough for any AI coding agent to operate, powerful enough for complex multi-service setups.
+zdev is a local development tool that gets you from `git clone` to coding in seconds. One command starts your entire project - HTTPS, routing, shared services, and all. Simple enough for any AI coding agent to operate, powerful enough for complex multi-service setups.
 
 ```bash
 cd my-project
-scdev start
-# Your project is running at https://my-project.scalecommerce.site
+zdev start
+# Your project is running at https://my-project.0ploy.dev
 ```
 
-> `scalecommerce.site` is a wildcard DNS pointing to `127.0.0.1` - everything runs locally on your machine. No cloud, no accounts. You can use your own domain too.
+> `0ploy.dev` is a wildcard DNS pointing to `127.0.0.1` - everything runs locally on your machine. No cloud, no accounts. You can use your own domain too.
 
 **Requires:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) (macOS/Windows) or Docker Engine (Linux)
 
 ## How It Works
 
-Every project runs in its own isolated network. scdev gives each project its own HTTPS subdomain - no port conflicts, no SSL setup. Shared services like mail catching, database browsing, and Redis inspection are available to all projects automatically.
+Every project runs in its own isolated network. zdev gives each project its own HTTPS subdomain - no port conflicts, no SSL setup. Shared services like mail catching, database browsing, and Redis inspection are available to all projects automatically.
 
 > [!IMPORTANT]
 > **Your code runs in containers, not on your machine.** Every `pnpm install`, `composer install`, and dev server runs inside an isolated Docker container. If a malicious npm package tries to steal your SSH keys, read your browser cookies, or encrypt your files - it can't. It's trapped in a throwaway container with no access to your host. In an era where supply chain attacks on npm, PyPI, and Packagist are increasingly common, this isn't just convenience - it's protection.
 
-![scdev architecture](docs/architecture.png)
+![zdev architecture](docs/architecture.png)
 
 ## Built for Coding Agents
 
-scdev gives AI coding agents (Claude Code, Cursor, Copilot) exactly what they need: deterministic environments with zero ambiguity.
+zdev gives AI coding agents (Claude Code, Cursor, Copilot) exactly what they need: deterministic environments with zero ambiguity.
 
-- **One command** - `scdev start` is all the agent needs. No multi-step setup to get wrong.
-- **Predictable URLs** - The app is always at `https://{name}.scalecommerce.site`. No port guessing.
-- **Single config file** - `.scdev/config.yaml` is the complete source of truth. One file to read, not five.
-- **Discoverable commands** - `ls .scdev/commands/` reveals all project-specific tasks. No guessing.
-- **`scdev exec app <cmd>`** - Run anything in any container. No container name lookup needed.
+- **One command** - `zdev start` is all the agent needs. No multi-step setup to get wrong.
+- **Predictable URLs** - The app is always at `https://{name}.0ploy.dev`. No port guessing.
+- **Single config file** - `.zdev/config.yaml` is the complete source of truth. One file to read, not five.
+- **Discoverable commands** - `ls .zdev/commands/` reveals all project-specific tasks. No guessing.
+- **`zdev exec app <cmd>`** - Run anything in any container. No container name lookup needed.
 
 ### Agent Integration
 
-Install the scdev skill so your agent knows how to use the dev environment:
+Install the zdev skill so your agent knows how to use the dev environment:
 
 ```bash
-npx skills add scalecommerce-dev/scdev
+npx skills add 0ploy/zdev
 ```
 
-This teaches your agent the full scdev CLI, config format, debugging workflows, and project setup patterns. Your agent can also help you create custom scdev [templates](#templates).
+This teaches your agent the full zdev CLI, config format, debugging workflows, and project setup patterns. Your agent can also help you create custom zdev [templates](#templates).
 
-## Why scdev?
+## Why zdev?
 
-| Without scdev | With scdev |
+| Without zdev | With zdev |
 |---------------|------------|
 | Port conflicts between projects | Every project gets its own HTTPS subdomain |
 | Each project configures its own mail, DB tools | Shared services run once, work for all projects |
-| New developer spends a day setting up | Clone, `scdev start`, done |
+| New developer spends a day setting up | Clone, `zdev start`, done |
 | Complex Docker Compose with 100+ lines | Simple config with sensible defaults |
 | Slow file sync on macOS | Native-speed file sync, zero config |
 | Malicious packages can access your entire machine | Code runs in isolated containers - supply chain attacks stay sandboxed |
@@ -59,17 +59,17 @@ This teaches your agent the full scdev CLI, config format, debugging workflows, 
 ### 1. Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ScaleCommerce-DEV/scdev/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/0ploy/zdev/main/install.sh | sh
 ```
 
-The installer places the real binary at `~/.scdev/bin/scdev` and symlinks it into `/usr/local/bin` (one-time sudo prompt). After that, scdev keeps itself up to date: a background task on every invocation (at most once per 24h) checks GitHub for a new release and, if found, silently downloads and installs it into the user-owned canonical path - the current command keeps running on the old in-memory binary, the next invocation uses the new one. Set `SCDEV_NO_UPDATE_CHECK=1` to disable. `scdev self-update` still works for on-demand updates and auto-migrates legacy installs to the symlink layout.
+The installer places the real binary at `~/.zdev/bin/zdev` and symlinks it into `/usr/local/bin` (one-time sudo prompt). After that, zdev keeps itself up to date: a background task on every invocation (at most once per 24h) checks GitHub for a new release and, if found, silently downloads and installs it into the user-owned canonical path - the current command keeps running on the old in-memory binary, the next invocation uses the new one. Set `ZDEV_NO_UPDATE_CHECK=1` to disable. `zdev self-update` still works for on-demand updates and auto-migrates legacy installs to the symlink layout.
 
 ### 2. First-time setup
 
 This installs SSL certificates and starts the shared services (router, mail catcher, DB browser):
 
 ```bash
-scdev systemcheck
+zdev systemcheck
 ```
 
 ### 3. Create a project
@@ -77,14 +77,14 @@ scdev systemcheck
 The fastest way is to use a template:
 
 ```bash
-scdev create express my-app
+zdev create express my-app
 cd my-app
-scdev setup
+zdev setup
 ```
 
-Open https://my-app.scalecommerce.site - that's it. HTTPS works out of the box.
+Open https://my-app.0ploy.dev - that's it. HTTPS works out of the box.
 
-Or create a project manually with a config file at `my-app/.scdev/config.yaml`:
+Or create a project manually with a config file at `my-app/.zdev/config.yaml`:
 
 ```yaml
 name: my-app
@@ -106,25 +106,25 @@ mutagen:
     - .nuxt
 ```
 
-`${PROJECTPATH}` is resolved automatically to your project's absolute path. Other available variables: `${PROJECTNAME}`, `${PROJECTDIR}`, `${SCDEV_DOMAIN}`.
+`${PROJECTPATH}` is resolved automatically to your project's absolute path. Other available variables: `${PROJECTNAME}`, `${PROJECTDIR}`, `${ZDEV_DOMAIN}`.
 
 ```bash
 cd my-app
-scdev start
+zdev start
 ```
 
 ## Templates
 
-Create new projects from starter templates with `scdev create`:
+Create new projects from starter templates with `zdev create`:
 
 ```bash
-scdev create express my-app            # Express.js
-scdev create nuxt4 my-app              # Nuxt 4
-scdev create symfony my-app            # Symfony
-scdev create myorg/my-template my-app  # Any GitHub repo
+zdev create express my-app            # Express.js
+zdev create nuxt4 my-app              # Nuxt 4
+zdev create symfony my-app            # Symfony
+zdev create myorg/my-template my-app  # Any GitHub repo
 ```
 
-Browse all available templates on GitHub: [ScaleCommerce-DEV repositories matching `scdev-template-`](https://github.com/orgs/ScaleCommerce-DEV/repositories?q=scdev-template-). Each template's README explains what it includes and how to use it.
+Browse all available templates on GitHub: [0ploy repositories matching `zdev-template-`](https://github.com/orgs/0ploy/repositories?q=zdev-template-). Each template's README explains what it includes and how to use it.
 
 Want to create your own template? See the [Template Authoring Guide](templates/README.md).
 
@@ -134,31 +134,31 @@ These run once and are shared across all your projects. No per-project configura
 
 | Service | URL | What it does |
 |---------|-----|--------------|
-| Router | `https://router.shared.scalecommerce.site` | Routing dashboard - see all routes |
-| Mail | `https://mail.shared.scalecommerce.site` | Catches all outgoing email ([Mailpit](https://github.com/axllent/mailpit)) |
-| DB | `https://db.shared.scalecommerce.site` | Browse any project's database ([Adminer](https://www.adminer.org/)) |
-| Redis | `https://redis.shared.scalecommerce.site` | Inspect Redis keys and data ([Redis Insights](https://redis.io/insight/)) |
-| Logs | `https://logs.shared.scalecommerce.site` | Tail container logs across all projects ([Dozzle](https://dozzle.dev/)), grouped per project |
+| Router | `https://router.shared.0ploy.dev` | Routing dashboard - see all routes |
+| Mail | `https://mail.shared.0ploy.dev` | Catches all outgoing email ([Mailpit](https://github.com/axllent/mailpit)) |
+| DB | `https://db.shared.0ploy.dev` | Browse any project's database ([Adminer](https://www.adminer.org/)) |
+| Redis | `https://redis.shared.0ploy.dev` | Inspect Redis keys and data ([Redis Insights](https://redis.io/insight/)) |
+| Logs | `https://logs.shared.0ploy.dev` | Tail container logs across all projects ([Dozzle](https://dozzle.dev/)), grouped per project |
 
 **Connecting from your app containers:** Configure your app to send mail to `mail:1025` (SMTP, no auth). For databases and Redis, use your project's own service names (e.g., `db:5432`, `redis:6379`) - Adminer and Redis Insights are browser UIs, not the services themselves.
 
-**Log retention:** Dozzle is a viewer, not a store. Logs come from Docker's per-container ring buffer (default in Docker Desktop: ~50 MB rotated, ~5 files), so they survive `scdev down` and Docker Desktop restarts but are **lost when a container is recreated** - that includes `scdev update` (on config drift), `scdev remove`, and `scdev services recreate`. To grow the per-container buffer, set `log-opts: { max-size, max-file }` in Docker Desktop's daemon JSON. Persistent log history across recreates needs a separate log shipper (Loki, Vector, etc.) and is out of scope for scdev.
+**Log retention:** Dozzle is a viewer, not a store. Logs come from Docker's per-container ring buffer (default in Docker Desktop: ~50 MB rotated, ~5 files), so they survive `zdev down` and Docker Desktop restarts but are **lost when a container is recreated** - that includes `zdev update` (on config drift), `zdev remove`, and `zdev services recreate`. To grow the per-container buffer, set `log-opts: { max-size, max-file }` in Docker Desktop's daemon JSON. Persistent log history across recreates needs a separate log shipper (Loki, Vector, etc.) and is out of scope for zdev.
 
 **Per-project visibility:** Dozzle only shows containers from projects that opt in via `shared.logs: true`. Projects without it stay hidden, even though Dozzle has full Docker socket access. Shared service containers (router, mail, db, redis, logs) are always visible.
 
 Open them directly:
 
 ```bash
-scdev mail        # open Mailpit
-scdev db          # open Adminer
-scdev redis       # open Redis Insights
-scdev logs --open # open Dozzle log viewer
+zdev mail        # open Mailpit
+zdev db          # open Adminer
+zdev redis       # open Redis Insights
+zdev logs --open # open Dozzle log viewer
 ```
 
-**Per-project opt-in/out.** `router`, `mail`, and `logs` are connected to every project by default; `db` and `redis` are opt-in. Override individual fields under `shared:` in `.scdev/config.yaml`; missing fields keep their defaults.
+**Per-project opt-in/out.** `router`, `mail`, and `logs` are connected to every project by default; `db` and `redis` are opt-in. Override individual fields under `shared:` in `.zdev/config.yaml`; missing fields keep their defaults.
 
 ```yaml
-# .scdev/config.yaml
+# .zdev/config.yaml
 shared:
   db: true       # opt in  (default: false)
   redis: true    # opt in  (default: false)
@@ -174,17 +174,17 @@ Every project and shared service gets locally-trusted HTTPS certificates. Your b
 
 ### Fast File Sync (macOS)
 
-File sharing between your host and containers is notoriously slow on macOS. scdev automatically syncs files at native speed - no configuration needed. On Linux this isn't needed (already fast).
+File sharing between your host and containers is notoriously slow on macOS. zdev automatically syncs files at native speed - no configuration needed. On Linux this isn't needed (already fast).
 
 How much difference does it make? We benchmarked a Nuxt 4 app with ~1000 dependencies:
 
 | Approach | pnpm install | Cold start to app ready |
 |----------|-------------|------------------------|
 | Docker bind mount (default macOS) | **34.6s** | ~42s |
-| scdev with file sync | **6.7s** | ~17s |
-| scdev warm restart (stop + start) | **2.4s** | ~2s |
+| zdev with file sync | **6.7s** | ~17s |
+| zdev warm restart (stop + start) | **2.4s** | ~2s |
 
-That's a **5x speedup** on cold start and **instant** warm restarts. The trick: scdev syncs your source code via fast file sync, while keeping `node_modules` and other generated files inside the container where filesystem operations are native speed.
+That's a **5x speedup** on cold start and **instant** warm restarts. The trick: zdev syncs your source code via fast file sync, while keeping `node_modules` and other generated files inside the container where filesystem operations are native speed.
 
 Exclude paths you don't need synced back to the host:
 
@@ -216,7 +216,7 @@ services:
       - ${PROJECTPATH}/frontend:/app
     routing:
       port: 3000
-      # Uses project domain: my-app.scalecommerce.site
+      # Uses project domain: my-app.0ploy.dev
 
   backend:
     image: node:22-alpine
@@ -226,15 +226,15 @@ services:
       - ${PROJECTPATH}/backend:/app
     routing:
       port: 4000
-      domain: api.${PROJECTNAME}.${SCDEV_DOMAIN}
-      # Uses custom domain: api.my-app.scalecommerce.site
+      domain: api.${PROJECTNAME}.${ZDEV_DOMAIN}
+      # Uses custom domain: api.my-app.0ploy.dev
 ```
 
 The `domain` field supports variable substitution and only applies to HTTP/HTTPS routing (not TCP/UDP).
 
 ### TCP/UDP Routing
 
-Beyond HTTPS, scdev can expose raw TCP and UDP ports. This lets you connect to a database inside a project from your host using tools like DBeaver, pgAdmin, or `psql`:
+Beyond HTTPS, zdev can expose raw TCP and UDP ports. This lets you connect to a database inside a project from your host using tools like DBeaver, pgAdmin, or `psql`:
 
 ```yaml
 services:
@@ -256,9 +256,9 @@ Multiple projects can expose different ports without conflicts. Works for MySQL,
 
 ### Volumes
 
-**Bind mounts** (`${PROJECTPATH}:/app`) sync your source code into the container. Edits on the host are reflected immediately. On macOS, scdev handles fast sync automatically via Mutagen. Add `node_modules`, `.pnpm-store`, and build caches to `mutagen.ignore` so they stay inside the container (fast) and don't sync back to the host.
+**Bind mounts** (`${PROJECTPATH}:/app`) sync your source code into the container. Edits on the host are reflected immediately. On macOS, zdev handles fast sync automatically via Mutagen. Add `node_modules`, `.pnpm-store`, and build caches to `mutagen.ignore` so they stay inside the container (fast) and don't sync back to the host.
 
-**Named volumes** (`db_data:/var/lib/postgresql/data`) are persistent storage managed by scdev. Use these for data that must survive `scdev down` - database files, uploaded assets, SQLite databases:
+**Named volumes** (`db_data:/var/lib/postgresql/data`) are persistent storage managed by zdev. Use these for data that must survive `zdev down` - database files, uploaded assets, SQLite databases:
 
 ```yaml
 volumes:
@@ -267,50 +267,50 @@ volumes:
   - data:/app/data                   # SQLite, uploads, etc.
 ```
 
-Named volumes persist across `scdev stop`/`scdev start` AND `scdev down`. Only removed with `scdev down -v`. No separate declaration needed - scdev discovers them automatically.
+Named volumes persist across `zdev stop`/`zdev start` AND `zdev down`. Only removed with `zdev down -v`. No separate declaration needed - zdev discovers them automatically.
 
 ### Custom Commands
 
-Every project has recurring tasks: install deps, run migrations, seed data, run tests. Instead of documenting these in a README, define them as [just](https://github.com/casey/just) files in `.scdev/commands/`. The filename becomes the command:
+Every project has recurring tasks: install deps, run migrations, seed data, run tests. Instead of documenting these in a README, define them as [just](https://github.com/casey/just) files in `.zdev/commands/`. The filename becomes the command:
 
 ```
-.scdev/commands/
-  setup.just     ->  scdev setup
-  test.just      ->  scdev test
-  seed.just      ->  scdev seed
+.zdev/commands/
+  setup.just     ->  zdev setup
+  test.just      ->  zdev test
+  seed.just      ->  zdev seed
 ```
 
 ```bash
-# .scdev/commands/setup.just
+# .zdev/commands/setup.just
 default:
-    scdev exec app pnpm ci
-    scdev exec app npx prisma db push
+    zdev exec app pnpm ci
+    zdev exec app npx prisma db push
 
-# .scdev/commands/test.just
+# .zdev/commands/test.just
 default:
-    scdev exec app pnpm test
+    zdev exec app pnpm test
 
 watch:
-    scdev exec app pnpm test -- --watch
+    zdev exec app pnpm test -- --watch
 ```
 
 ```bash
-scdev setup          # install deps + push schema
-scdev test           # run tests
-scdev test watch     # run tests in watch mode
+zdev setup          # install deps + push schema
+zdev test           # run tests
+zdev test watch     # run tests in watch mode
 ```
 
 For CLIs with colon-namespaced subcommands (`cache:clear`, `migrate:fresh`), declare a recipe named after the file - args pass through verbatim:
 
 ```just
-# .scdev/commands/console.just
+# .zdev/commands/console.just
 console *args:
-    scdev exec app php bin/console {{args}}
+    zdev exec app php bin/console {{args}}
 ```
 
-`scdev console cache:clear` -> `bin/console cache:clear`.
+`zdev console cache:clear` -> `bin/console cache:clear`.
 
-Agents can `ls .scdev/commands/` to discover all available project tasks.
+Agents can `ls .zdev/commands/` to discover all available project tasks.
 
 ### Project Isolation
 
@@ -321,41 +321,41 @@ Each project runs in its own isolated network. Services within a project reach e
 ### Lifecycle
 
 ```bash
-scdev start       # Start the project
-scdev stop        # Stop containers (keeps them for quick restart)
-scdev restart     # Stop + start
-scdev down        # Remove containers and network
-scdev down -v     # Remove everything including volumes
-scdev rename <n>  # Rename project, migrate volumes, restart
+zdev start       # Start the project
+zdev stop        # Stop containers (keeps them for quick restart)
+zdev restart     # Stop + start
+zdev down        # Remove containers and network
+zdev down -v     # Remove everything including volumes
+zdev rename <n>  # Rename project, migrate volumes, restart
 ```
 
 ### Development
 
 ```bash
-scdev exec app bash              # Shell into a container
-scdev exec app pnpm test         # Run a command
-scdev logs                       # View logs
-scdev logs -f app                # Follow logs for a service
+zdev exec app bash              # Shell into a container
+zdev exec app pnpm test         # Run a command
+zdev logs                       # View logs
+zdev logs -f app                # Follow logs for a service
 ```
 
 ### Information
 
 ```bash
-scdev info        # Show project info, URLs, services
-scdev list        # List all projects
-scdev config      # Show resolved configuration
-scdev status      # Quick status check
-scdev open        # Open the current project's URL in the browser
-scdev open my-app # Open another registered project's URL
+zdev info        # Show project info, URLs, services
+zdev list        # List all projects
+zdev config      # Show resolved configuration
+zdev status      # Quick status check
+zdev open        # Open the current project's URL in the browser
+zdev open my-app # Open another registered project's URL
 ```
 
 ### Shared Services
 
 ```bash
-scdev services status    # Check shared service status
-scdev services start     # Start shared services
-scdev services stop      # Stop shared services
-scdev services recreate  # Rebuild shared service containers
+zdev services status    # Check shared service status
+zdev services start     # Start shared services
+zdev services stop      # Stop shared services
+zdev services recreate  # Rebuild shared service containers
 ```
 
 ### Link Networks
@@ -363,43 +363,43 @@ scdev services recreate  # Rebuild shared service containers
 Link networks enable direct container-to-container communication between separate projects. Each project runs on its own isolated Docker network, so by default containers in project A cannot reach containers in project B. Link networks solve this by creating a shared Docker network that selected containers join.
 
 ```bash
-scdev link create <name>                        # Create a named link network
-scdev link join <name> <member> [<member>...]   # Add projects or services
-scdev link leave <name> <member> [<member>...]  # Remove members
-scdev link delete <name>                        # Remove link and disconnect all
-scdev link ls                                   # List all links
-scdev link status <name>                        # Show members and connection state
+zdev link create <name>                        # Create a named link network
+zdev link join <name> <member> [<member>...]   # Add projects or services
+zdev link leave <name> <member> [<member>...]  # Remove members
+zdev link delete <name>                        # Remove link and disconnect all
+zdev link ls                                   # List all links
+zdev link status <name>                        # Show members and connection state
 ```
 
 Members can be whole projects or individual services:
 
 ```bash
-scdev link create backend-mesh
-scdev link join backend-mesh sec-scan sec-scan-decoder
-scdev link join backend-mesh redis-debug.app    # only the app service
+zdev link create backend-mesh
+zdev link join backend-mesh sec-scan sec-scan-decoder
+zdev link join backend-mesh redis-debug.app    # only the app service
 ```
 
 Linked containers reach each other by their **container name**, not the project domain:
 
 ```bash
 # From inside sec-scan, reach sec-scan-decoder's app service:
-curl http://app.sec-scan-decoder.scdev:3000
+curl http://app.sec-scan-decoder.zdev:3000
 ```
 
-**Why container names, not project domains?** The project domain (e.g., `sec-scan-decoder.scalecommerce.site`) uses wildcard DNS that resolves to `127.0.0.1`. Inside a container, `127.0.0.1` points to the container itself, not the host or Traefik - so the domain is unreachable. Container names (e.g., `app.sec-scan-decoder.scdev`) are resolved by Docker's built-in DNS, which returns the actual container IP on the shared link network. This works reliably and without TLS certificate issues.
+**Why container names, not project domains?** The project domain (e.g., `sec-scan-decoder.0ploy.dev`) uses wildcard DNS that resolves to `127.0.0.1`. Inside a container, `127.0.0.1` points to the container itself, not the host or Traefik - so the domain is unreachable. Container names (e.g., `app.sec-scan-decoder.zdev`) are resolved by Docker's built-in DNS, which returns the actual container IP on the shared link network. This works reliably and without TLS certificate issues.
 
-The container name pattern is `<service>.<project>.scdev` - the same name shown by `scdev link status`.
+The container name pattern is `<service>.<project>.zdev` - the same name shown by `zdev link status`.
 
-Links are stored in the global state file and survive restarts - when a linked project starts, its containers are automatically reconnected to the link network. Each link creates its own Docker network (`scdev_link_<name>`), so different link groups stay isolated from each other.
+Links are stored in the global state file and survive restarts - when a linked project starts, its containers are automatically reconnected to the link network. Each link creates its own Docker network (`zdev_link_<name>`), so different link groups stay isolated from each other.
 
 Link names may only contain alphanumeric characters, hyphens, and underscores.
 
 ### File Sync (macOS)
 
 ```bash
-scdev mutagen status  # Check sync status
-scdev mutagen flush   # Wait for sync to complete
-scdev mutagen reset   # Recreate sync sessions (if stuck)
+zdev mutagen status  # Check sync status
+zdev mutagen flush   # Wait for sync to complete
+zdev mutagen reset   # Recreate sync sessions (if stuck)
 ```
 
 ## Examples
@@ -512,14 +512,14 @@ mutagen:
     - .pnpm-store
 ```
 
-### Project Configuration Reference (`.scdev/config.yaml`)
+### Project Configuration Reference (`.zdev/config.yaml`)
 
 #### Project-level fields
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `name` | string | directory name | Project name, used in domain and container names |
-| `domain` | string | `{name}.scalecommerce.site` | Project domain for HTTP routing |
+| `domain` | string | `{name}.0ploy.dev` | Project domain for HTTP routing |
 | `variables` | map | - | Reusable `${VAR}` placeholders substituted throughout the config (not passed to containers) |
 | `environment` | map | - | Environment variables passed to ALL containers |
 | `shared.router` | bool | `true` | Connect to shared Traefik router |
@@ -550,14 +550,14 @@ mutagen:
 
 **`environment`** (project-level) is passed to ALL containers. **`services.<name>.environment`** is passed to that specific container and overrides project-level values with the same name.
 
-**Built-in variables:** `${PROJECTNAME}`, `${PROJECTPATH}`, `${PROJECTDIR}`, `${SCDEV_DOMAIN}`, `${SCDEV_HOME}`, `${USER}`, `${HOME}`, plus all host environment variables. User-defined `variables` can reference built-in ones (e.g. `DB_NAME: ${PROJECTNAME}_db`).
+**Built-in variables:** `${PROJECTNAME}`, `${PROJECTPATH}`, `${PROJECTDIR}`, `${ZDEV_DOMAIN}`, `${ZDEV_HOME}`, `${USER}`, `${HOME}`, plus all host environment variables. User-defined `variables` can reference built-in ones (e.g. `DB_NAME: ${PROJECTNAME}_db`).
 
-### Global Configuration Reference (`~/.scdev/global-config.yaml`)
+### Global Configuration Reference (`~/.zdev/global-config.yaml`)
 
 Applies to all projects. Auto-created on first run. Usually you don't need to touch this.
 
 ```yaml
-domain: scalecommerce.site
+domain: 0ploy.dev
 ssl:
   enabled: true
 mutagen:
@@ -569,30 +569,30 @@ mutagen:
 
 ### "DNS doesn't resolve"
 
-`scalecommerce.site` uses wildcard DNS pointing to `127.0.0.1`. If it doesn't work:
+`0ploy.dev` uses wildcard DNS pointing to `127.0.0.1`. If it doesn't work:
 
-1. Check: `dig my-app.scalecommerce.site`
+1. Check: `dig my-app.0ploy.dev`
 2. Corporate VPNs sometimes block external DNS - try a different network
 3. Add entries to `/etc/hosts` as a workaround
 
 ### "Containers won't start"
 
 ```bash
-scdev down           # clean up
-scdev start          # try again
-scdev logs -f app    # check what's happening
+zdev down           # clean up
+zdev start          # try again
+zdev logs -f app    # check what's happening
 ```
 
 ### "File sync is slow" (macOS)
 
 ```bash
-scdev mutagen status   # check if Mutagen is running
-scdev mutagen reset    # recreate sync sessions if stuck
+zdev mutagen status   # check if Mutagen is running
+zdev mutagen reset    # recreate sync sessions if stuck
 ```
 
 ### "Port already in use"
 
-scdev uses ports 80 and 443 for the shared router. Check what's using them:
+zdev uses ports 80 and 443 for the shared router. Check what's using them:
 
 ```bash
 lsof -i :80
@@ -618,14 +618,14 @@ services:
       # TRUSTED_PROXIES: "*"                      # for the TrustProxies middleware
 ```
 
-Then apply with `scdev update`. Any framework that generates absolute URLs while running behind
+Then apply with `zdev update`. Any framework that generates absolute URLs while running behind
 a reverse proxy needs similar awareness.
 
 ## Standing on the Shoulders of Giants
 
-scdev doesn't reinvent the wheel. It orchestrates proven open-source tools into a seamless experience - so you get the power without the configuration.
+zdev doesn't reinvent the wheel. It orchestrates proven open-source tools into a seamless experience - so you get the power without the configuration.
 
-| Technology | What scdev uses it for | Link |
+| Technology | What zdev uses it for | Link |
 |------------|----------------------|------|
 | [Docker](https://www.docker.com/) | Container runtime, network isolation | docker.com |
 | [Traefik](https://traefik.io/) | Reverse proxy - HTTPS routing, subdomains, TCP/UDP | traefik.io |
@@ -639,7 +639,7 @@ scdev doesn't reinvent the wheel. It orchestrates proven open-source tools into 
 
 ## Contributing
 
-Want to help improve scdev? See [CONTRIBUTING.md](CONTRIBUTING.md) for the developer guide - project structure, testing strategy, architecture decisions, and how to add new features.
+Want to help improve zdev? See [CONTRIBUTING.md](CONTRIBUTING.md) for the developer guide - project structure, testing strategy, architecture decisions, and how to add new features.
 
 Want to create a project template? See the [Template Authoring Guide](templates/README.md).
 

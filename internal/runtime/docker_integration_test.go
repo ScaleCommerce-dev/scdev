@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ScaleCommerce-DEV/scdev/internal/config"
+	"github.com/0ploy/zdev/internal/config"
 )
 
 // Integration tests require Docker to be running
@@ -18,7 +18,7 @@ func TestDockerCLI_ContainerLifecycle(t *testing.T) {
 	defer cancel()
 
 	docker := NewDockerCLI()
-	containerName := "scdev_test_integration"
+	containerName := "zdev_test_integration"
 	imageName := config.TestImage
 
 	// Cleanup any leftover container from previous runs
@@ -51,7 +51,7 @@ func TestDockerCLI_ContainerLifecycle(t *testing.T) {
 		Image:   imageName,
 		Command: []string{"sleep", "infinity"},
 		Labels: map[string]string{
-			"scdev.test": "true",
+			"zdev.test": "true",
 		},
 	}
 

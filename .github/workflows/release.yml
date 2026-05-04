@@ -25,16 +25,16 @@ jobs:
         run: |
           VERSION=${GITHUB_REF_NAME}
           BUILD_TIME=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
-          LDFLAGS="-s -w -X github.com/ScaleCommerce-DEV/scdev/cmd.Version=${VERSION} -X github.com/ScaleCommerce-DEV/scdev/cmd.BuildTime=${BUILD_TIME}"
+          LDFLAGS="-s -w -X github.com/0ploy/zdev/cmd.Version=${VERSION} -X github.com/0ploy/zdev/cmd.BuildTime=${BUILD_TIME}"
 
-          GOOS=darwin  GOARCH=arm64 go build -ldflags "${LDFLAGS}" -o scdev-darwin-arm64 .
-          GOOS=darwin  GOARCH=amd64 go build -ldflags "${LDFLAGS}" -o scdev-darwin-amd64 .
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "${LDFLAGS}" -o scdev-linux-amd64 .
-          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags "${LDFLAGS}" -o scdev-linux-arm64 .
+          GOOS=darwin  GOARCH=arm64 go build -ldflags "${LDFLAGS}" -o zdev-darwin-arm64 .
+          GOOS=darwin  GOARCH=amd64 go build -ldflags "${LDFLAGS}" -o zdev-darwin-amd64 .
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "${LDFLAGS}" -o zdev-linux-amd64 .
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags "${LDFLAGS}" -o zdev-linux-arm64 .
 
       - name: Generate checksums
         run: |
-          sha256sum scdev-darwin-arm64 scdev-darwin-amd64 scdev-linux-amd64 scdev-linux-arm64 > checksums.txt
+          sha256sum zdev-darwin-arm64 zdev-darwin-amd64 zdev-linux-amd64 zdev-linux-arm64 > checksums.txt
           cat checksums.txt
 
       - name: Build release body
@@ -43,14 +43,14 @@ jobs:
           ## Update
 
           ```bash
-          scdev self-update
+          zdev self-update
           ```
 
           ## Install
 
           **macOS / Linux:**
           ```bash
-          curl -fsSL https://raw.githubusercontent.com/ScaleCommerce-DEV/scdev/main/install.sh | sh
+          curl -fsSL https://raw.githubusercontent.com/0ploy/zdev/main/install.sh | sh
           ```
 
           HEADER
@@ -67,8 +67,8 @@ jobs:
         with:
           body_path: release-body.md
           files: |
-            scdev-darwin-arm64
-            scdev-darwin-amd64
-            scdev-linux-amd64
-            scdev-linux-arm64
+            zdev-darwin-arm64
+            zdev-darwin-amd64
+            zdev-linux-amd64
+            zdev-linux-arm64
             checksums.txt

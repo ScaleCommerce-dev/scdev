@@ -1,7 +1,7 @@
 # Stack Gotchas
 
-Runtime behaviors that bite when running a language/framework stack inside an scdev container.
-These apply to **any** scdev project — scaffolded from a template or added to an existing repo.
+Runtime behaviors that bite when running a language/framework stack inside an zdev container.
+These apply to **any** zdev project — scaffolded from a template or added to an existing repo.
 For template-authoring patterns (`.setup-complete`, scaffolding, `setup.just`), see `templates.md`.
 
 ## Node.js / pnpm
@@ -13,7 +13,7 @@ For template-authoring patterns (`.setup-complete`, scaffolding, `setup.just`), 
   `@parcel/watcher`) silently fail to install their prebuilt binaries.
 - `HOST: "0.0.0.0"` in environment so dev server is accessible from outside the container.
   Otherwise Traefik gets connection-refused — the dev server only bound to loopback.
-- Add to mutagen ignore: `node_modules`, `.pnpm-store`, `.scdev`, `.setup-complete`.
+- Add to mutagen ignore: `node_modules`, `.pnpm-store`, `.zdev`, `.setup-complete`.
   `.pnpm-store` especially — it's a ~500 MB content-addressable store with platform-specific native
   binaries. Syncing it breaks the container when the image changes (glibc vs musl mismatch).
 - Framework build artifacts to ignore: `.nuxt`, `.output` (Nuxt), `.next` (Next.js).
@@ -28,10 +28,10 @@ For template-authoring patterns (`.setup-complete`, scaffolding, `setup.just`), 
   wget -q https://get.symfony.com/cli/installer -O - | bash
   cp $HOME/.symfony5/bin/symfony /usr/local/bin/symfony
   ```
-- Install tools to `/usr/local/bin` so they're available in subsequent `scdev exec` calls.
+- Install tools to `/usr/local/bin` so they're available in subsequent `zdev exec` calls.
 - Symfony dev server: `symfony server:start --no-tls --port=8000 --allow-all-ip`.
-  `--no-tls` because scdev terminates TLS via Traefik; `--allow-all-ip` binds to `0.0.0.0`.
-- Add to mutagen ignore: `vendor`, `var`, `.scdev`, `.setup-complete`.
+  `--no-tls` because zdev terminates TLS via Traefik; `--allow-all-ip` binds to `0.0.0.0`.
+- Add to mutagen ignore: `vendor`, `var`, `.zdev`, `.setup-complete`.
 
 ## PHP frameworks (Symfony / Sylius / Shopware / Laravel / Akeneo) — runtime gotchas
 
@@ -97,7 +97,7 @@ fi
 ```
 
 The entrypoint check matters because `public/build` typically lives in `mutagen.ignore` (binary +
-regenerable), so it's lost on `scdev down && scdev start`. Without the rebuild, the first page
+regenerable), so it's lost on `zdev down && zdev start`. Without the rebuild, the first page
 load 500s on a missing `manifest.json`.
 
 ### 5. Mail to Mailpit

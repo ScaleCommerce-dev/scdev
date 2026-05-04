@@ -16,7 +16,7 @@ import (
 func TestShouldSkip(t *testing.T) {
 	// Isolate env so we don't inherit CI=true from the test runner.
 	t.Setenv("CI", "")
-	t.Setenv("SCDEV_NO_UPDATE_CHECK", "")
+	t.Setenv("ZDEV_NO_UPDATE_CHECK", "")
 
 	tests := []struct {
 		name    string
@@ -29,7 +29,7 @@ func TestShouldSkip(t *testing.T) {
 		{"dev build", "dev", "", "", true},
 		{"normal version", "v0.5.6", "", "", false},
 		{"CI set", "v0.5.6", "CI", "true", true},
-		{"opt-out set", "v0.5.6", "SCDEV_NO_UPDATE_CHECK", "1", true},
+		{"opt-out set", "v0.5.6", "ZDEV_NO_UPDATE_CHECK", "1", true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -91,7 +91,7 @@ func TestCanonicalPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CanonicalPath: %v", err)
 	}
-	want := filepath.Join(home, ".scdev", "bin", "scdev")
+	want := filepath.Join(home, ".zdev", "bin", "zdev")
 	if got != want {
 		t.Errorf("CanonicalPath() = %q, want %q", got, want)
 	}
@@ -113,7 +113,7 @@ func newTestEnv(t *testing.T, tag string, installable bool) *testEnv {
 
 	binBody := []byte("#!/bin/sh\necho " + tag + "\n")
 	sum := sha256.Sum256(binBody)
-	checksumsBody := []byte(fmt.Sprintf("%s  scdev-%s-%s\n", hex.EncodeToString(sum[:]), runtime.GOOS, runtime.GOARCH))
+	checksumsBody := []byte(fmt.Sprintf("%s  zdev-%s-%s\n", hex.EncodeToString(sum[:]), runtime.GOOS, runtime.GOARCH))
 
 	dlSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Checksum file or binary are served from the same server, by path suffix.
@@ -129,7 +129,7 @@ func newTestEnv(t *testing.T, tag string, installable bool) *testEnv {
 	}))
 	t.Cleanup(dlSrv.Close)
 
-	assetName := "scdev-" + runtime.GOOS + "-" + runtime.GOARCH
+	assetName := "zdev-" + runtime.GOOS + "-" + runtime.GOARCH
 	apiSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("ETag", `W/"`+tag+`"`)
 		w.Header().Set("Content-Type", "application/json")

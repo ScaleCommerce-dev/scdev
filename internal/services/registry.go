@@ -3,12 +3,12 @@ package services
 import (
 	"context"
 
-	"github.com/ScaleCommerce-DEV/scdev/internal/config"
+	"github.com/0ploy/zdev/internal/config"
 )
 
 // SharedServiceDef is the single source of truth for a shared service:
 // everything needed to start, stop, inspect, and connect/disconnect it
-// from project networks. Both the CLI (scdev services start) and the
+// from project networks. Both the CLI (zdev services start) and the
 // per-project connect flow iterate over the same slice so adding a new
 // shared service is a single-file change here.
 type SharedServiceDef struct {
@@ -18,7 +18,7 @@ type SharedServiceDef struct {
 	// Subdomain is the URL prefix under {Subdomain}.{Domain} (e.g., "router.shared").
 	Subdomain string
 
-	// ContainerName is the Docker container name (e.g., "scdev_router").
+	// ContainerName is the Docker container name (e.g., "zdev_router").
 	ContainerName string
 
 	// Start, Stop, and Status manage the shared container lifecycle.

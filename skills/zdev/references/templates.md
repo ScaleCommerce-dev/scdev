@@ -1,13 +1,13 @@
-# Creating scdev Templates
+# Creating zdev Templates
 
-Templates let users scaffold new projects with `scdev create`. A template is a GitHub repo
-(or local directory) containing `.scdev/` configuration and optionally starter files.
+Templates let users scaffold new projects with `zdev create`. A template is a GitHub repo
+(or local directory) containing `.zdev/` configuration and optionally starter files.
 
 ## Template Structure
 
 ```
 my-template/
-  .scdev/
+  .zdev/
     config.yaml              # Container config, routing, volumes, mutagen
     commands/
       setup.just             # Setup script
@@ -15,11 +15,11 @@ my-template/
 ```
 
 **Static templates** (e.g. Express) also include source files (`app.js`, `package.json`, `.gitignore`).
-**Scaffold templates** (e.g. Nuxt, Symfony) ship only `.scdev/` - the framework's create command generates app files during setup.
+**Scaffold templates** (e.g. Nuxt, Symfony) ship only `.zdev/` - the framework's create command generates app files during setup.
 
 ## The .setup-complete Pattern
 
-Templates must solve a circular dependency: the container needs to be running for `scdev exec`
+Templates must solve a circular dependency: the container needs to be running for `zdev exec`
 (used by setup), but the app can't start until setup completes.
 
 **In config.yaml command:**
@@ -28,13 +28,13 @@ Templates must solve a circular dependency: the container needs to be running fo
 command: >-
   sh -c "corepack enable &&
   if [ ! -f .setup-complete ]; then
-    echo 'Waiting for setup... Run: scdev setup';
+    echo 'Waiting for setup... Run: zdev setup';
     while [ ! -f .setup-complete ]; do sleep 2; done;
   fi;
   pnpm install && exec pnpm dev"
 ```
 
-- No marker: container enters wait loop (stays alive for `scdev exec`)
+- No marker: container enters wait loop (stays alive for `zdev exec`)
 - Setup creates marker: loop exits, app starts
 - On restart: marker exists, skips loop, runs dep install + app
 
@@ -48,12 +48,12 @@ volume independently of the host.
 
 ## Writing setup.just
 
-Setup runs on the **host**, uses `scdev exec` for container commands. The interactive terminal
-from `scdev exec` is important - framework prompts work here but would crash in the entrypoint
+Setup runs on the **host**, uses `zdev exec` for container commands. The interactive terminal
+from `zdev exec` is important - framework prompts work here but would crash in the entrypoint
 (which has no TTY).
 
 Setup also produces a wall of output (apk/composer/npm installing hundreds of deps, compilers,
-scaffolders). Plain `@echo` status lines disappear in that noise. `@scdev step "<msg>"` prints two
+scaffolders). Plain `@echo` status lines disappear in that noise. `@zdev step "<msg>"` prints two
 leading blank lines + a cyan `▶` + bold text so each phase reads as a clear section header. Styling
 auto-strips when stdout isn't a TTY, when `NO_COLOR` is set, or when global plain mode is on, so
 the same recipe works in logs and CI.
@@ -63,34 +63,34 @@ the same recipe works in logs and CI.
 
 [no-exit-message]
 default:
-    scdev start -q
-    @scdev step "Installing dependencies"
-    scdev exec app sh -c "corepack enable && pnpm install && touch .setup-complete"
-    @scdev step "Setup complete! App will start automatically."
-    scdev info
+    zdev start -q
+    @zdev step "Installing dependencies"
+    zdev exec app sh -c "corepack enable && pnpm install && touch .setup-complete"
+    @zdev step "Setup complete! App will start automatically."
+    zdev info
 ```
 
 Conventions:
-- `scdev start -q` first (quiet: skips info display since setup shows it at the end)
+- `zdev start -q` first (quiet: skips info display since setup shows it at the end)
 - `touch .setup-complete` last in exec (only on success)
-- `@scdev step "<msg>"` for each top-level phase; reserve `@echo` for sub-detail lines that don't need to stand out
-- Keep echo ON for `scdev start`, `scdev exec`, `scdev info` so the user sees what's running
+- `@zdev step "<msg>"` for each top-level phase; reserve `@echo` for sub-detail lines that don't need to stand out
+- Keep echo ON for `zdev start`, `zdev exec`, `zdev info` so the user sees what's running
 - `[no-exit-message]` suppresses just's exit message
-- Break long chains into separate `scdev exec` calls with a `@scdev step` marker between them
+- Break long chains into separate `zdev exec` calls with a `@zdev step` marker between them
 
 ## Forwarding colon-namespaced CLIs
 
 For wrappers like `bin/console cache:clear` or `artisan migrate:fresh`, declare a recipe
-named after the file. scdev auto-prepends it so colon args pass through as recipe params
+named after the file. zdev auto-prepends it so colon args pass through as recipe params
 instead of being parsed as just's module path:
 
 ```just
-# .scdev/commands/console.just
+# .zdev/commands/console.just
 console *args:
-    scdev exec app php bin/console {{args}}
+    zdev exec app php bin/console {{args}}
 ```
 
-`scdev console cache:clear` -> `bin/console cache:clear`. Without a filename-matching
+`zdev console cache:clear` -> `bin/console cache:clear`. Without a filename-matching
 recipe, the first arg is still treated as the recipe name (legacy behavior).
 
 ## Handling Framework Scaffolding
@@ -99,16 +99,16 @@ When the framework has a create command that expects an empty directory:
 
 ### Scaffold in-place (when tool supports --force)
 
-On macOS with Mutagen, `.scdev` is ignored so the container sees an empty `/app`. On Linux,
-`.scdev/` is visible but scaffolding tools just add their own files alongside it.
+On macOS with Mutagen, `.zdev` is ignored so the container sees an empty `/app`. On Linux,
+`.zdev/` is visible but scaffolding tools just add their own files alongside it.
 
 Example - Nuxt:
 
 ```just
-scdev exec app pnpm dlx nuxi@latest init . --packageManager pnpm --gitInit=false --force
-scdev exec app npx nuxi prepare          # triggers module dep prompts interactively
-scdev exec app pnpm approve-builds --all  # approves native module build scripts
-scdev exec app sh -c "echo '.setup-complete' >> .gitignore && touch .setup-complete"
+zdev exec app pnpm dlx nuxi@latest init . --packageManager pnpm --gitInit=false --force
+zdev exec app npx nuxi prepare          # triggers module dep prompts interactively
+zdev exec app pnpm approve-builds --all  # approves native module build scripts
+zdev exec app sh -c "echo '.setup-complete' >> .gitignore && touch .setup-complete"
 ```
 
 `npx nuxi prepare` is critical - it runs Nuxt module initialization which may prompt for
@@ -123,9 +123,9 @@ NOT for Node.js/pnpm (symlink-based store with absolute paths).
 Example - Symfony:
 
 ```just
-scdev exec app symfony new /tmp/app --no-git
-scdev exec app sh -c "cp -r /tmp/app/. /app/ && rm -rf /tmp/app"
-scdev exec app sh -c "echo '.setup-complete' >> .gitignore && touch .setup-complete"
+zdev exec app symfony new /tmp/app --no-git
+zdev exec app sh -c "cp -r /tmp/app/. /app/ && rm -rf /tmp/app"
+zdev exec app sh -c "echo '.setup-complete' >> .gitignore && touch .setup-complete"
 ```
 
 ### When to use which
@@ -140,16 +140,16 @@ scdev exec app sh -c "echo '.setup-complete' >> .gitignore && touch .setup-compl
 
 Language/framework behaviors (Node corepack, pnpm build scripts, PHP extensions,
 `SYMFONY_TRUSTED_PROXIES`, Webpack Encore asset pipelines, `memory_limit`, `MAILER_DSN`) are **not
-template-authoring-specific** — they apply to any scdev-managed container. See
+template-authoring-specific** — they apply to any zdev-managed container. See
 `stack-gotchas.md` for the full list. When authoring a template you'll bake those into the
-entrypoint and/or `setup.just`; when adding scdev to an existing project you'll bake them into the
+entrypoint and/or `setup.just`; when adding zdev to an existing project you'll bake them into the
 entrypoint the same way.
 
 ## Template Naming and Testing
 
-Name repos `scdev-template-<name>`. The `ScaleCommerce-DEV` org has shorthand:
-`scdev create express` -> `ScaleCommerce-DEV/scdev-template-express`
+Name repos `zdev-template-<name>`. The `0ploy` org has shorthand:
+`zdev create express` -> `0ploy/zdev-template-express`
 
-Test locally: `scdev create ./my-template test-app && cd test-app && scdev setup`
+Test locally: `zdev create ./my-template test-app && cd test-app && zdev setup`
 
-Verify: setup completes, URL loads, `scdev restart` works, file changes reflected.
+Verify: setup completes, URL loads, `zdev restart` works, file changes reflected.

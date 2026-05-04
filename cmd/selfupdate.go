@@ -14,16 +14,16 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/ScaleCommerce-DEV/scdev/internal/updatecheck"
+	"github.com/0ploy/zdev/internal/updatecheck"
 	"github.com/spf13/cobra"
 )
 
-// selfUpdateHTTPTimeout bounds every network call in `scdev self-update`.
+// selfUpdateHTTPTimeout bounds every network call in `zdev self-update`.
 // Generous enough for a ~40MB binary on a slow link; short enough that a
 // hung TCP connection doesn't strand the user.
 const selfUpdateHTTPTimeout = 5 * time.Minute
 
-const selfUpdateGithubRepo = "ScaleCommerce-DEV/scdev"
+const selfUpdateGithubRepo = "0ploy/zdev"
 
 // githubRelease is a minimal representation of a GitHub release.
 type githubRelease struct {
@@ -38,7 +38,7 @@ type githubAsset struct {
 
 var selfUpdateCmd = &cobra.Command{
 	Use:   "self-update",
-	Short: "Update scdev to the latest version",
+	Short: "Update zdev to the latest version",
 	Long:  "Checks GitHub for the latest release, downloads the matching binary, and replaces the current executable.",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -61,7 +61,7 @@ func runSelfUpdate(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("cannot determine executable path: %w", err)
 	}
-	// Silently migrate legacy installs (plain file at /usr/local/bin/scdev)
+	// Silently migrate legacy installs (plain file at /usr/local/bin/zdev)
 	// to the symlink layout so subsequent updates don't need sudo.
 	if err := migrateIfNeeded(execPath, canonical); err != nil {
 		return err
@@ -146,7 +146,7 @@ func runSelfUpdate(ctx context.Context) error {
 	// Re-exec into the new binary to verify it starts and show the user
 	// the confirmed version. syscall.Exec replaces the current process,
 	// so we don't return on success.
-	if err := syscall.Exec(canonical, []string{"scdev", "version"}, os.Environ()); err != nil {
+	if err := syscall.Exec(canonical, []string{"zdev", "version"}, os.Environ()); err != nil {
 		fmt.Fprintf(os.Stderr, "warning: could not exec new binary: %v\n", err)
 	}
 	return nil
@@ -195,7 +195,7 @@ func migrateToSymlink(linkPath, target string) error {
 	}
 
 	fmt.Fprintln(os.Stderr)
-	fmt.Fprintln(os.Stderr, "One-time migration: converting scdev to a symlinked layout.")
+	fmt.Fprintln(os.Stderr, "One-time migration: converting zdev to a symlinked layout.")
 	fmt.Fprintln(os.Stderr, "Future updates will not require sudo.")
 	fmt.Fprintln(os.Stderr)
 
@@ -316,5 +316,5 @@ func fetchChecksumEntry(ctx context.Context, checksumsURL, assetName string) (st
 }
 
 func selfUpdateBinaryName() string {
-	return "scdev-" + runtime.GOOS + "-" + runtime.GOARCH
+	return "zdev-" + runtime.GOOS + "-" + runtime.GOARCH
 }

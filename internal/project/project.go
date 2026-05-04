@@ -8,14 +8,14 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/ScaleCommerce-DEV/scdev/internal/config"
-	"github.com/ScaleCommerce-DEV/scdev/internal/mutagen"
-	"github.com/ScaleCommerce-DEV/scdev/internal/runtime"
-	"github.com/ScaleCommerce-DEV/scdev/internal/services"
-	"github.com/ScaleCommerce-DEV/scdev/internal/state"
+	"github.com/0ploy/zdev/internal/config"
+	"github.com/0ploy/zdev/internal/mutagen"
+	"github.com/0ploy/zdev/internal/runtime"
+	"github.com/0ploy/zdev/internal/services"
+	"github.com/0ploy/zdev/internal/state"
 )
 
-// Project represents a loaded scdev project
+// Project represents a loaded zdev project
 type Project struct {
 	Dir     string
 	Config  *config.ProjectConfig
@@ -53,22 +53,22 @@ func LoadFromDir(dir string) (*Project, error) {
 }
 
 // ContainerNameFor returns the full container name for a service in a given project.
-// Format: <service>.<project>.scdev (e.g., app.myproject.scdev)
+// Format: <service>.<project>.zdev (e.g., app.myproject.zdev)
 // This standalone function can be used without a loaded Project.
 func ContainerNameFor(service, projectName string) string {
-	return fmt.Sprintf("%s.%s.scdev", service, projectName)
+	return fmt.Sprintf("%s.%s.zdev", service, projectName)
 }
 
 // ContainerName returns the full container name for a service
-// Format: <service>.<project>.scdev (e.g., app.myproject.scdev)
+// Format: <service>.<project>.zdev (e.g., app.myproject.zdev)
 func (p *Project) ContainerName(service string) string {
 	return ContainerNameFor(service, p.Config.Name)
 }
 
 // NetworkName returns the project network name
-// Format: <project>.scdev (e.g., myproject.scdev)
+// Format: <project>.zdev (e.g., myproject.zdev)
 func (p *Project) NetworkName() string {
-	return fmt.Sprintf("%s.scdev", p.Config.Name)
+	return fmt.Sprintf("%s.zdev", p.Config.Name)
 }
 
 // shellQuote wraps a string in single quotes, escaping any embedded single quotes.
@@ -77,9 +77,9 @@ func shellQuote(s string) string {
 }
 
 // VolumeName returns the full volume name for a project volume
-// Format: <volume>.<project>.scdev (e.g., db_data.myproject.scdev)
+// Format: <volume>.<project>.zdev (e.g., db_data.myproject.zdev)
 func (p *Project) VolumeName(volume string) string {
-	return fmt.Sprintf("%s.%s.scdev", volume, p.Config.Name)
+	return fmt.Sprintf("%s.%s.zdev", volume, p.Config.Name)
 }
 
 // NamedVolumes returns all named volumes discovered from service volume mounts.
@@ -522,7 +522,7 @@ func (p *Project) Update(ctx context.Context) (bool, error) {
 		}
 	}
 
-	// Mutagen state is prepared lazily on first need: a no-op `scdev update`
+	// Mutagen state is prepared lazily on first need: a no-op `zdev update`
 	// (no service drifted) shouldn't pay the daemon-startup + volume-create
 	// cost. `serviceNeedsRecreate` does its own lightweight mount discovery
 	// (no daemon) for the hash compare, so the diff stays cheap.
@@ -687,9 +687,9 @@ func (p *Project) buildContainerConfig(name string, svc config.ServiceConfig, mu
 		Aliases:     []string{name},
 		Env:         make(map[string]string),
 		Labels: map[string]string{
-			"scdev.managed": "true",
-			"scdev.project": p.Config.Name,
-			"scdev.service": name,
+			"zdev.managed": "true",
+			"zdev.project": p.Config.Name,
+			"zdev.service": name,
 		},
 	}
 
@@ -753,7 +753,7 @@ func (p *Project) buildContainerConfig(name string, svc config.ServiceConfig, mu
 		_, hasMutagenMount := mutagenMounts[name]
 		if mutagenEnabled && hasMutagenMount {
 			cfg.Command = []string{"sh", "-c",
-				"while [ ! -f /.scdev-sync-ready ]; do sleep 0.2; done; exec sh -c " + shellQuote(svc.Command),
+				"while [ ! -f /.zdev-sync-ready ]; do sleep 0.2; done; exec sh -c " + shellQuote(svc.Command),
 			}
 		} else {
 			cfg.Command = []string{"sh", "-c", svc.Command}
@@ -817,7 +817,7 @@ func (p *Project) Logs(ctx context.Context, service string, opts LogsOptions) er
 	}
 
 	if !exists {
-		return fmt.Errorf("service %s container does not exist - run 'scdev start' first", service)
+		return fmt.Errorf("service %s container does not exist - run 'zdev start' first", service)
 	}
 
 	runtimeOpts := runtime.LogsOptions{

@@ -13,12 +13,12 @@ import (
 
 // findMutagenBinary looks for mutagen in common locations
 func findMutagenBinary() string {
-	// Check scdev's bin directory first
+	// Check zdev's bin directory first
 	homeDir, err := os.UserHomeDir()
 	if err == nil {
-		scdevPath := filepath.Join(homeDir, ".scdev", "bin", "mutagen")
-		if _, err := os.Stat(scdevPath); err == nil {
-			return scdevPath
+		zdevPath := filepath.Join(homeDir, ".zdev", "bin", "mutagen")
+		if _, err := os.Stat(zdevPath); err == nil {
+			return zdevPath
 		}
 	}
 
@@ -100,7 +100,7 @@ func TestMutagen_SessionLifecycle(t *testing.T) {
 	m := New(binaryPath)
 
 	// Create a unique session name for this test
-	sessionName := "scdev-test-integration"
+	sessionName := "zdev-test-integration"
 
 	// Clean up any existing session from previous test runs
 	_ = m.TerminateSession(ctx, sessionName)
@@ -113,7 +113,7 @@ func TestMutagen_SessionLifecycle(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	// Start a test container
-	containerName := "scdev-mutagen-integration-test"
+	containerName := "zdev-mutagen-integration-test"
 
 	// Remove any existing container
 	_ = exec.CommandContext(ctx, "docker", "rm", "-f", containerName).Run()
@@ -240,8 +240,8 @@ func TestMutagen_ListSessionsByPrefix(t *testing.T) {
 		t.Fatalf("EnsureDaemon() failed: %v", err)
 	}
 
-	// List sessions with scdev prefix (may be empty)
-	sessions, err := m.ListSessionsByPrefix(ctx, "scdev-")
+	// List sessions with zdev prefix (may be empty)
+	sessions, err := m.ListSessionsByPrefix(ctx, "zdev-")
 	if err != nil {
 		t.Fatalf("ListSessionsByPrefix() failed: %v", err)
 	}
@@ -249,9 +249,9 @@ func TestMutagen_ListSessionsByPrefix(t *testing.T) {
 	// Result should be a valid slice (possibly empty)
 	if sessions == nil {
 		// nil is acceptable when no sessions exist
-		t.Log("No sessions with 'scdev-' prefix found")
+		t.Log("No sessions with 'zdev-' prefix found")
 	} else {
-		t.Logf("Found %d sessions with 'scdev-' prefix", len(sessions))
+		t.Logf("Found %d sessions with 'zdev-' prefix", len(sessions))
 		for _, s := range sessions {
 			t.Logf("  - %s", s)
 		}

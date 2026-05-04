@@ -78,7 +78,7 @@ func TestValidateLinkName(t *testing.T) {
 
 func TestLinkNetworkName(t *testing.T) {
 	got := LinkNetworkName("test-net")
-	want := "scdev_link_test-net"
+	want := "zdev_link_test-net"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
@@ -86,7 +86,7 @@ func TestLinkNetworkName(t *testing.T) {
 
 func newTestManager(t *testing.T) *Manager {
 	t.Helper()
-	tmpDir, err := os.MkdirTemp("", "scdev-link-test")
+	tmpDir, err := os.MkdirTemp("", "zdev-link-test")
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
@@ -110,8 +110,8 @@ func TestCreateLink(t *testing.T) {
 	if link == nil {
 		t.Fatal("expected link to exist")
 	}
-	if link.Network != "scdev_link_test-net" {
-		t.Errorf("network: got %q, want %q", link.Network, "scdev_link_test-net")
+	if link.Network != "zdev_link_test-net" {
+		t.Errorf("network: got %q, want %q", link.Network, "zdev_link_test-net")
 	}
 	if len(link.Members) != 0 {
 		t.Errorf("expected no members, got %d", len(link.Members))

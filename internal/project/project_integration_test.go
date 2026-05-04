@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ScaleCommerce-DEV/scdev/internal/runtime"
-	"github.com/ScaleCommerce-DEV/scdev/internal/state"
+	"github.com/0ploy/zdev/internal/runtime"
+	"github.com/0ploy/zdev/internal/state"
 )
 
 func TestProject_FullLifecycle(t *testing.T) {

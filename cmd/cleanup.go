@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ScaleCommerce-DEV/scdev/internal/runtime"
-	"github.com/ScaleCommerce-DEV/scdev/internal/state"
+	"github.com/0ploy/zdev/internal/runtime"
+	"github.com/0ploy/zdev/internal/state"
 	"github.com/spf13/cobra"
 )
 
@@ -20,12 +20,12 @@ var cleanupCmd = &cobra.Command{
 	Short: "Remove unused containers, volumes and stale project registrations",
 	Long: `Prune resources no longer associated with any live project:
 
-  - Orphaned Docker containers (labelled scdev.project but no matching registration)
+  - Orphaned Docker containers (labelled zdev.project but no matching registration)
   - Orphaned Docker volumes (not owned by any registered project)
   - Stale state entries whose project directory no longer exists on disk
 
 Resources belonging to still-registered projects are never touched - remove those
-explicitly with scdev remove.
+explicitly with zdev remove.
 
 Use --force to skip the confirmation prompt.`,
 	RunE: runCleanup,
@@ -65,7 +65,7 @@ func runCleanup(cmd *cobra.Command, args []string) error {
 
 		docker := runtime.NewDockerCLI()
 
-		containers, err := docker.ListContainers(ctx, "label=scdev.project")
+		containers, err := docker.ListContainers(ctx, "label=zdev.project")
 		if err != nil {
 			return fmt.Errorf("failed to list Docker containers: %w", err)
 		}
@@ -77,7 +77,7 @@ func runCleanup(cmd *cobra.Command, args []string) error {
 			}
 		}
 
-		dockerVolumes, err := docker.ListVolumes(ctx, "name=.scdev")
+		dockerVolumes, err := docker.ListVolumes(ctx, "name=.zdev")
 		if err != nil {
 			return fmt.Errorf("failed to list Docker volumes: %w", err)
 		}
@@ -171,15 +171,15 @@ func runCleanup(cmd *cobra.Command, args []string) error {
 	})
 }
 
-// ownedByLiveProject reports whether a scdev resource name
-// (<base>.<projectname>.scdev - shared by containers and volumes)
+// ownedByLiveProject reports whether a zdev resource name
+// (<base>.<projectname>.zdev - shared by containers and volumes)
 // belongs to a currently-registered project whose directory still
 // exists on disk.
 func ownedByLiveProject(name string, liveNames map[string]bool) bool {
-	if !strings.HasSuffix(name, ".scdev") {
+	if !strings.HasSuffix(name, ".zdev") {
 		return false
 	}
-	trimmed := strings.TrimSuffix(name, ".scdev")
+	trimmed := strings.TrimSuffix(name, ".zdev")
 	dot := strings.LastIndex(trimmed, ".")
 	if dot < 0 {
 		return false

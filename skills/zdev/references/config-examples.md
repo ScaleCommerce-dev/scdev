@@ -103,7 +103,7 @@ services:
       MAILER_DSN: smtp://mail:1025
       SYMFONY_TRUSTED_PROXIES: private_ranges
     routing:
-      port: 8000                                        # https://my-shop.scalecommerce.site
+      port: 8000                                        # https://my-shop.0ploy.dev
 
   worker:                                               # Long-lived consumer: same image + code, different command
     image: php:8.3-cli-alpine
@@ -134,7 +134,7 @@ services:
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
     routing:
       port: 15672                                       # Management UI
-      domain: rabbitmq.${PROJECTNAME}.${SCDEV_DOMAIN}   # https://rabbitmq.my-shop.scalecommerce.site
+      domain: rabbitmq.${PROJECTNAME}.${ZDEV_DOMAIN}   # https://rabbitmq.my-shop.0ploy.dev
 
 mutagen:
   ignore:
@@ -204,7 +204,7 @@ mutagen:
 
 ## Email SMTP Config by Stack
 
-Configure your app to use scdev's shared Mailpit. From inside any project container, the hostname
+Configure your app to use zdev's shared Mailpit. From inside any project container, the hostname
 is `mail` on port `1025` (no auth, no TLS) — identical across stacks:
 
 - Node.js (nodemailer): `{ host: 'mail', port: 1025, secure: false }`
@@ -212,4 +212,4 @@ is `mail` on port `1025` (no auth, no TLS) — identical across stacks:
 - PHP (Laravel): `MAIL_HOST=mail MAIL_PORT=1025 MAIL_ENCRYPTION=null`
 - Python (Django): `EMAIL_HOST='mail' EMAIL_PORT=1025`
 
-Web UI: `scdev mail` or `https://mail.shared.scalecommerce.site`.
+Web UI: `zdev mail` or `https://mail.shared.0ploy.dev`.

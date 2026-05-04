@@ -7,12 +7,12 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/ScaleCommerce-DEV/scdev/internal/config"
-	"github.com/ScaleCommerce-DEV/scdev/internal/firstrun"
-	"github.com/ScaleCommerce-DEV/scdev/internal/services"
-	"github.com/ScaleCommerce-DEV/scdev/internal/ssl"
-	"github.com/ScaleCommerce-DEV/scdev/internal/tools"
-	"github.com/ScaleCommerce-DEV/scdev/internal/ui"
+	"github.com/0ploy/zdev/internal/config"
+	"github.com/0ploy/zdev/internal/firstrun"
+	"github.com/0ploy/zdev/internal/services"
+	"github.com/0ploy/zdev/internal/ssl"
+	"github.com/0ploy/zdev/internal/tools"
+	"github.com/0ploy/zdev/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -23,7 +23,7 @@ var installCAFlag bool
 
 var systemcheckCmd = &cobra.Command{
 	Use:   "systemcheck",
-	Short: "Check system dependencies and scdev setup",
+	Short: "Check system dependencies and zdev setup",
 	Long: `Verify that all required dependencies are installed and configured correctly.
 
 This command checks:
@@ -43,7 +43,7 @@ func init() {
 	rootCmd.AddCommand(systemcheckCmd)
 }
 
-// RunSystemcheckIfNeeded runs systemcheck if scdev is not initialized
+// RunSystemcheckIfNeeded runs systemcheck if zdev is not initialized
 // Returns true if systemcheck was run, false if already initialized
 func RunSystemcheckIfNeeded() (bool, error) {
 	// Ensure global config exists
@@ -52,7 +52,7 @@ func RunSystemcheckIfNeeded() (bool, error) {
 		fmt.Printf("Warning: could not create global config: %v\n", err)
 	} else if created {
 		fmt.Printf("Created default global config: %s\n", configPath)
-		fmt.Println("You can edit this file to customize scdev settings.")
+		fmt.Println("You can edit this file to customize zdev settings.")
 		fmt.Println()
 	}
 
@@ -133,7 +133,7 @@ func runSystemcheck(cmd *cobra.Command, args []string) error {
 		fmt.Printf("Warning: could not create global config: %v\n", err)
 	} else if created {
 		fmt.Printf("Created default global config: %s\n", configPath)
-		fmt.Println("You can edit this file to customize scdev settings.")
+		fmt.Println("You can edit this file to customize zdev settings.")
 		fmt.Println()
 	}
 
@@ -166,7 +166,7 @@ func runSystemcheck(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Println()
-	fmt.Println("scdev System Check")
+	fmt.Println("zdev System Check")
 	fmt.Println("==================")
 	fmt.Println()
 
@@ -211,9 +211,9 @@ func runSystemcheck(cmd *cobra.Command, args []string) error {
 	} else {
 		fmt.Printf("%s: %d\n", ui.Color("Issues found", "yellow", sysPlainMode), issues)
 		if mkcertPath == "" {
-			fmt.Println("Run 'scdev systemcheck' to download mkcert and complete setup.")
+			fmt.Println("Run 'zdev systemcheck' to download mkcert and complete setup.")
 		} else if !installCAFlag {
-			fmt.Println("Run 'scdev systemcheck --install-ca' to install the local CA.")
+			fmt.Println("Run 'zdev systemcheck --install-ca' to install the local CA.")
 		}
 	}
 	fmt.Println()
@@ -274,20 +274,20 @@ func checkMkcert(ctx context.Context, cfg *config.GlobalConfig) (string, int) {
 		return path, 0
 	}
 
-	// Check scdev bin directory
+	// Check zdev bin directory
 	homeDir, _ := os.UserHomeDir()
-	scdevBinPath := filepath.Join(homeDir, ".scdev", "bin", "mkcert")
-	if _, err := os.Stat(scdevBinPath); err == nil {
-		version, err := tools.RunTool(ctx, scdevBinPath, "-version")
+	zdevBinPath := filepath.Join(homeDir, ".zdev", "bin", "mkcert")
+	if _, err := os.Stat(zdevBinPath); err == nil {
+		version, err := tools.RunTool(ctx, zdevBinPath, "-version")
 		if err != nil {
 			version = "unknown"
 		}
-		fmt.Printf("%s (%s %s)\n", statusText("OK"), scdevBinPath, version)
-		return scdevBinPath, 0
+		fmt.Printf("%s (%s %s)\n", statusText("OK"), zdevBinPath, version)
+		return zdevBinPath, 0
 	}
 
 	fmt.Printf("%s (not installed)\n", statusText("MISSING"))
-	fmt.Println("               Run 'scdev systemcheck' to download mkcert")
+	fmt.Println("               Run 'zdev systemcheck' to download mkcert")
 	return "", 1
 }
 
@@ -310,7 +310,7 @@ func checkCA(ctx context.Context, mkcertPath string, cfg *config.GlobalConfig) i
 
 	if !initialized {
 		fmt.Printf("%s (not initialized)\n", statusText("MISSING"))
-		fmt.Println("               Run 'scdev systemcheck --install-ca' to install")
+		fmt.Println("               Run 'zdev systemcheck --install-ca' to install")
 		return 1
 	}
 
@@ -320,7 +320,7 @@ func checkCA(ctx context.Context, mkcertPath string, cfg *config.GlobalConfig) i
 		trusted, err := mkcert.IsCATrusted(ctx, certPath)
 		if err == nil && !trusted {
 			fmt.Printf("%s (%s - not trusted by system)\n", statusText("MISSING"), caRoot)
-			fmt.Println("               Run 'scdev systemcheck --install-ca' to install")
+			fmt.Println("               Run 'zdev systemcheck --install-ca' to install")
 			return 1
 		}
 	}
@@ -353,7 +353,7 @@ func checkCertificates(cfg *config.GlobalConfig) int {
 
 	if !certExists || !keyExists {
 		fmt.Printf("%s (not generated)\n", statusText("MISSING"))
-		fmt.Println("               Run 'scdev systemcheck' to generate certificates")
+		fmt.Println("               Run 'zdev systemcheck' to generate certificates")
 		return 1
 	}
 
@@ -373,7 +373,7 @@ func checkRouter(ctx context.Context, cfg *config.GlobalConfig) int {
 
 	if !status.Running {
 		fmt.Printf("%s\n", statusText("stopped"))
-		fmt.Println("               Run 'scdev services start' to start the router")
+		fmt.Println("               Run 'zdev services start' to start the router")
 		return 0 // Not running is not an error, just informational
 	}
 

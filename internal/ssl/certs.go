@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/ScaleCommerce-DEV/scdev/internal/tools"
+	"github.com/0ploy/zdev/internal/tools"
 )
 
 const (
@@ -18,7 +18,7 @@ const (
 
 // CertManager handles SSL certificate operations
 type CertManager struct {
-	certsDir string        // ~/.scdev/certs
+	certsDir string        // ~/.zdev/certs
 	mkcert   *tools.Mkcert // mkcert wrapper
 }
 
@@ -29,7 +29,7 @@ func NewCertManager(mkcertPath string) (*CertManager, error) {
 		return nil, fmt.Errorf("failed to get home directory: %w", err)
 	}
 
-	certsDir := filepath.Join(homeDir, ".scdev", "certs")
+	certsDir := filepath.Join(homeDir, ".zdev", "certs")
 	if err := os.MkdirAll(certsDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create certs directory: %w", err)
 	}
@@ -131,8 +131,8 @@ func (c *CertManager) GenerateCerts(ctx context.Context, domain string) (string,
 // buildDomainList builds the list of domains/SANs for the certificate
 func buildDomainList(domain string) []string {
 	return []string{
-		"*." + domain,          // Wildcard for project domains (e.g., *.scalecommerce.site)
-		"*.shared." + domain,   // Wildcard for shared services (e.g., *.shared.scalecommerce.site)
+		"*." + domain,          // Wildcard for project domains (e.g., *.0ploy.dev)
+		"*.shared." + domain,   // Wildcard for shared services (e.g., *.shared.0ploy.dev)
 		domain,                 // Bare domain
 		"localhost",            // Local development
 		"127.0.0.1",            // IP-based access

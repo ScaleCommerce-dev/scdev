@@ -11,9 +11,9 @@ import (
 )
 
 // PlainMode returns true if terminal features should be disabled.
-// Checks SCDEV_PLAIN env var first, then falls back to config.
+// Checks ZDEV_PLAIN env var first, then falls back to config.
 func PlainMode(configPlain bool) bool {
-	if env := os.Getenv("SCDEV_PLAIN"); env != "" {
+	if env := os.Getenv("ZDEV_PLAIN"); env != "" {
 		return env == "1" || strings.ToLower(env) == "true"
 	}
 	return configPlain
@@ -141,7 +141,7 @@ func Bold(text string, plainMode bool) string {
 }
 
 // StatusStep prints a visually distinct framework status message to stdout.
-// Used during multi-step flows (setup, start) to make scdev's own progress
+// Used during multi-step flows (setup, start) to make zdev's own progress
 // markers stand out against verbose nested command output. Leads with two
 // blank lines, the full line in bold cyan, and a trailing blank line so
 // the header sits apart from the command output that follows.

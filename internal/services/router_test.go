@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/ScaleCommerce-DEV/scdev/internal/config"
+	"github.com/0ploy/zdev/internal/config"
 )
 
 func TestRouterContainerConfig(t *testing.T) {
@@ -22,7 +22,7 @@ func TestRouterContainerConfig(t *testing.T) {
 			name:      "basic config without dashboard",
 			image:     config.RouterImage,
 			dashboard: false,
-			domain:    "scalecommerce.site",
+			domain:    "0ploy.dev",
 		},
 		{
 			name:      "config with dashboard enabled",
@@ -34,23 +34,23 @@ func TestRouterContainerConfig(t *testing.T) {
 			name:      "config with TCP ports",
 			image:     config.RouterImage,
 			dashboard: false,
-			domain:    "scalecommerce.site",
+			domain:    "0ploy.dev",
 			tcpPorts:  []int{3306, 5432},
 		},
 		{
 			name:      "config with UDP ports",
 			image:     config.RouterImage,
 			dashboard: false,
-			domain:    "scalecommerce.site",
+			domain:    "0ploy.dev",
 			udpPorts:  []int{514},
 		},
 		{
 			name:         "config with TLS enabled",
 			image:        config.RouterImage,
 			dashboard:    true,
-			domain:       "scalecommerce.site",
-			tlsCertDir:   "/home/user/.scdev/certs",
-			tlsConfigDir: "/home/user/.scdev/traefik",
+			domain:       "0ploy.dev",
+			tlsCertDir:   "/home/user/.zdev/certs",
+			tlsConfigDir: "/home/user/.zdev/traefik",
 		},
 	}
 
@@ -147,11 +147,11 @@ func TestRouterContainerConfig(t *testing.T) {
 			}
 
 			// Check labels
-			if cfg.Labels["scdev.managed"] != "true" {
-				t.Error("expected scdev.managed label to be true")
+			if cfg.Labels["zdev.managed"] != "true" {
+				t.Error("expected zdev.managed label to be true")
 			}
-			if cfg.Labels["scdev.service"] != "router" {
-				t.Error("expected scdev.service label to be router")
+			if cfg.Labels["zdev.service"] != "router" {
+				t.Error("expected zdev.service label to be router")
 			}
 
 			// Check command contains required Traefik args
@@ -172,8 +172,8 @@ func TestRouterContainerConfig(t *testing.T) {
 				if !containsString(cfg.Command, "--providers.file.directory=/etc/traefik/dynamic") {
 					t.Error("expected command to contain file provider directory when TLS enabled")
 				}
-				if cfg.Labels["scdev.tls-enabled"] != "true" {
-					t.Error("expected scdev.tls-enabled label to be true when TLS enabled")
+				if cfg.Labels["zdev.tls-enabled"] != "true" {
+					t.Error("expected zdev.tls-enabled label to be true when TLS enabled")
 				}
 			}
 

@@ -3,7 +3,7 @@ package cmd
 import (
 	"context"
 
-	"github.com/ScaleCommerce-DEV/scdev/internal/services"
+	"github.com/0ploy/zdev/internal/services"
 	"github.com/spf13/cobra"
 )
 

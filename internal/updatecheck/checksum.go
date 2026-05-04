@@ -11,7 +11,7 @@ import (
 )
 
 // ChecksumsAssetName is the filename of the sha256 checksums file attached
-// to every scdev release. Keep in sync with .github/workflows/release.yml.
+// to every zdev release. Keep in sync with .github/workflows/release.yml.
 const ChecksumsAssetName = "checksums.txt"
 
 // ParseChecksums parses the output of `sha256sum` into {filename -> sha256}.

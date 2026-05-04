@@ -7,15 +7,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ScaleCommerce-DEV/scdev/internal/project"
-	"github.com/ScaleCommerce-DEV/scdev/internal/state"
+	"github.com/0ploy/zdev/internal/project"
+	"github.com/0ploy/zdev/internal/state"
 	"github.com/spf13/cobra"
 )
 
 var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all registered projects",
-	Long:  `Show all projects that have been started with scdev, along with their current status.`,
+	Long:  `Show all projects that have been started with zdev, along with their current status.`,
 	RunE:  runList,
 }
 
@@ -39,7 +39,7 @@ func runListImpl(ctx context.Context) error {
 	}
 
 	if len(projects) == 0 {
-		fmt.Println("No projects registered. Start a project with 'scdev start' to register it.")
+		fmt.Println("No projects registered. Start a project with 'zdev start' to register it.")
 		return nil
 	}
 

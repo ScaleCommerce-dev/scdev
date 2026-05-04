@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ScaleCommerce-DEV/scdev/internal/config"
-	"github.com/ScaleCommerce-DEV/scdev/internal/project"
-	"github.com/ScaleCommerce-DEV/scdev/internal/tools"
+	"github.com/0ploy/zdev/internal/config"
+	"github.com/0ploy/zdev/internal/project"
+	"github.com/0ploy/zdev/internal/tools"
 )
 
 // findJustfile attempts to locate a justfile for the given command name
@@ -31,7 +31,7 @@ func findJustfile(name string) *project.JustfileInfo {
 // runJustfile executes a justfile command.
 //
 // If the justfile declares a recipe literally named after the file
-// (e.g. console.just with a `console *args:` recipe), scdev prepends
+// (e.g. console.just with a `console *args:` recipe), zdev prepends
 // that recipe name so args containing colons (cache:clear, db:migrate)
 // flow through as recipe arguments instead of being interpreted as
 // just's module-path separator. If no such recipe exists, args pass

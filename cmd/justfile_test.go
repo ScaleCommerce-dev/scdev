@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/ScaleCommerce-DEV/scdev/internal/project"
-	"github.com/ScaleCommerce-DEV/scdev/internal/tools"
+	"github.com/0ploy/zdev/internal/project"
+	"github.com/0ploy/zdev/internal/tools"
 )
 
 // ensureJust returns a *tools.Just backed by a locally installed just

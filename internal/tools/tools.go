@@ -27,7 +27,7 @@ type ToolInfo struct {
 
 // Manager handles tool downloads and verification
 type Manager struct {
-	binDir string // ~/.scdev/bin
+	binDir string // ~/.zdev/bin
 }
 
 // NewManager creates a new tool manager
@@ -37,7 +37,7 @@ func NewManager() (*Manager, error) {
 		return nil, fmt.Errorf("failed to get home directory: %w", err)
 	}
 
-	binDir := filepath.Join(homeDir, ".scdev", "bin")
+	binDir := filepath.Join(homeDir, ".zdev", "bin")
 	if err := os.MkdirAll(binDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create bin directory: %w", err)
 	}
@@ -60,12 +60,12 @@ func FindInPath(name string) (string, bool) {
 	return path, true
 }
 
-// GetToolPath returns the path to an installed tool in scdev's bin directory
+// GetToolPath returns the path to an installed tool in zdev's bin directory
 func (m *Manager) GetToolPath(tool ToolInfo) string {
 	return filepath.Join(m.binDir, tool.BinaryName)
 }
 
-// ToolExists checks if a tool is installed in scdev's bin directory
+// ToolExists checks if a tool is installed in zdev's bin directory
 func (m *Manager) ToolExists(tool ToolInfo) bool {
 	path := m.GetToolPath(tool)
 	info, err := os.Stat(path)
@@ -77,7 +77,7 @@ func (m *Manager) ToolExists(tool ToolInfo) bool {
 }
 
 // EnsureTool downloads a tool if not present, returns path to binary
-// First checks system PATH, then scdev's bin directory, then downloads
+// First checks system PATH, then zdev's bin directory, then downloads
 func (m *Manager) EnsureTool(ctx context.Context, tool ToolInfo) (string, error) {
 	// First, check if tool is in system PATH
 	if path, found := FindInPath(tool.BinaryName); found {

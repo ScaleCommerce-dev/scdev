@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ScaleCommerce-DEV/scdev/internal/mutagen"
-	"github.com/ScaleCommerce-DEV/scdev/internal/project"
+	"github.com/0ploy/zdev/internal/mutagen"
+	"github.com/0ploy/zdev/internal/project"
 	"github.com/spf13/cobra"
 )
 
@@ -53,7 +53,7 @@ func runMutagenStatusImpl(ctx context.Context, proj *project.Project) error {
 	if !proj.IsMutagenEnabled() {
 		fmt.Println("Mutagen file sync is disabled")
 		fmt.Println()
-		fmt.Println("Enable it by setting 'mutagen.enabled: true' in ~/.scdev/global-config.yaml")
+		fmt.Println("Enable it by setting 'mutagen.enabled: true' in ~/.zdev/global-config.yaml")
 		return nil
 	}
 
@@ -106,7 +106,7 @@ func runMutagenReset(cmd *cobra.Command, args []string) error {
 func runMutagenResetImpl(ctx context.Context, proj *project.Project) error {
 	// Check if Mutagen is enabled
 	if !proj.IsMutagenEnabled() {
-		return fmt.Errorf("Mutagen file sync is disabled - enable it in ~/.scdev/global-config.yaml")
+		return fmt.Errorf("Mutagen file sync is disabled - enable it in ~/.zdev/global-config.yaml")
 	}
 
 	// Get Mutagen binary
@@ -150,7 +150,7 @@ func runMutagenResetImpl(ctx context.Context, proj *project.Project) error {
 
 	if !containerRunning {
 		fmt.Println()
-		fmt.Println("Containers are not running - sessions will be created on next 'scdev start'")
+		fmt.Println("Containers are not running - sessions will be created on next 'zdev start'")
 		return nil
 	}
 
@@ -195,7 +195,7 @@ func runMutagenFlush(cmd *cobra.Command, args []string) error {
 func runMutagenFlushImpl(ctx context.Context, proj *project.Project) error {
 	// Check if Mutagen is enabled
 	if !proj.IsMutagenEnabled() {
-		return fmt.Errorf("Mutagen file sync is disabled - enable it in ~/.scdev/global-config.yaml")
+		return fmt.Errorf("Mutagen file sync is disabled - enable it in ~/.zdev/global-config.yaml")
 	}
 
 	// Get Mutagen binary

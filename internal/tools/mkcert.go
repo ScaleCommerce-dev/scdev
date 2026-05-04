@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/ScaleCommerce-DEV/scdev/internal/config"
+	"github.com/0ploy/zdev/internal/config"
 )
 
 // MkcertTool returns the ToolInfo for mkcert

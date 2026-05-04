@@ -2,7 +2,7 @@ package config
 
 import "runtime"
 
-// GlobalConfig represents ~/.scdev/config.yaml
+// GlobalConfig represents ~/.zdev/config.yaml
 type GlobalConfig struct {
 	Version  int                  `yaml:"version"`
 	Domain   string               `yaml:"domain"`
@@ -79,7 +79,7 @@ type LogsConfig struct {
 	Image string `yaml:"image"`
 }
 
-// ProjectConfig represents .scdev/config.yaml
+// ProjectConfig represents .zdev/config.yaml
 type ProjectConfig struct {
 	Version         int                      `yaml:"version"`
 	Name            string                   `yaml:"name"`
@@ -111,7 +111,7 @@ type ProjectSharedConfig struct {
 }
 
 // defaultProjectShared returns the default ProjectSharedConfig used for
-// projects whose .scdev/config.yaml omits the shared block (or omits
+// projects whose .zdev/config.yaml omits the shared block (or omits
 // individual fields). Connect-by-default services are enabled here;
 // niche services (db, redis) stay opt-in.
 func defaultProjectShared() ProjectSharedConfig {

@@ -16,4 +16,4 @@ env:
     @echo "PROJECTNAME: {{env_var('PROJECTNAME')}}"
     @echo "PROJECTPATH: {{env_var('PROJECTPATH')}}"
     @echo "PROJECTDIR: {{env_var('PROJECTDIR')}}"
-    @echo "SCDEV_DOMAIN: {{env_var('SCDEV_DOMAIN')}}"
+    @echo "ZDEV_DOMAIN: {{env_var('ZDEV_DOMAIN')}}"

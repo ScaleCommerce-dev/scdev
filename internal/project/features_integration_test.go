@@ -12,12 +12,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ScaleCommerce-DEV/scdev/internal/config"
-	"github.com/ScaleCommerce-DEV/scdev/internal/state"
+	"github.com/0ploy/zdev/internal/config"
+	"github.com/0ploy/zdev/internal/state"
 )
 
-// TestExec_DashDashSeparator verifies that scdev exec handles the -- separator correctly.
-// "scdev exec app -- echo hello" should work the same as "scdev exec app echo hello".
+// TestExec_DashDashSeparator verifies that zdev exec handles the -- separator correctly.
+// "zdev exec app -- echo hello" should work the same as "zdev exec app echo hello".
 func TestExec_DashDashSeparator(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
@@ -80,9 +80,9 @@ func TestVariables_InRunningContainers(t *testing.T) {
 
 	// Create a temp project with variables
 	tmpDir := t.TempDir()
-	scdevDir := filepath.Join(tmpDir, ".scdev")
-	os.MkdirAll(scdevDir, 0755)
-	os.WriteFile(filepath.Join(scdevDir, "config.yaml"), []byte(`version: 1
+	zdevDir := filepath.Join(tmpDir, ".zdev")
+	os.MkdirAll(zdevDir, 0755)
+	os.WriteFile(filepath.Join(zdevDir, "config.yaml"), []byte(`version: 1
 name: vartest
 
 variables:
@@ -147,13 +147,13 @@ func TestRouting_CustomDomain(t *testing.T) {
 
 	// Create a project with two services, one with custom domain
 	tmpDir := t.TempDir()
-	scdevDir := filepath.Join(tmpDir, ".scdev")
-	os.MkdirAll(scdevDir, 0755)
+	zdevDir := filepath.Join(tmpDir, ".zdev")
+	os.MkdirAll(zdevDir, 0755)
 
 	projectDomain := fmt.Sprintf("customdomain-test.%s", config.DefaultDomain)
 	apiDomain := fmt.Sprintf("api.customdomain-test.%s", config.DefaultDomain)
 
-	os.WriteFile(filepath.Join(scdevDir, "config.yaml"), []byte(fmt.Sprintf(`version: 1
+	os.WriteFile(filepath.Join(zdevDir, "config.yaml"), []byte(fmt.Sprintf(`version: 1
 name: customdomain-test
 domain: %s
 
@@ -221,9 +221,9 @@ func TestDown_CleansUpState(t *testing.T) {
 	defer cancel()
 
 	tmpDir := t.TempDir()
-	scdevDir := filepath.Join(tmpDir, ".scdev")
-	os.MkdirAll(scdevDir, 0755)
-	os.WriteFile(filepath.Join(scdevDir, "config.yaml"), []byte(`version: 1
+	zdevDir := filepath.Join(tmpDir, ".zdev")
+	os.MkdirAll(zdevDir, 0755)
+	os.WriteFile(filepath.Join(zdevDir, "config.yaml"), []byte(`version: 1
 name: down-state-test
 
 services:

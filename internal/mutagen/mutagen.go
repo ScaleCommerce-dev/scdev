@@ -61,7 +61,7 @@ func (m *Mutagen) IsDaemonRunning(ctx context.Context) bool {
 
 // SessionConfig defines the configuration for creating a sync session
 type SessionConfig struct {
-	Name    string   // Session name (e.g., sync.app.myproject.scdev)
+	Name    string   // Session name (e.g., sync.app.myproject.zdev)
 	Alpha   string   // Local path (host filesystem)
 	Beta    string   // Docker endpoint (docker://container/path)
 	Ignores []string // Paths to ignore from sync

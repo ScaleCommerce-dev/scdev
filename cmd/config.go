@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/ScaleCommerce-DEV/scdev/internal/project"
+	"github.com/0ploy/zdev/internal/project"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )

@@ -1,7 +1,7 @@
-# scdev global configuration
+# zdev global configuration
 version: 1
 
-# Base domain for all projects (used in ${SCDEV_DOMAIN})
+# Base domain for all projects (used in ${ZDEV_DOMAIN})
 domain: ${DefaultDomain}
 
 # Container runtime: docker or podman (podman support coming soon)

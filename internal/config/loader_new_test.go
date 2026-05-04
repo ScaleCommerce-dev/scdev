@@ -26,7 +26,7 @@ func TestGenerateProjectsSection(t *testing.T) {
 		projects := []ProjectInfo{
 			{
 				Name:    "myshop",
-				Domain:  "myshop.scalecommerce.site",
+				Domain:  "myshop.0ploy.dev",
 				Path:    "/home/user/projects/myshop",
 				Running: true,
 			},
@@ -43,7 +43,7 @@ func TestGenerateProjectsSection(t *testing.T) {
 		if !strings.Contains(result, ">running<") {
 			t.Error("expected running status text")
 		}
-		if !strings.Contains(result, "https://myshop.scalecommerce.site") {
+		if !strings.Contains(result, "https://myshop.0ploy.dev") {
 			t.Error("expected project URL with https protocol")
 		}
 		if !strings.Contains(result, "myshop") {
@@ -61,19 +61,19 @@ func TestGenerateProjectsSection(t *testing.T) {
 		projects := []ProjectInfo{
 			{
 				Name:    "shop-a",
-				Domain:  "shop-a.scalecommerce.site",
+				Domain:  "shop-a.0ploy.dev",
 				Path:    "/projects/shop-a",
 				Running: true,
 			},
 			{
 				Name:    "shop-b",
-				Domain:  "shop-b.scalecommerce.site",
+				Domain:  "shop-b.0ploy.dev",
 				Path:    "/projects/shop-b",
 				Running: false,
 			},
 			{
 				Name:    "shop-c",
-				Domain:  "shop-c.scalecommerce.site",
+				Domain:  "shop-c.0ploy.dev",
 				Path:    "/projects/shop-c",
 				Running: true,
 			},
@@ -93,7 +93,7 @@ func TestGenerateProjectsSection(t *testing.T) {
 		}
 
 		// Verify HTTP protocol is used
-		if !strings.Contains(result, "http://shop-a.scalecommerce.site") {
+		if !strings.Contains(result, "http://shop-a.0ploy.dev") {
 			t.Error("expected http protocol in URL")
 		}
 		if strings.Contains(result, "https://") {
@@ -116,7 +116,7 @@ func TestGenerateProjectsSection(t *testing.T) {
 		projects := []ProjectInfo{
 			{
 				Name:    "<script>alert('xss')</script>",
-				Domain:  "safe.scalecommerce.site",
+				Domain:  "safe.0ploy.dev",
 				Path:    "/projects/<evil>",
 				Running: true,
 			},

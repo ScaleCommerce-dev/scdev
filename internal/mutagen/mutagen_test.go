@@ -120,20 +120,20 @@ func TestBuiltinIgnores(t *testing.T) {
 
 func TestSessionConfig(t *testing.T) {
 	cfg := SessionConfig{
-		Name:    "scdev-myproject-app",
+		Name:    "zdev-myproject-app",
 		Alpha:   "/Users/test/myproject",
-		Beta:    "docker://app.myproject.scdev/app",
+		Beta:    "docker://app.myproject.zdev/app",
 		Ignores: []string{".git", "vendor"},
 	}
 
-	if cfg.Name != "scdev-myproject-app" {
-		t.Errorf("expected Name 'scdev-myproject-app', got %q", cfg.Name)
+	if cfg.Name != "zdev-myproject-app" {
+		t.Errorf("expected Name 'zdev-myproject-app', got %q", cfg.Name)
 	}
 	if cfg.Alpha != "/Users/test/myproject" {
 		t.Errorf("expected Alpha '/Users/test/myproject', got %q", cfg.Alpha)
 	}
-	if cfg.Beta != "docker://app.myproject.scdev/app" {
-		t.Errorf("expected Beta 'docker://app.myproject.scdev/app', got %q", cfg.Beta)
+	if cfg.Beta != "docker://app.myproject.zdev/app" {
+		t.Errorf("expected Beta 'docker://app.myproject.zdev/app', got %q", cfg.Beta)
 	}
 	if len(cfg.Ignores) != 2 {
 		t.Errorf("expected 2 ignores, got %d", len(cfg.Ignores))

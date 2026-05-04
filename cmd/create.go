@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ScaleCommerce-DEV/scdev/internal/config"
-	"github.com/ScaleCommerce-DEV/scdev/internal/create"
-	"github.com/ScaleCommerce-DEV/scdev/internal/project"
-	"github.com/ScaleCommerce-DEV/scdev/internal/tools"
+	"github.com/0ploy/zdev/internal/config"
+	"github.com/0ploy/zdev/internal/create"
+	"github.com/0ploy/zdev/internal/project"
+	"github.com/0ploy/zdev/internal/tools"
 	"github.com/spf13/cobra"
 )
 
@@ -28,18 +28,18 @@ var createCmd = &cobra.Command{
 	Short: "Create a new project from a template",
 	Long: `Create a new project from a template.
 
-Templates can be local directories, GitHub repositories, or built-in scdev templates.
+Templates can be local directories, GitHub repositories, or built-in zdev templates.
 
 Template resolution:
   Local path     ./my-template, ~/templates/foo, /absolute/path
   GitHub repo    myorg/myrepo
-  Built-in       express  ->  ScaleCommerce-DEV/scdev-template-express
+  Built-in       express  ->  0ploy/zdev-template-express
 
 Examples:
-  scdev create express my-app
-  scdev create myorg/my-template my-app
-  scdev create ./local-template my-app
-  scdev create express my-app --auto-setup`,
+  zdev create express my-app
+  zdev create myorg/my-template my-app
+  zdev create ./local-template my-app
+  zdev create express my-app --auto-setup`,
 	Args: cobra.RangeArgs(1, 2),
 	RunE: runCreate,
 }
@@ -47,8 +47,8 @@ Examples:
 func init() {
 	createCmd.Flags().StringVar(&createBranch, "branch", "", "GitHub branch to use")
 	createCmd.Flags().StringVar(&createTag, "tag", "", "GitHub tag to use")
-	createCmd.Flags().BoolVar(&createAutoStart, "auto-start", false, "Run scdev start after create")
-	createCmd.Flags().BoolVar(&createAutoSetup, "auto-setup", false, "Run scdev setup after create (implies --auto-start)")
+	createCmd.Flags().BoolVar(&createAutoStart, "auto-start", false, "Run zdev start after create")
+	createCmd.Flags().BoolVar(&createAutoSetup, "auto-setup", false, "Run zdev setup after create (implies --auto-start)")
 	rootCmd.AddCommand(createCmd)
 }
 
@@ -145,7 +145,7 @@ func runCreate(cmd *cobra.Command, args []string) error {
 		fmt.Println()
 		fmt.Println("Next steps:")
 		fmt.Printf("  cd %s\n", name)
-		fmt.Println("  scdev setup")
+		fmt.Println("  zdev setup")
 	}
 
 	return nil

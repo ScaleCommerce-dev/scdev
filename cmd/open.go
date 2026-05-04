@@ -3,10 +3,10 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/ScaleCommerce-DEV/scdev/internal/config"
-	"github.com/ScaleCommerce-DEV/scdev/internal/project"
-	"github.com/ScaleCommerce-DEV/scdev/internal/state"
-	"github.com/ScaleCommerce-DEV/scdev/internal/ui"
+	"github.com/0ploy/zdev/internal/config"
+	"github.com/0ploy/zdev/internal/project"
+	"github.com/0ploy/zdev/internal/state"
+	"github.com/0ploy/zdev/internal/ui"
 	"github.com/spf13/cobra"
 )
 

@@ -2,9 +2,9 @@ package config
 
 // Default configuration values
 const (
-	// DefaultDomain is the default domain for scdev projects
+	// DefaultDomain is the default domain for zdev projects
 	// This is a wildcard domain that resolves to 127.0.0.1
-	DefaultDomain = "scalecommerce.site"
+	DefaultDomain = "0ploy.dev"
 
 	// GlobalConfigFilename is the filename for the global config
 	// Distinct from project config.yaml to avoid confusion

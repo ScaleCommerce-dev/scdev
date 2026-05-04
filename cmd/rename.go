@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ScaleCommerce-DEV/scdev/internal/config"
-	"github.com/ScaleCommerce-DEV/scdev/internal/create"
-	"github.com/ScaleCommerce-DEV/scdev/internal/project"
-	"github.com/ScaleCommerce-DEV/scdev/internal/state"
+	"github.com/0ploy/zdev/internal/config"
+	"github.com/0ploy/zdev/internal/create"
+	"github.com/0ploy/zdev/internal/project"
+	"github.com/0ploy/zdev/internal/state"
 	"github.com/spf13/cobra"
 )
 
@@ -21,7 +21,7 @@ var renameCmd = &cobra.Command{
 
 This stops the project, renames containers, volumes, and network,
 updates the state file and link memberships, writes the new name
-to .scdev/config.yaml, and restarts with the new name.
+to .zdev/config.yaml, and restarts with the new name.
 
 Volume data is preserved by copying to new volumes.
 If the domain is auto-generated, the project URL will change.`,

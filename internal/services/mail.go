@@ -3,11 +3,11 @@ package services
 import (
 	"fmt"
 
-	"github.com/ScaleCommerce-DEV/scdev/internal/runtime"
+	"github.com/0ploy/zdev/internal/runtime"
 )
 
 // MailContainerName is the name of the Mailpit container
-const MailContainerName = "scdev_mail"
+const MailContainerName = "zdev_mail"
 
 // MailServiceConfig holds configuration for the mail container
 type MailServiceConfig struct {
@@ -21,8 +21,8 @@ func MailContainerConfig(cfg MailServiceConfig) runtime.ContainerConfig {
 	mailHost := fmt.Sprintf("mail.shared.%s", cfg.Domain)
 
 	labels := map[string]string{
-		"scdev.managed":       "true",
-		"scdev.service":       "mail",
+		"zdev.managed":       "true",
+		"zdev.service":       "mail",
 		DozzleVisibilityLabel: "true",
 		DozzleGroupLabel:      DozzleSharedGroup,
 
@@ -31,20 +31,20 @@ func MailContainerConfig(cfg MailServiceConfig) runtime.ContainerConfig {
 		"traefik.docker.network": SharedNetworkName,
 
 		// HTTP router for web UI
-		"traefik.http.routers.scdev-mail.rule":        fmt.Sprintf("Host(`%s`)", mailHost),
-		"traefik.http.routers.scdev-mail.entrypoints": "http",
-		"traefik.http.routers.scdev-mail.service":     "scdev-mail",
+		"traefik.http.routers.zdev-mail.rule":        fmt.Sprintf("Host(`%s`)", mailHost),
+		"traefik.http.routers.zdev-mail.entrypoints": "http",
+		"traefik.http.routers.zdev-mail.service":     "zdev-mail",
 
 		// Service pointing to Mailpit web UI port
-		"traefik.http.services.scdev-mail.loadbalancer.server.port": "8025",
+		"traefik.http.services.zdev-mail.loadbalancer.server.port": "8025",
 	}
 
 	// Add HTTPS router if TLS is enabled
 	if cfg.TLSEnabled {
-		labels["traefik.http.routers.scdev-mail-https.rule"] = fmt.Sprintf("Host(`%s`)", mailHost)
-		labels["traefik.http.routers.scdev-mail-https.entrypoints"] = "https"
-		labels["traefik.http.routers.scdev-mail-https.tls"] = "true"
-		labels["traefik.http.routers.scdev-mail-https.service"] = "scdev-mail"
+		labels["traefik.http.routers.zdev-mail-https.rule"] = fmt.Sprintf("Host(`%s`)", mailHost)
+		labels["traefik.http.routers.zdev-mail-https.entrypoints"] = "https"
+		labels["traefik.http.routers.zdev-mail-https.tls"] = "true"
+		labels["traefik.http.routers.zdev-mail-https.service"] = "zdev-mail"
 	}
 
 	out := runtime.ContainerConfig{
