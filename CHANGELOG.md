@@ -1,3 +1,9 @@
+## v0.7.5
+
+### Tests
+
+- **Add `TestProject_PerServiceLifecycle` integration test** (`-tags=integration`) that exercises `StartService` / `StopService` / `RestartService` against real Docker on the multi-service `testdata/projects/full` fixture. Verifies the per-service variants only touch the named container, leave siblings untouched, and error cleanly on unknown service names without Docker side effects. Closes a coverage gap from v0.7.2-v0.7.4 where these methods only had mock-runtime unit tests.
+
 ## v0.7.4
 
 ### Features
