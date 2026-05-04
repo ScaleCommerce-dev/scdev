@@ -56,9 +56,10 @@ const (
 	JustVersion = "1.49.0"
 
 	// JustURLTemplate is the download URL template for just
-	// Use with fmt.Sprintf(JustURLTemplate, JustVersion, arch, os)
+	// Use with fmt.Sprintf(JustURLTemplate, JustVersion, JustVersion, arch, os)
 	// where arch is "x86_64" or "aarch64", os is "apple-darwin" or "unknown-linux-musl"
-	JustURLTemplate = "https://github.com/casey/just/releases/download/%s/just-%s-%s.tar.gz"
+	// Example: https://github.com/casey/just/releases/download/1.49.0/just-1.49.0-aarch64-apple-darwin.tar.gz
+	JustURLTemplate = "https://github.com/casey/just/releases/download/%s/just-%s-%s-%s.tar.gz"
 
 	// CtopVersion is the version of ctop to download
 	CtopVersion = "0.7.7"

@@ -1,3 +1,13 @@
+## v0.7.1
+
+### Bug Fixes
+
+- **Fix `just` auto-download URL on fresh installs** - `JustURLTemplate` was missing the version segment in the filename and produced 404s like `just-aarch64-apple-darwin.tar.gz`. Real release filenames embed the version twice: `just-1.49.0-aarch64-apple-darwin.tar.gz`. The bug was masked on machines that already had `just` in `PATH` (e.g. via Homebrew), since `EnsureTool` checks `PATH` before downloading. The strengthened `TestBuildDownloadURLWithCustomBuilder` now asserts the exact URL string so this can't regress unnoticed.
+
+### Features
+
+- **`zdev systemcheck` now reports `just` and `mutagen` versions** alongside the existing `mkcert` line. Both are auto-downloaded on demand (`just` on first project command, `mutagen` on first sync-enabled start), so absence shows as `SKIP (not yet downloaded)` rather than a failure. The `mutagen` line honors `IsMutagenEnabled()` (Linux / explicit `false` shows `SKIP (disabled in global config)`).
+
 ## v0.7.0
 
 ### BREAKING: Project renamed scdev → zdev, moved to github.com/0ploy

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/0ploy/zdev/internal/config"
@@ -179,6 +180,12 @@ func runSystemcheck(cmd *cobra.Command, args []string) error {
 	mkcertPath, mkcertIssues := checkMkcert(ctx, globalCfg)
 	issues += mkcertIssues
 
+	// Check just (lazily downloaded for project commands)
+	checkJust(ctx)
+
+	// Check mutagen (lazily downloaded when sync is enabled)
+	checkMutagen(ctx, globalCfg)
+
 	// Handle --install-ca flag
 	if installCAFlag && mkcertPath != "" {
 		fmt.Println()
@@ -289,6 +296,81 @@ func checkMkcert(ctx context.Context, cfg *config.GlobalConfig) (string, int) {
 	fmt.Printf("%s (not installed)\n", statusText("MISSING"))
 	fmt.Println("               Run 'zdev systemcheck' to download mkcert")
 	return "", 1
+}
+
+// checkJust reports the just version. Just is fetched on demand for project
+// commands, so absence is informational, not an error.
+func checkJust(ctx context.Context) {
+	fmt.Print("just:          ")
+
+	path, found := tools.FindInPath("just")
+	if !found {
+		homeDir, _ := os.UserHomeDir()
+		zdevBinPath := filepath.Join(homeDir, ".zdev", "bin", "just")
+		if _, err := os.Stat(zdevBinPath); err == nil {
+			path = zdevBinPath
+			found = true
+		}
+	}
+
+	if !found {
+		fmt.Printf("%s (not yet downloaded - fetched on first project command)\n", statusText("SKIP"))
+		return
+	}
+
+	version := strings.TrimPrefix(firstLine(tools.RunTool(ctx, path, "--version")), "just ")
+	if version == "" {
+		version = "unknown"
+	}
+	fmt.Printf("%s (%s %s)\n", statusText("OK"), path, version)
+}
+
+// checkMutagen reports the mutagen version. Mutagen is fetched on demand when
+// a project enables file sync; absence is informational.
+func checkMutagen(ctx context.Context, cfg *config.GlobalConfig) {
+	fmt.Print("mutagen:       ")
+
+	if !cfg.IsMutagenEnabled() {
+		fmt.Printf("%s (disabled in global config)\n", statusText("SKIP"))
+		return
+	}
+
+	path, found := tools.FindInPath("mutagen")
+	if !found {
+		homeDir, _ := os.UserHomeDir()
+		zdevBinPath := filepath.Join(homeDir, ".zdev", "bin", "mutagen")
+		if _, err := os.Stat(zdevBinPath); err == nil {
+			path = zdevBinPath
+			found = true
+		}
+	}
+
+	if !found {
+		fmt.Printf("%s (not yet downloaded - fetched on first sync-enabled start)\n", statusText("SKIP"))
+		return
+	}
+
+	version := firstLine(tools.RunTool(ctx, path, "version"))
+	if version == "" {
+		version = "unknown"
+	}
+	fmt.Printf("%s (%s %s)\n", statusText("OK"), path, version)
+}
+
+// firstLine returns the first non-empty line of out, ignoring err. mkcert/just
+// emit one-liners; mutagen emits a multi-line block where the first line is
+// the version.
+func firstLine(out string, err error) string {
+	if err != nil {
+		return ""
+	}
+	for _, line := range strings.Split(out, "\n") {
+		line = strings.TrimSpace(line)
+		if line != "" {
+			return line
+		}
+	}
+	return ""
 }
 
 func checkCA(ctx context.Context, mkcertPath string, cfg *config.GlobalConfig) int {

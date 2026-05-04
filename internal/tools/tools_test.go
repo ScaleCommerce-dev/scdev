@@ -1,6 +1,7 @@
 package tools
 
 import (
+	"fmt"
 	"runtime"
 	"testing"
 
@@ -193,25 +194,16 @@ func TestBuildDownloadURLWithCustomBuilder(t *testing.T) {
 	tool := JustTool()
 	url := buildDownloadURL(tool)
 
-	// URL should contain version
-	if !contains(url, config.JustVersion) {
-		t.Errorf("URL should contain version %s, got: %s", config.JustVersion, url)
-	}
-
-	// URL should end with .tar.gz
-	if !contains(url, ".tar.gz") {
-		t.Errorf("URL should contain .tar.gz, got: %s", url)
-	}
-
-	// URL should contain just-specific arch/os naming
 	expectedArch := JustArch(runtime.GOARCH)
 	expectedOS := JustOS(runtime.GOOS)
 
-	if !contains(url, expectedArch) {
-		t.Errorf("URL should contain arch %s, got: %s", expectedArch, url)
-	}
-	if !contains(url, expectedOS) {
-		t.Errorf("URL should contain OS %s, got: %s", expectedOS, url)
+	// just release filenames embed the version: just-<version>-<arch>-<os>.tar.gz
+	expected := fmt.Sprintf(
+		"https://github.com/casey/just/releases/download/%s/just-%s-%s-%s.tar.gz",
+		config.JustVersion, config.JustVersion, expectedArch, expectedOS,
+	)
+	if url != expected {
+		t.Errorf("URL mismatch\n  got:  %s\n  want: %s", url, expected)
 	}
 }
 

@@ -22,7 +22,7 @@ func JustTool() ToolInfo {
 		URLBuilder: func(template, version, goos, goarch string) string {
 			arch := JustArch(goarch)
 			os := JustOS(goos)
-			return fmt.Sprintf(template, version, arch, os)
+			return fmt.Sprintf(template, version, version, arch, os)
 		},
 	}
 }
