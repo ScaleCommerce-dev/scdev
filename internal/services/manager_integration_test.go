@@ -254,17 +254,15 @@ func TestManager_DocsRoutes(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
-	// Create manager with default config
-	cfg := &config.GlobalConfig{
-		Version: 1,
-		Domain:  config.DefaultDomain,
-		Runtime: "docker",
-		Shared: config.SharedConfig{
-			Router: config.RouterConfig{
-				Image:     config.RouterImage,
-				Dashboard: false,
-			},
-		},
+	// Use the real global config because docs.yaml is shared global state
+	// (~/.zdev/traefik/docs.yaml). Concurrent integration tests in
+	// internal/project also tear down/restore the shared router using
+	// LoadGlobalConfig, so a synthetic cfg here can race against their
+	// restore and end up asserting against a docs.yaml that was rewritten
+	// with a different SSL setting between StartRouter and the HTTP check.
+	cfg, err := config.LoadGlobalConfig()
+	if err != nil {
+		t.Fatalf("LoadGlobalConfig: %v", err)
 	}
 
 	mgr := NewManager(cfg)
@@ -297,6 +295,11 @@ func TestManager_DocsRoutes(t *testing.T) {
 		},
 	}
 	normalClient := &http.Client{Timeout: 5 * time.Second}
+
+	protocol := "http"
+	if cfg.SSL.Enabled {
+		protocol = "https"
+	}
 
 	// Test: docs.shared.<domain> returns 200
 	t.Run("DocsReturns200", func(t *testing.T) {
@@ -340,9 +343,9 @@ func TestManager_DocsRoutes(t *testing.T) {
 			resp.Body.Close()
 
 			if resp.StatusCode == http.StatusFound {
-				// Verify redirect location points to docs
+				// Verify redirect location points to docs (protocol depends on SSL state)
 				location := resp.Header.Get("Location")
-				expectedLocation := fmt.Sprintf("http://docs.shared.%s/", cfg.Domain)
+				expectedLocation := fmt.Sprintf("%s://docs.shared.%s/", protocol, cfg.Domain)
 				if location != expectedLocation {
 					t.Fatalf("expected redirect to %s, got %s", expectedLocation, location)
 				}
