@@ -201,5 +201,5 @@ func runAutoSetup(projectDir string) error {
 
 	fmt.Println()
 	fmt.Println("Running setup...")
-	return just.Run(ctx, justfileInfo.Path, nil, env)
+	return just.Run(ctx, justfileInfo.Path, proj.Dir, nil, env)
 }

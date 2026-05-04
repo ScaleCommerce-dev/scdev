@@ -42,14 +42,21 @@ func (j *Just) BinaryPath() string {
 	return j.binaryPath
 }
 
-// Run executes a justfile with the given arguments
-// This runs interactively, attaching stdin/stdout/stderr
-func (j *Just) Run(ctx context.Context, justfile string, args []string, env map[string]string) error {
+// Run executes a justfile with the given arguments.
+// This runs interactively, attaching stdin/stdout/stderr.
+// workingDir is the directory recipes execute in - typically the project
+// root, so relative paths in recipes resolve where users author them
+// (not the .zdev/commands/ subdir where the justfile lives).
+func (j *Just) Run(ctx context.Context, justfile, workingDir string, args []string, env map[string]string) error {
 	cmdArgs := []string{"--justfile", justfile}
 	cmdArgs = append(cmdArgs, args...)
 
+	if workingDir == "" {
+		workingDir = filepath.Dir(justfile)
+	}
+
 	cmd := exec.CommandContext(ctx, j.binaryPath, cmdArgs...)
-	cmd.Dir = filepath.Dir(justfile) // Run from justfile's directory
+	cmd.Dir = workingDir
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

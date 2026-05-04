@@ -24,7 +24,7 @@ Release process:
 
 - **No top-level `volumes:` in project config.** Unlike Docker Compose, named volumes don't need separate declaration - anything in a service `volumes:` entry that doesn't start with `/` or `.` is auto-discovered as a named volume (`parseVolumeMount()`).
 - **Config `variables:` are NOT env vars.** They're `${VAR}` placeholders substituted at config-load time (second pass of `LoadProject()`, after `PROJECTNAME` resolves). They don't reach containers - that's what `environment:` is for.
-- **Justfile commands** live in `.zdev/commands/<name>.just`, not a single Justfile. Resolution order: built-in > justfile > error.
+- **Justfile commands** live in `.zdev/commands/<name>.just`, not a single Justfile. Resolution order: built-in > justfile > error. Recipes run with cwd set to the **project root**, not `.zdev/commands/` - so relative paths like `services/app/Dockerfile` in a recipe resolve from the project root the user authored them against.
 - **Mutagen auto-detection:** enabled on macOS, disabled on Linux. Controlled by `~/.zdev/global-config.yaml`, not project config.
 - **`routing.domain`** on a service enables a per-service custom domain (HTTP/HTTPS only). Without it, services share the project domain. Useful for frontend + backend splits.
 - **Default domain `0ploy.dev`** is wildcard DNS resolving to 127.0.0.1 - not a real site, just a resolver trick.

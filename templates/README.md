@@ -287,6 +287,7 @@ default:
 - `@zdev step "<msg>"` for each top-level phase instead of `@echo`; reserve plain `@echo` for sub-detail lines that don't need to stand out
 - Keep echo ON for `zdev start`, `zdev exec`, and `zdev info` so the user sees what's running
 - Add `[no-exit-message]` to suppress just's default exit message
+- Recipes run with cwd = **project root** (not `.zdev/commands/`), so `docker build -f services/app/Dockerfile services/app/` and similar relative paths resolve from the project root
 
 ## Handling framework scaffolding
 

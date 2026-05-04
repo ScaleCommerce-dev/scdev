@@ -65,8 +65,9 @@ func runJustfile(justfile *project.JustfileInfo, args []string) error {
 	// Decide whether to auto-prepend the filename as recipe name
 	finalArgs := buildJustArgs(ctx, just, justfile, args)
 
-	// Run justfile
-	return just.Run(ctx, justfile.Path, finalArgs, env)
+	// Run justfile from the project root so relative paths in recipes
+	// resolve as users expect (not .zdev/commands/ where the file lives).
+	return just.Run(ctx, justfile.Path, proj.Dir, finalArgs, env)
 }
 
 // buildJustArgs returns the args to pass to just. When the justfile
