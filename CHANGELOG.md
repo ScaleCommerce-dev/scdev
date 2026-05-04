@@ -1,8 +1,14 @@
-## v0.7.5
+## v0.7.6
 
 ### Features
 
 - **`.zdev/local/config.yaml` deep-merges into `.zdev/config.yaml`** before variable substitution. Lets you keep per-developer overrides and secrets out of git: define `variables:` in the local file and reference them as `${VAR}` from the committed config, or override service `image:` / `environment:` / `command:` for your machine. Maps merge recursively; scalars and slices replace. Add `.zdev/local/` to `.gitignore`.
+
+### Bug Fixes
+
+- **Detect a manually-edited `name:` in `.zdev/config.yaml`** before the port-ownership check fires. `zdev update` and `zdev start` now error out with a clear message pointing to `zdev rename` instead of the misleading "port already used by project X" that came from the old name still being registered in state for the same directory.
+
+## v0.7.5
 
 ### Tests
 
