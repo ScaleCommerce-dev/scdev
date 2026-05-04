@@ -47,13 +47,17 @@ func (j *Just) BinaryPath() string {
 // workingDir is the directory recipes execute in - typically the project
 // root, so relative paths in recipes resolve where users author them
 // (not the .zdev/commands/ subdir where the justfile lives).
+//
+// Note: just chdirs to filepath.Dir(justfile) internally when --justfile
+// is passed, so cmd.Dir alone is not enough to override the recipe cwd.
+// We must pass --working-directory explicitly.
 func (j *Just) Run(ctx context.Context, justfile, workingDir string, args []string, env map[string]string) error {
-	cmdArgs := []string{"--justfile", justfile}
-	cmdArgs = append(cmdArgs, args...)
-
 	if workingDir == "" {
 		workingDir = filepath.Dir(justfile)
 	}
+
+	cmdArgs := []string{"--justfile", justfile, "--working-directory", workingDir}
+	cmdArgs = append(cmdArgs, args...)
 
 	cmd := exec.CommandContext(ctx, j.binaryPath, cmdArgs...)
 	cmd.Dir = workingDir
