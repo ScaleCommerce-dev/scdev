@@ -1,3 +1,10 @@
+## v0.6.7
+
+### Bug Fixes
+
+- **Fix `scdev update` dropping Mutagen-ignored data on service recreate** - when a service drifted and `scdev update` rebuilt the container, the new container was built with `mutagenEnabled=false`, silently swapping the named `sync.<svc>.<project>.scdev` volume for a raw bind mount. Anything Mutagen ignores (`vendor/`, `.setup-complete`) that lived only inside the named volume was dropped on every update. Both `Start` and `Update` now go through shared `prepareMutagen` / `finalizeMutagen` helpers; `Update` lazily prepares the Mutagen daemon on the first service that needs recreate (so a true no-op update still pays nothing), reuses that context across all recreates in the same run, and finalizes once at the end so the new containers can pass the sync-ready gate. Covered by `TestProject_MutagenUpdatePreservesSyncVolume`.
+- **Suppress Docker Desktop "What's next" hints in scdev shell-outs** - Docker Desktop's CLI prints a trailing hint block ("Try Docker Debug for seamless...") after exec/logs commands by default. scdev now sets `DOCKER_CLI_HINTS=false` on every docker invocation it makes, so the hint no longer trails `scdev exec` / `scdev logs` output. Set per-invocation rather than via process env so the user's own interactive `docker` shell stays unaffected.
+
 ## v0.6.6
 
 ### Features
