@@ -31,7 +31,7 @@ func (d *DockerCLI) CheckAvailable(ctx context.Context) error {
 		return fmt.Errorf("docker not found in PATH - please install Docker Desktop or Docker Engine")
 	}
 
-	cmd := exec.CommandContext(ctx, d.Binary, "info", "--format", "{{.ServerVersion}}")
+	cmd := d.command(ctx, "info", "--format", "{{.ServerVersion}}")
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
@@ -39,6 +39,15 @@ func (d *DockerCLI) CheckAvailable(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// command builds an *exec.Cmd for the docker binary with Docker Desktop's
+// "What's next" CLI hints suppressed. Routing every shell-out through here
+// keeps the user's terminal free of the trailing hint block after exec/logs.
+func (d *DockerCLI) command(ctx context.Context, args ...string) *exec.Cmd {
+	cmd := exec.CommandContext(ctx, d.Binary, args...)
+	cmd.Env = append(os.Environ(), "DOCKER_CLI_HINTS=false")
+	return cmd
 }
 
 // CreateContainer creates a new container but does not start it
@@ -166,7 +175,7 @@ func (d *DockerCLI) Logs(ctx context.Context, container string, opts LogsOptions
 
 	args = append(args, container)
 
-	cmd := exec.CommandContext(ctx, d.Binary, args...)
+	cmd := d.command(ctx, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
@@ -197,7 +206,7 @@ func (d *DockerCLI) Exec(ctx context.Context, container string, command []string
 	args = append(args, container)
 	args = append(args, command...)
 
-	cmd := exec.CommandContext(ctx, d.Binary, args...)
+	cmd := d.command(ctx, args...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -418,7 +427,7 @@ func (d *DockerCLI) ListVolumes(ctx context.Context, filter string) ([]Volume, e
 
 // run executes a docker command and returns stdout
 func (d *DockerCLI) run(ctx context.Context, args ...string) (string, error) {
-	cmd := exec.CommandContext(ctx, d.Binary, args...)
+	cmd := d.command(ctx, args...)
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
