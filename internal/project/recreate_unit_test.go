@@ -2,10 +2,12 @@ package project
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/0ploy/zdev/internal/config"
 	"github.com/0ploy/zdev/internal/runtime"
+	"github.com/0ploy/zdev/internal/state"
 )
 
 // =============================================================================
@@ -243,6 +245,37 @@ func TestUpdate_NoChangesReportsUpToDate(t *testing.T) {
 	}
 	if mock.CallCount("RemoveContainer") != 0 {
 		t.Errorf("RemoveContainer called %d times, want 0", mock.CallCount("RemoveContainer"))
+	}
+}
+
+func TestUpdate_DetectsConfigRename(t *testing.T) {
+	p, mock := seedRunningService(t, nil)
+	mock.NetworksExist[p.NetworkName()] = true
+	mock.VolumesExist[p.VolumeName("data")] = true
+
+	// Simulate the user having edited `name:` in config without running
+	// `zdev rename`: state has the old name registered for this directory,
+	// while the loaded config now reports a new name.
+	stateMgr, err := state.DefaultManager()
+	if err != nil {
+		t.Fatalf("state manager: %v", err)
+	}
+	if err := stateMgr.RegisterProject("oldname", p.Dir); err != nil {
+		t.Fatalf("register project: %v", err)
+	}
+	p.Config.Name = "newname"
+
+	_, err = p.Update(context.Background())
+	if err == nil {
+		t.Fatal("expected Update to fail when config name diverges from registered name")
+	}
+	for _, want := range []string{"oldname", "newname", "zdev rename newname"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error message missing %q:\n%s", want, err.Error())
+		}
+	}
+	if mock.CallCount("RemoveContainer") != 0 {
+		t.Errorf("RemoveContainer called %d times before rename guard, want 0", mock.CallCount("RemoveContainer"))
 	}
 }
 

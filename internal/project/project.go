@@ -155,6 +155,39 @@ func parseVolumeMount(volume string) (source, target string, isNamedVolume bool)
 	return source, target, isNamedVolume
 }
 
+// detectConfigRename checks whether `.zdev/config.yaml`'s `name:` was edited
+// without going through `zdev rename`. The state file is keyed by name and
+// stores the project path; if any other entry shares this directory, the user
+// renamed via config edit and we need to bail out before the port-ownership
+// check produces a misleading "port already used by project X" error.
+// Returns the previously registered name, or "" if there's no mismatch.
+func (p *Project) detectConfigRename() (string, error) {
+	stateMgr, err := state.DefaultManager()
+	if err != nil {
+		return "", fmt.Errorf("failed to load state: %w", err)
+	}
+	projects, err := stateMgr.ListProjects()
+	if err != nil {
+		return "", fmt.Errorf("failed to list projects: %w", err)
+	}
+	for name, entry := range projects {
+		if entry.Path == p.Dir && name != p.Config.Name {
+			return name, nil
+		}
+	}
+	return "", nil
+}
+
+// errConfigRenameDetected formats a guidance error for the case where the user
+// edited the project name in config without running `zdev rename`.
+func errConfigRenameDetected(registeredName, configName string) error {
+	return fmt.Errorf("project name in .zdev/config.yaml is %q but this directory is registered as %q.\n"+
+		"Renaming a project requires migrating containers, volumes, network, and state.\n"+
+		"To rename safely: revert the name in .zdev/config.yaml back to %q, then run:\n"+
+		"    zdev rename %s",
+		configName, registeredName, registeredName, configName)
+}
+
 // checkPortAvailability checks if all configured routing ports are available.
 // If services is non-empty, only those services' ports are checked.
 func (p *Project) checkPortAvailability(ctx context.Context, services map[string]bool) error {
@@ -243,6 +276,12 @@ func (p *Project) StartService(ctx context.Context, name string) error {
 // and state/shared/link wiring all respect the same filter so single-service
 // starts don't touch unrelated state.
 func (p *Project) start(ctx context.Context, filter map[string]bool) error {
+	if registered, err := p.detectConfigRename(); err != nil {
+		return err
+	} else if registered != "" {
+		return errConfigRenameDetected(registered, p.Config.Name)
+	}
+
 	// Check port availability before starting anything
 	if err := p.checkPortAvailability(ctx, filter); err != nil {
 		return err
@@ -578,6 +617,12 @@ func (p *Project) Down(ctx context.Context, removeVolumes bool) error {
 // Update checks for config changes and recreates containers as needed
 // Returns true if any changes were made
 func (p *Project) Update(ctx context.Context) (bool, error) {
+	if registered, err := p.detectConfigRename(); err != nil {
+		return false, err
+	} else if registered != "" {
+		return false, errConfigRenameDetected(registered, p.Config.Name)
+	}
+
 	// Check port availability for new ports
 	if err := p.checkPortAvailability(ctx, nil); err != nil {
 		return false, err
