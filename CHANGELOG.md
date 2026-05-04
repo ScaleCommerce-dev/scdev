@@ -1,3 +1,9 @@
+## v0.7.3
+
+### Bug Fixes
+
+- **Justfile cwd fix in v0.7.2 was incomplete and didn't actually work.** `just` chdirs to the justfile's parent directory internally when `--justfile` is passed, so the v0.7.2 fix (only `exec.Cmd.Dir`) was overridden and recipes still ran from `.zdev/commands/`. v0.7.3 also passes `--working-directory` so recipes really do run from the project root. Verified with a regression test that writes `pwd` to a marker file from inside a recipe.
+
 ## v0.7.2
 
 ### Bug Fixes
