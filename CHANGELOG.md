@@ -1,3 +1,16 @@
+## v0.6.8
+
+### Features
+
+- **New `logs` shared service - browser log viewer (Dozzle)** at `https://logs.shared.<domain>`. Tails container stdout/stderr in real time, groups containers per project via the `dev.dozzle.group` label, exposes a shell-into-container button, runs with analytics off, and persists its own UI state (notifications, saved searches) in a `scdev_logs_data` named volume. Open with `scdev logs --open` (the existing `scdev logs [service]` terminal-tail behavior is unchanged).
+- **Per-project Dozzle visibility opt-in via `shared.logs: true`** - Dozzle reads the host's Docker socket but is constrained by `DOZZLE_FILTER=label=scdev.shared.logs=true`, so only project containers whose config opts in (and all shared services) appear in the UI. Other containers running on the host stay hidden.
+- **Project config defaults now actually default** - `shared.router`, `shared.mail`, and `shared.logs` default to `true`; `shared.db` and `shared.redis` default to `false`. Missing fields in a partial `shared:` block keep their defaults; explicit values always win. Previously the defaulting was claimed in the README but only `shared.router` actually defaulted (and only because every fixture set it explicitly). Locked in by `TestLoadProject_PartialSharedBlockKeepsDefaults`.
+- **`scdev info` and `scdev status` now print the Redis Insights URL** when `shared.redis: true` (previously skipped, even though the conditional pre-included it). Cleanup of pre-existing inconsistency, surfaced while wiring in the new logs URL.
+
+### Upgrade Impact
+
+- **First `scdev update` after upgrade recreates every project container.** The new Dozzle labels (`dev.dozzle.group`, `scdev.shared.logs`) participate in the per-container config-hash, so existing containers will be detected as drifted and recreated through the normal update path. Mutagen-aware recreate paths apply, so this is safe; just expect a one-time mass recreate on first update. Set `shared.logs: false` per project to opt out and avoid the recreate for that project.
+
 ## v0.6.7
 
 ### Bug Fixes
