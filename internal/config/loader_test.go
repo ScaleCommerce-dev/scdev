@@ -832,3 +832,241 @@ func TestEnsureDocsConfig(t *testing.T) {
 		t.Error("traefik config should reference statiq plugin")
 	}
 }
+
+// writeProjectConfigs writes .zdev/config.yaml and (when local != "")
+// .zdev/local/config.yaml inside tmpDir. Helper for the local-merge tests.
+func writeProjectConfigs(t *testing.T, tmpDir, main, local string) {
+	t.Helper()
+	zdevDir := filepath.Join(tmpDir, ".zdev")
+	if err := os.MkdirAll(zdevDir, 0o755); err != nil {
+		t.Fatalf("mkdir .zdev: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(zdevDir, "config.yaml"), []byte(main), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	if local == "" {
+		return
+	}
+	localDir := filepath.Join(zdevDir, "local")
+	if err := os.MkdirAll(localDir, 0o755); err != nil {
+		t.Fatalf("mkdir .zdev/local: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(localDir, "config.yaml"), []byte(local), 0o644); err != nil {
+		t.Fatalf("write local config: %v", err)
+	}
+}
+
+func TestLoadProject_LocalConfig_VariablesUsedInMain(t *testing.T) {
+	tmpDir := t.TempDir()
+	main := `version: 1
+name: localvars
+services:
+  app:
+    image: alpine:latest
+    environment:
+      API_KEY: ${SECRET_KEY}
+`
+	local := `variables:
+  SECRET_KEY: "from-local"
+`
+	writeProjectConfigs(t, tmpDir, main, local)
+
+	cfg, err := LoadProject(tmpDir)
+	if err != nil {
+		t.Fatalf("LoadProject: %v", err)
+	}
+	if got := cfg.Services["app"].Environment["API_KEY"]; got != "from-local" {
+		t.Errorf("expected API_KEY %q, got %q", "from-local", got)
+	}
+}
+
+func TestLoadProject_LocalConfig_OverridesScalar(t *testing.T) {
+	tmpDir := t.TempDir()
+	main := `version: 1
+name: scalar
+services:
+  app:
+    image: alpine:latest
+    command: sleep infinity
+`
+	local := `services:
+  app:
+    image: alpine:edge
+`
+	writeProjectConfigs(t, tmpDir, main, local)
+
+	cfg, err := LoadProject(tmpDir)
+	if err != nil {
+		t.Fatalf("LoadProject: %v", err)
+	}
+	app := cfg.Services["app"]
+	if app.Image != "alpine:edge" {
+		t.Errorf("expected overridden image, got %q", app.Image)
+	}
+	if app.Command != "sleep infinity" {
+		t.Errorf("expected base command preserved, got %q", app.Command)
+	}
+}
+
+func TestLoadProject_LocalConfig_DeepMergesEnvironment(t *testing.T) {
+	tmpDir := t.TempDir()
+	main := `version: 1
+name: envmerge
+services:
+  app:
+    image: alpine:latest
+    environment:
+      KEEP_ME: yes
+      OVERRIDE_ME: original
+`
+	local := `services:
+  app:
+    environment:
+      OVERRIDE_ME: changed
+      ADDED: new
+`
+	writeProjectConfigs(t, tmpDir, main, local)
+
+	cfg, err := LoadProject(tmpDir)
+	if err != nil {
+		t.Fatalf("LoadProject: %v", err)
+	}
+	env := cfg.Services["app"].Environment
+	if env["KEEP_ME"] != "yes" {
+		t.Errorf("KEEP_ME should be preserved, got %q", env["KEEP_ME"])
+	}
+	if env["OVERRIDE_ME"] != "changed" {
+		t.Errorf("OVERRIDE_ME should be overridden, got %q", env["OVERRIDE_ME"])
+	}
+	if env["ADDED"] != "new" {
+		t.Errorf("ADDED should be added, got %q", env["ADDED"])
+	}
+}
+
+func TestLoadProject_LocalConfig_SliceReplaces(t *testing.T) {
+	tmpDir := t.TempDir()
+	main := `version: 1
+name: slicerepl
+services:
+  app:
+    image: alpine:latest
+    volumes:
+      - /tmp/a:/a
+      - /tmp/b:/b
+`
+	local := `services:
+  app:
+    volumes:
+      - /tmp/only:/only
+`
+	writeProjectConfigs(t, tmpDir, main, local)
+
+	cfg, err := LoadProject(tmpDir)
+	if err != nil {
+		t.Fatalf("LoadProject: %v", err)
+	}
+	vols := cfg.Services["app"].Volumes
+	if len(vols) != 1 || vols[0] != "/tmp/only:/only" {
+		t.Errorf("expected slice replacement, got %v", vols)
+	}
+}
+
+func TestLoadProject_LocalConfig_AddsNewService(t *testing.T) {
+	tmpDir := t.TempDir()
+	main := `version: 1
+name: addsvc
+services:
+  app:
+    image: alpine:latest
+`
+	local := `services:
+  worker:
+    image: alpine:latest
+    command: sleep 1
+`
+	writeProjectConfigs(t, tmpDir, main, local)
+
+	cfg, err := LoadProject(tmpDir)
+	if err != nil {
+		t.Fatalf("LoadProject: %v", err)
+	}
+	if _, ok := cfg.Services["app"]; !ok {
+		t.Error("base service 'app' should still exist")
+	}
+	if _, ok := cfg.Services["worker"]; !ok {
+		t.Error("local-added service 'worker' should exist")
+	}
+}
+
+func TestLoadProject_LocalConfig_MissingFileIsNoop(t *testing.T) {
+	tmpDir := t.TempDir()
+	main := `version: 1
+name: noop
+services:
+  app:
+    image: alpine:latest
+`
+	writeProjectConfigs(t, tmpDir, main, "")
+
+	cfg, err := LoadProject(tmpDir)
+	if err != nil {
+		t.Fatalf("LoadProject: %v", err)
+	}
+	if cfg.Services["app"].Image != "alpine:latest" {
+		t.Errorf("base config should load unchanged when local missing")
+	}
+}
+
+func TestLoadProject_LocalConfig_EmptyFileIsNoop(t *testing.T) {
+	tmpDir := t.TempDir()
+	main := `version: 1
+name: emptylocal
+services:
+  app:
+    image: alpine:latest
+`
+	writeProjectConfigs(t, tmpDir, main, "# only a comment\n")
+
+	cfg, err := LoadProject(tmpDir)
+	if err != nil {
+		t.Fatalf("LoadProject: %v", err)
+	}
+	if cfg.Services["app"].Image != "alpine:latest" {
+		t.Errorf("empty local config should be a no-op, got image %q", cfg.Services["app"].Image)
+	}
+}
+
+func TestLoadProject_LocalConfig_UnknownFieldErrors(t *testing.T) {
+	tmpDir := t.TempDir()
+	main := `version: 1
+name: unknownfield
+services:
+  app:
+    image: alpine:latest
+`
+	local := `services:
+  app:
+    bogus_field: hello
+`
+	writeProjectConfigs(t, tmpDir, main, local)
+
+	if _, err := LoadProject(tmpDir); err == nil {
+		t.Fatal("expected unknown-field error from local config, got nil")
+	}
+}
+
+func TestLoadProject_LocalConfig_MalformedYAMLErrors(t *testing.T) {
+	tmpDir := t.TempDir()
+	main := `version: 1
+name: malformed
+services:
+  app:
+    image: alpine:latest
+`
+	local := "services:\n  app:\n    image: [unclosed\n"
+	writeProjectConfigs(t, tmpDir, main, local)
+
+	if _, err := LoadProject(tmpDir); err == nil {
+		t.Fatal("expected parse error from malformed local config, got nil")
+	}
+}

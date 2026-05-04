@@ -164,6 +164,8 @@ mutagen:
 
 Built-in variables are always available: `${PROJECTDIR}`, `${PROJECTPATH}`, `${PROJECTNAME}`, `${ZDEV_DOMAIN}`, `${ZDEV_HOME}`, `${USER}`, `${HOME}`, plus all host environment variables. User-defined `variables` can reference built-in ones (e.g. `DB_NAME: ${PROJECTNAME}_db`).
 
+**Local overrides:** if `.zdev/local/config.yaml` exists, it deep-merges on top of the committed `config.yaml` before substitution. Templates should add `.zdev/local/` to `.gitignore` so per-developer secrets and tweaks (e.g. `variables: { STRIPE_KEY: ... }`) stay off the repo. Maps merge recursively; scalars and slices in the local file replace the base value.
+
 **Dev server binding:** Dev servers typically listen on `localhost` by default, which isn't accessible from outside the container. Set `HOST=0.0.0.0` (or the framework's equivalent) in the environment so the dev server binds to all interfaces.
 
 **Multi-service routing:** Projects with multiple HTTP services (frontend + backend) can give each service its own domain using `routing.domain`. Only available for HTTP/HTTPS routing. Without it, all services share the project domain.

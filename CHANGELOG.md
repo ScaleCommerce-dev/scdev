@@ -1,5 +1,9 @@
 ## v0.7.5
 
+### Features
+
+- **`.zdev/local/config.yaml` deep-merges into `.zdev/config.yaml`** before variable substitution. Lets you keep per-developer overrides and secrets out of git: define `variables:` in the local file and reference them as `${VAR}` from the committed config, or override service `image:` / `environment:` / `command:` for your machine. Maps merge recursively; scalars and slices replace. Add `.zdev/local/` to `.gitignore`.
+
 ### Tests
 
 - **Add `TestProject_PerServiceLifecycle` integration test** (`-tags=integration`) that exercises `StartService` / `StopService` / `RestartService` against real Docker on the multi-service `testdata/projects/full` fixture. Verifies the per-service variants only touch the named container, leave siblings untouched, and error cleanly on unknown service names without Docker side effects. Closes a coverage gap from v0.7.2-v0.7.4 where these methods only had mock-runtime unit tests.

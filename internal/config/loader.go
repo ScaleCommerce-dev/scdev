@@ -30,13 +30,26 @@ type ProjectInfo struct {
 	Running bool
 }
 
-// LoadProject loads and parses a project config from the given directory
+// LoadProject loads and parses a project config from the given directory.
+// If .zdev/local/config.yaml exists, it is deep-merged on top of .zdev/config.yaml
+// before variable substitution. Maps merge recursively; scalars and slices replace.
 func LoadProject(projectDir string) (*ProjectConfig, error) {
 	configPath := filepath.Join(projectDir, ".zdev", "config.yaml")
+	localConfigPath := filepath.Join(projectDir, ".zdev", "local", "config.yaml")
 
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read config: %w", err)
+	}
+
+	if localData, err := os.ReadFile(localConfigPath); err == nil {
+		merged, mergeErr := mergeProjectYAML(data, localData)
+		if mergeErr != nil {
+			return nil, fmt.Errorf("%s: failed to merge with %s: %w", configPath, localConfigPath, mergeErr)
+		}
+		data = merged
+	} else if !os.IsNotExist(err) {
+		return nil, fmt.Errorf("failed to read local config %s: %w", localConfigPath, err)
 	}
 
 	// Build initial variables (PROJECTDIR, PROJECTPATH, etc. but not PROJECTNAME yet)
@@ -106,6 +119,44 @@ func LoadProject(projectDir string) (*ProjectConfig, error) {
 	}
 
 	return &cfg, nil
+}
+
+// mergeProjectYAML deep-merges override on top of base and returns marshaled YAML.
+// Maps merge recursively; slices and scalars in override replace the base value.
+// An empty or comments-only override is a no-op (returns base unchanged).
+func mergeProjectYAML(base, override []byte) ([]byte, error) {
+	var baseMap, overrideMap map[string]any
+	if err := yaml.Unmarshal(base, &baseMap); err != nil {
+		return nil, fmt.Errorf("parse base: %w", err)
+	}
+	if err := yaml.Unmarshal(override, &overrideMap); err != nil {
+		return nil, fmt.Errorf("parse override: %w", err)
+	}
+	if overrideMap == nil {
+		return base, nil
+	}
+	if baseMap == nil {
+		baseMap = map[string]any{}
+	}
+	merged := deepMergeMaps(baseMap, overrideMap)
+	return yaml.Marshal(merged)
+}
+
+// deepMergeMaps merges override into base. When both sides hold a map at the
+// same key, recurse; otherwise override wins (including for slices and nil).
+func deepMergeMaps(base, override map[string]any) map[string]any {
+	for k, v := range override {
+		if existing, ok := base[k]; ok {
+			if existingMap, ok := existing.(map[string]any); ok {
+				if newMap, ok := v.(map[string]any); ok {
+					base[k] = deepMergeMaps(existingMap, newMap)
+					continue
+				}
+			}
+		}
+		base[k] = v
+	}
+	return base
 }
 
 // formatConfigError creates a user-friendly error message for config parsing failures

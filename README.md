@@ -555,6 +555,29 @@ mutagen:
 
 **Built-in variables:** `${PROJECTNAME}`, `${PROJECTPATH}`, `${PROJECTDIR}`, `${ZDEV_DOMAIN}`, `${ZDEV_HOME}`, `${USER}`, `${HOME}`, plus all host environment variables. User-defined `variables` can reference built-in ones (e.g. `DB_NAME: ${PROJECTNAME}_db`).
 
+#### Local overrides (`.zdev/local/config.yaml`)
+
+If `.zdev/local/config.yaml` exists, it is deep-merged on top of `.zdev/config.yaml` before variable substitution. Use it for per-developer settings that shouldn't be committed (secrets, machine-specific tweaks, override images). Add `.zdev/local/` to `.gitignore`.
+
+Merge rules:
+- **Maps** merge recursively - e.g. add a single env var to a service without copying the rest.
+- **Scalars** in local replace the base value.
+- **Slices** in local replace the base slice entirely (no append). To tweak `volumes:` or `mutagen.ignore:`, copy the full list.
+
+Because the merge happens before substitution, you can put `variables:` in the local file and reference them with `${VAR}` from the committed config:
+
+```yaml
+# .zdev/config.yaml (committed)
+services:
+  app:
+    environment:
+      STRIPE_KEY: ${STRIPE_KEY}
+
+# .zdev/local/config.yaml (gitignored)
+variables:
+  STRIPE_KEY: sk_test_abc123
+```
+
 ### Global Configuration Reference (`~/.zdev/global-config.yaml`)
 
 Applies to all projects. Auto-created on first run. Usually you don't need to touch this.

@@ -293,7 +293,7 @@ seed data, asset build).
 6. **`mutagen.ignore`** for dependency and build artifact dirs: `node_modules`, `.pnpm-store`,
    `vendor`, `var/cache`, `.nuxt`, `.next`, framework-specific build output. Without this, installs
    are 5–10× slower on macOS.
-7. **`.gitignore`:** add `.zdev/local/` (always) and `.pnpm-store/` (pnpm projects).
+7. **`.gitignore`:** add `.zdev/local/` (always) and `.pnpm-store/` (pnpm projects). `.zdev/local/config.yaml` deep-merges on top of `.zdev/config.yaml` before variable substitution, so per-developer secrets and overrides go there (e.g. `variables: { STRIPE_KEY: ... }` referenced as `${STRIPE_KEY}` in the committed config).
 8. **`zdev start`, then verify in a browser** (not just curl): check the console and network tabs
    for mixed-content, missing assets, JS errors. `curl 200` lies for HTML apps.
 9. **Document** `zdev start` in the project README and `zdev exec app <cmd>` patterns in its
