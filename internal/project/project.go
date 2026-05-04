@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/ScaleCommerce-DEV/scdev/internal/config"
 	"github.com/ScaleCommerce-DEV/scdev/internal/mutagen"
@@ -226,24 +225,11 @@ func (p *Project) Start(ctx context.Context) error {
 		return err
 	}
 
-	// Check if Mutagen is enabled
-	mutagenEnabled := p.IsMutagenEnabled()
-	var m *mutagen.Mutagen
-	var mutagenMounts []MutagenSyncMount
-
-	if mutagenEnabled {
-		var err error
-		m, err = p.EnsureMutagen(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to initialize Mutagen: %w", err)
-		}
-		mutagenMounts = p.GetMutagenSyncMounts()
-
-		// Create Mutagen sync volumes
-		if err := p.createMutagenVolumes(ctx, mutagenMounts); err != nil {
-			return err
-		}
+	m, mutagenMounts, mutagenMountMap, err := p.prepareMutagen(ctx)
+	if err != nil {
+		return err
 	}
+	mutagenEnabled := m != nil
 
 	// Create project network if it doesn't exist
 	networkName := p.NetworkName()
@@ -274,12 +260,6 @@ func (p *Project) Start(ctx context.Context) error {
 		}
 	}
 
-	// Build map of Mutagen mounts for quick lookup
-	mutagenMountMap := make(map[string]MutagenSyncMount)
-	for _, mount := range mutagenMounts {
-		mutagenMountMap[mount.ServiceName] = mount
-	}
-
 	// Start all services
 	for serviceName, serviceCfg := range p.Config.Services {
 		if err := p.startServiceWithMutagen(ctx, serviceName, serviceCfg, mutagenEnabled, mutagenMountMap); err != nil {
@@ -287,17 +267,8 @@ func (p *Project) Start(ctx context.Context) error {
 		}
 	}
 
-	// Start Mutagen sync sessions after containers are running
-	if mutagenEnabled && len(mutagenMounts) > 0 {
-		if err := p.startMutagenSessions(ctx, m, mutagenMounts); err != nil {
-			return fmt.Errorf("failed to start Mutagen sync: %w", err)
-		}
-
-		// Wait for initial sync (60 second timeout)
-		p.waitForInitialSync(ctx, m, mutagenMounts, 60*time.Second)
-
-		// Signal containers that sync is ready (unblocks the sync-ready gate)
-		p.signalSyncReady(ctx, mutagenMounts)
+	if err := p.finalizeMutagen(ctx, m, mutagenMounts); err != nil {
+		return err
 	}
 
 	// Register project with routing info in state
@@ -317,10 +288,6 @@ func (p *Project) Start(ctx context.Context) error {
 	p.connectLinks(ctx)
 
 	return nil
-}
-
-func (p *Project) startService(ctx context.Context, name string, svc config.ServiceConfig) error {
-	return p.startServiceWithMutagen(ctx, name, svc, false, nil)
 }
 
 // startServiceWithMutagen starts a service with optional Mutagen volume transformation
@@ -555,6 +522,43 @@ func (p *Project) Update(ctx context.Context) (bool, error) {
 		}
 	}
 
+	// Mutagen state is prepared lazily on first need: a no-op `scdev update`
+	// (no service drifted) shouldn't pay the daemon-startup + volume-create
+	// cost. `serviceNeedsRecreate` does its own lightweight mount discovery
+	// (no daemon) for the hash compare, so the diff stays cheap.
+	//
+	// Once prepared, the same context is reused for every recreated service
+	// in this run. Without this discipline, a recreated container is built
+	// with `mutagenEnabled=false` and silently swaps the named sync volume
+	// for a raw bind mount, dropping anything in the Mutagen ignore list
+	// (vendor/, .setup-complete) that lived only inside the volume.
+	var (
+		mutagenPrepared bool
+		mDaemon         *mutagen.Mutagen
+		mutagenMounts   []MutagenSyncMount
+		mutagenMountMap map[string]MutagenSyncMount
+	)
+	prepare := func() error {
+		if mutagenPrepared {
+			return nil
+		}
+		daemon, mounts, mountMap, err := p.prepareMutagen(ctx)
+		if err != nil {
+			return err
+		}
+		mDaemon = daemon
+		mutagenMounts = mounts
+		mutagenMountMap = mountMap
+		mutagenPrepared = true
+		return nil
+	}
+	startService := func(serviceName string, svc config.ServiceConfig) error {
+		if err := prepare(); err != nil {
+			return err
+		}
+		return p.startServiceWithMutagen(ctx, serviceName, svc, mDaemon != nil, mutagenMountMap)
+	}
+
 	updated := false
 
 	// Check each service for changes
@@ -569,7 +573,7 @@ func (p *Project) Update(ctx context.Context) (bool, error) {
 		if !exists {
 			// Container doesn't exist, create it
 			fmt.Printf("Creating service %s...\n", serviceName)
-			if err := p.startService(ctx, serviceName, svc); err != nil {
+			if err := startService(serviceName, svc); err != nil {
 				return false, fmt.Errorf("failed to start service %s: %w", serviceName, err)
 			}
 			updated = true
@@ -597,7 +601,7 @@ func (p *Project) Update(ctx context.Context) (bool, error) {
 			}
 
 			// Create new container
-			if err := p.startService(ctx, serviceName, svc); err != nil {
+			if err := startService(serviceName, svc); err != nil {
 				return false, fmt.Errorf("failed to start service %s: %w", serviceName, err)
 			}
 			updated = true
@@ -610,6 +614,15 @@ func (p *Project) Update(ctx context.Context) (bool, error) {
 					return false, fmt.Errorf("failed to start service %s: %w", serviceName, err)
 				}
 			}
+		}
+	}
+
+	// If we created or recreated any container, finalize Mutagen so the new
+	// container can pass its sync-ready gate. Otherwise (true no-op update),
+	// `prepare` was never called and there's nothing to finalize.
+	if mutagenPrepared {
+		if err := p.finalizeMutagen(ctx, mDaemon, mutagenMounts); err != nil {
+			return updated, err
 		}
 	}
 

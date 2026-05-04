@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -256,6 +257,105 @@ func TestProject_MutagenVolumeCleanup(t *testing.T) {
 	}
 
 	t.Log("Mutagen volume cleanup test completed successfully")
+}
+
+// TestProject_MutagenUpdatePreservesSyncVolume guards against a regression where
+// scdev update would recreate a service without Mutagen context, silently
+// swapping the sync.<service>.<project>.scdev named volume back to a raw bind
+// mount. Anything written inside the container at a Mutagen-ignored path
+// (vendor/, .setup-complete, etc.) lives only inside the named volume - so
+// the swap drops it on the floor. Update must use the same Mutagen mounts as
+// Start when rebuilding the container.
+func TestProject_MutagenUpdatePreservesSyncVolume(t *testing.T) {
+	_ = skipIfMutagenNotAvailable(t)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	projectDir, err := filepath.Abs(filepath.Join("..", "..", "testdata", "projects", "mutagen"))
+	if err != nil {
+		t.Fatalf("failed to get absolute path: %v", err)
+	}
+
+	proj, err := LoadFromDir(projectDir)
+	if err != nil {
+		t.Fatalf("LoadFromDir failed: %v", err)
+	}
+	if !proj.IsMutagenEnabled() {
+		t.Skip("Mutagen is not enabled for this project")
+	}
+
+	// Clean up any leftover state from prior runs.
+	_ = proj.Down(ctx, true)
+	// Cleanup runs after the test function returns, AFTER `defer cancel()` has
+	// already canceled `ctx`. Use a fresh context so teardown isn't aborted by
+	// a canceled context and doesn't leak containers into the next run.
+	t.Cleanup(func() {
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 1*time.Minute)
+		defer cleanupCancel()
+		_ = proj.Down(cleanupCtx, true)
+	})
+
+	containerName := proj.ContainerName("app")
+	syncVolumeName := "sync.app.mutagen-test.scdev"
+
+	if err := proj.Start(ctx); err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+
+	// Write a marker inside the container at a Mutagen-ignored path. This
+	// stand-in for vendor/ or .setup-complete lives only in the sync volume;
+	// if Update swaps the named volume for a bind mount it will disappear.
+	const markerPath = "/app/var/cache/scdev-update-regression"
+	mkdir := exec.CommandContext(ctx, "docker", "exec", containerName, "mkdir", "-p", "/app/var/cache")
+	if out, err := mkdir.CombinedOutput(); err != nil {
+		t.Fatalf("mkdir in container: %v (%s)", err, out)
+	}
+	touch := exec.CommandContext(ctx, "docker", "exec", containerName, "sh", "-c", "echo regression-marker > "+markerPath)
+	if out, err := touch.CombinedOutput(); err != nil {
+		t.Fatalf("write marker in container: %v (%s)", err, out)
+	}
+
+	// Force a recreate by changing the service's environment.
+	svc := proj.Config.Services["app"]
+	if svc.Environment == nil {
+		svc.Environment = map[string]string{}
+	}
+	svc.Environment["SCDEV_REGRESSION_TRIGGER"] = "1"
+	proj.Config.Services["app"] = svc
+
+	updated, err := proj.Update(ctx)
+	if err != nil {
+		t.Fatalf("Update failed: %v", err)
+	}
+	if !updated {
+		t.Fatal("expected Update to recreate the service after env change")
+	}
+
+	// New container should still mount the named sync volume, not a bind mount.
+	inspect := exec.CommandContext(ctx, "docker", "inspect",
+		"--format", "{{range .Mounts}}{{.Type}} {{.Source}} {{.Name}} -> {{.Destination}}{{println}}{{end}}",
+		containerName)
+	mountsOut, err := inspect.CombinedOutput()
+	if err != nil {
+		t.Fatalf("docker inspect failed after Update: %v (%s)", err, mountsOut)
+	}
+	// A volume and a bind mount can't coexist on the same destination, so a
+	// positive volume-presence check is enough; no need for a separate
+	// negative bind-mount substring check.
+	if !strings.Contains(string(mountsOut), syncVolumeName) {
+		t.Fatalf("after Update, /app is no longer backed by %s; mounts:\n%s", syncVolumeName, mountsOut)
+	}
+
+	// And the marker we wrote inside the container must still be there.
+	cat := exec.CommandContext(ctx, "docker", "exec", containerName, "cat", markerPath)
+	out, err := cat.CombinedOutput()
+	if err != nil {
+		t.Fatalf("marker file lost after Update (Mutagen-ignored data dropped): %v (%s)", err, out)
+	}
+	if string(out) != "regression-marker\n" {
+		t.Errorf("marker contents = %q, want %q", string(out), "regression-marker\n")
+	}
 }
 
 func TestProject_MutagenIgnores(t *testing.T) {

@@ -247,6 +247,48 @@ func (p *Project) IsMutagenEnabled() bool {
 	return globalCfg.IsMutagenEnabled()
 }
 
+// prepareMutagen ensures the Mutagen daemon is up and the sync volumes exist
+// before any container that references them is created. Returns the daemon
+// handle, the discovered mounts, and a service-keyed lookup map suitable for
+// buildContainerConfig. When Mutagen is disabled the returned daemon is nil
+// and the slices/map are empty - callers should treat that as "no Mutagen".
+func (p *Project) prepareMutagen(ctx context.Context) (*mutagen.Mutagen, []MutagenSyncMount, map[string]MutagenSyncMount, error) {
+	if !p.IsMutagenEnabled() {
+		return nil, nil, nil, nil
+	}
+
+	m, err := p.EnsureMutagen(ctx)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to initialize Mutagen: %w", err)
+	}
+
+	mounts := p.GetMutagenSyncMounts()
+	if err := p.createMutagenVolumes(ctx, mounts); err != nil {
+		return nil, nil, nil, err
+	}
+
+	mountMap := make(map[string]MutagenSyncMount, len(mounts))
+	for _, mount := range mounts {
+		mountMap[mount.ServiceName] = mount
+	}
+	return m, mounts, mountMap, nil
+}
+
+// finalizeMutagen starts/resumes sync sessions for the given mounts, waits for
+// the initial sync, and signals containers that they may proceed past the
+// sync-ready gate. Safe to call with a nil daemon or empty mounts (no-op).
+func (p *Project) finalizeMutagen(ctx context.Context, m *mutagen.Mutagen, mounts []MutagenSyncMount) error {
+	if m == nil || len(mounts) == 0 {
+		return nil
+	}
+	if err := p.startMutagenSessions(ctx, m, mounts); err != nil {
+		return fmt.Errorf("failed to start Mutagen sync: %w", err)
+	}
+	p.waitForInitialSync(ctx, m, mounts, 60*time.Second)
+	p.signalSyncReady(ctx, mounts)
+	return nil
+}
+
 // transformVolumesForMutagen transforms bind mounts to Mutagen sync volumes
 // Returns the modified volumes list for container creation
 func (p *Project) transformVolumesForMutagen(serviceName string, volumes []string, mutagenMounts map[string]MutagenSyncMount) []runtime.VolumeMount {
