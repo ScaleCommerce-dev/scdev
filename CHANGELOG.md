@@ -1,3 +1,9 @@
+## v0.7.4
+
+### Features
+
+- **`zdev stop <service>`** scopes the stop to a single container; other services keep running. Symmetric to the per-service `zdev start`/`zdev restart` added in v0.7.2. Pauses only the Mutagen sync sessions tied to that service.
+
 ## v0.7.3
 
 ### Bug Fixes
