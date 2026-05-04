@@ -17,6 +17,29 @@ const (
 
 	// RouterContainerName is the name of the Traefik router container
 	RouterContainerName = "scdev_router"
+
+	// DozzleGroupLabel is the Docker label key Dozzle reads to cluster
+	// containers in the UI sidebar (https://dozzle.dev/guide/container-groups).
+	DozzleGroupLabel = "dev.dozzle.group"
+
+	// DozzleVisibilityLabel is the scdev-defined label key that gates
+	// Dozzle visibility. Dozzle is started with DOZZLE_FILTER set to this
+	// label so containers without it are hidden, even though Dozzle has
+	// full Docker socket access. Shared services always set it; project
+	// containers only set it when shared.logs: true.
+	DozzleVisibilityLabel = "scdev.shared.logs"
+
+	// DozzleSharedGroup is the dev.dozzle.group value stamped on every
+	// shared service container so they cluster together in the Dozzle UI
+	// and nothing falls into Dozzle's default ungrouped bucket. Project
+	// containers use the project name as their group instead - see
+	// internal/project/project.go buildContainerConfig.
+	//
+	// "zzz" prefix pins the group to the bottom of Dozzle's sidebar.
+	// Dozzle uses locale-aware sort where punctuation (e.g. "~") is
+	// primarily ignorable, so symbol prefixes don't actually sort last;
+	// a letter-based prefix does.
+	DozzleSharedGroup = "zzz shared services"
 )
 
 // ServiceStatus represents the status of a shared service
@@ -539,4 +562,34 @@ func (m *Manager) ConnectRedisInsightsToProject(ctx context.Context, projectNetw
 
 func (m *Manager) DisconnectRedisInsightsFromProject(ctx context.Context, projectNetwork string) error {
 	return m.disconnectServiceFromProject(ctx, RedisInsightsContainerName, "RedisInsights", projectNetwork)
+}
+
+// =============================================================================
+// Logs (Dozzle)
+// =============================================================================
+
+func (m *Manager) StartLogs(ctx context.Context) error {
+	return m.startService(ctx, LogsContainerName, "Logs", m.cfg.Shared.Logs.Image, func() runtime.ContainerConfig {
+		return LogsContainerConfig(LogsServiceConfig{
+			Image:      m.cfg.Shared.Logs.Image,
+			Domain:     m.cfg.Domain,
+			TLSEnabled: m.cfg.SSL.Enabled,
+		})
+	})
+}
+
+func (m *Manager) StopLogs(ctx context.Context) error {
+	return m.stopService(ctx, LogsContainerName, "Logs")
+}
+
+func (m *Manager) LogsStatus(ctx context.Context) (*ServiceStatus, error) {
+	return m.getServiceStatus(ctx, LogsContainerName, "Logs")
+}
+
+func (m *Manager) ConnectLogsToProject(ctx context.Context, projectNetwork string) error {
+	return m.connectServiceToProject(ctx, LogsContainerName, "Logs", projectNetwork, m.LogsStatus, "logs")
+}
+
+func (m *Manager) DisconnectLogsFromProject(ctx context.Context, projectNetwork string) error {
+	return m.disconnectServiceFromProject(ctx, LogsContainerName, "Logs", projectNetwork)
 }

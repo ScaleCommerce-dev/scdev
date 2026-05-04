@@ -7,12 +7,14 @@ import (
 	"syscall"
 
 	"github.com/ScaleCommerce-DEV/scdev/internal/project"
+	"github.com/ScaleCommerce-DEV/scdev/internal/services"
 	"github.com/spf13/cobra"
 )
 
 var (
 	logsFollow bool
 	logsTail   int
+	logsOpen   bool
 )
 
 var logsCmd = &cobra.Command{
@@ -22,17 +24,27 @@ var logsCmd = &cobra.Command{
 
 If no service is specified, logs from the first service are shown.
 Use -f to follow (stream) logs in real-time.
-Use --tail to limit the number of lines shown.`,
+Use --tail to limit the number of lines shown.
+Use --open to open the Dozzle log viewer UI in your browser instead.`,
 	RunE: runLogs,
 }
 
 func init() {
 	logsCmd.Flags().BoolVarP(&logsFollow, "follow", "f", false, "Follow log output (stream in real-time)")
 	logsCmd.Flags().IntVar(&logsTail, "tail", 100, "Number of lines to show from end of logs (0 = all)")
+	logsCmd.Flags().BoolVar(&logsOpen, "open", false, "Open the shared Dozzle log viewer UI in your browser")
 	rootCmd.AddCommand(logsCmd)
 }
 
 func runLogs(cmd *cobra.Command, args []string) error {
+	if logsOpen {
+		return openSharedServiceURL("logs", "logs.shared",
+			func(ctx context.Context, mgr *services.Manager) (*services.ServiceStatus, error) {
+				return mgr.LogsStatus(ctx)
+			},
+		)
+	}
+
 	// logs has a unique lifecycle: no timeout (may run forever with -f)
 	// and cancels on SIGINT/SIGTERM. withProject's fixed timeout doesn't fit.
 	ctx, cancel := context.WithCancel(context.Background())

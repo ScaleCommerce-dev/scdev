@@ -17,6 +17,7 @@ func TestSharedServiceConfigs_StampConfigHash(t *testing.T) {
 		"db":            DBUIContainerConfig(DBUIServiceConfig{Image: "adminer:latest", Domain: "scalecommerce.site"}),
 		"redisInsights": RedisInsightsContainerConfig(RedisInsightsServiceConfig{Image: "redis/redisinsight:latest", Domain: "scalecommerce.site"}),
 		"router":        RouterContainerConfig(RouterConfig{Image: config.RouterImage, Domain: "scalecommerce.site"}),
+		"logs":          LogsContainerConfig(LogsServiceConfig{Image: "amir20/dozzle:latest", Domain: "scalecommerce.site"}),
 	}
 
 	for name, cfg := range cases {

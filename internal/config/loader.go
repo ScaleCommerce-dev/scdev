@@ -74,8 +74,13 @@ func LoadProject(projectDir string) (*ProjectConfig, error) {
 	}
 	content = substituteVariables(string(data), vars)
 
-	// Re-parse with full variable substitution
-	var cfg ProjectConfig
+	// Re-parse with full variable substitution. Pre-initialize cfg.Shared
+	// with the default-true services so yaml.v3 only overrides fields the
+	// user explicitly sets. Bool fields can't distinguish "missing" from
+	// "explicit false", so this is the only way to default them to true.
+	cfg := ProjectConfig{
+		Shared: defaultProjectShared(),
+	}
 	decoder := yaml.NewDecoder(bytes.NewReader([]byte(content)))
 	decoder.KnownFields(true)
 	if err := decoder.Decode(&cfg); err != nil {
@@ -257,6 +262,9 @@ func newDefaultGlobalConfig() GlobalConfig {
 			RedisInsights: RedisInsightsConfig{
 				Image: RedisInsightsImage,
 			},
+			Logs: LogsConfig{
+				Image: LogsImage,
+			},
 		},
 		Terminal: TerminalConfig{
 			Plain: false,
@@ -334,6 +342,7 @@ func generateDefaultGlobalConfig() string {
 		"MailImage":          MailImage,
 		"DBUIImage":          DBUIImage,
 		"RedisInsightsImage": RedisInsightsImage,
+		"LogsImage":          LogsImage,
 	}
 	return substituteConfigVars(defaultGlobalConfig, vars)
 }

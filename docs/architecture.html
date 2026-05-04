@@ -196,8 +196,8 @@
 
   .shared-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 12px;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
     padding: 18px 18px 20px;
   }
 
@@ -224,6 +224,7 @@
   .service-card.mail::before { background: linear-gradient(90deg, #7c3aed, #a78bfa); }
   .service-card.db::before { background: linear-gradient(90deg, #d97706, #fbbf24); }
   .service-card.redis::before { background: linear-gradient(90deg, #dc2626, #f87171); }
+  .service-card.logs::before { background: linear-gradient(90deg, #0d9488, #5eead4); }
 
   .card-top {
     display: flex;
@@ -242,6 +243,7 @@
   .mail .card-name { color: #c4b5fd; }
   .db .card-name { color: #fde68a; }
   .redis .card-name { color: #fca5a5; }
+  .logs .card-name { color: #5eead4; }
 
   .card-lock {
     width: 22px;
@@ -641,6 +643,19 @@
           </div>
         </div>
         <div class="card-desc">Visual Redis browser &mdash; inspect keys, run queries, analyze data</div>
+      </div>
+
+      <div class="service-card logs">
+        <div class="card-top">
+          <div class="card-name">Dozzle</div>
+          <div class="card-lock">
+            <svg viewBox="0 0 16 16" fill="none">
+              <rect x="3" y="7" width="10" height="8" rx="1.5" fill="#22c55e"/>
+              <path d="M5 7V5a3 3 0 0 1 6 0v2" stroke="#22c55e" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+            </svg>
+          </div>
+        </div>
+        <div class="card-desc">Tail container logs in the browser, grouped per project</div>
       </div>
 
     </div>

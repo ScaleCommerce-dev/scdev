@@ -21,8 +21,10 @@ func RedisInsightsContainerConfig(cfg RedisInsightsServiceConfig) runtime.Contai
 	redisHost := fmt.Sprintf("redis.shared.%s", cfg.Domain)
 
 	labels := map[string]string{
-		"scdev.managed": "true",
-		"scdev.service": "redis-insights",
+		"scdev.managed":       "true",
+		"scdev.service":       "redis-insights",
+		DozzleVisibilityLabel: "true",
+		DozzleGroupLabel:      DozzleSharedGroup,
 
 		// Enable Traefik routing for web UI
 		"traefik.enable":         "true",

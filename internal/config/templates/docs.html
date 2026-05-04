@@ -147,8 +147,8 @@
         /* ── Service Grid ── */
         .services-grid {
             display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 0.75rem;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 0.65rem;
         }
 
         .service-card {
@@ -709,6 +709,11 @@ ${PROJECTS_SECTION}
                     <p>Insights browser</p>
                     <span class="url">redis.shared.${DOMAIN}</span>
                 </a>
+                <a href="${PROTOCOL}://logs.shared.${DOMAIN}" class="service-card">
+                    <h3>Logs</h3>
+                    <p>Dozzle log viewer</p>
+                    <span class="url">logs.shared.${DOMAIN}</span>
+                </a>
             </div>
         </div>
 
@@ -747,6 +752,7 @@ ${PROJECTS_SECTION}
                 <div class="cmd-row"><code>scdev mail</code> <span>Open Mailpit</span></div>
                 <div class="cmd-row"><code>scdev db</code> <span>Open Adminer</span></div>
                 <div class="cmd-row"><code>scdev redis</code> <span>Open Redis Insights</span></div>
+                <div class="cmd-row"><code>scdev logs --open</code> <span>Open Dozzle log viewer</span></div>
             </div>
         </div>
 

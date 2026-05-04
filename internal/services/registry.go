@@ -86,5 +86,16 @@ func AllSharedServices() []SharedServiceDef {
 			Disconnect:    func(ctx context.Context, m *Manager, net string) error { return m.DisconnectRedisInsightsFromProject(ctx, net) },
 			ProjectEnabled: func(s *config.ProjectSharedConfig) bool { return s.RedisInsights },
 		},
+		{
+			Name:          "Logs",
+			Subdomain:     "logs.shared",
+			ContainerName: LogsContainerName,
+			Start:         func(ctx context.Context, m *Manager) error { return m.StartLogs(ctx) },
+			Stop:          func(ctx context.Context, m *Manager) error { return m.StopLogs(ctx) },
+			Status:        func(ctx context.Context, m *Manager) (*ServiceStatus, error) { return m.LogsStatus(ctx) },
+			Connect:       func(ctx context.Context, m *Manager, net string) error { return m.ConnectLogsToProject(ctx, net) },
+			Disconnect:    func(ctx context.Context, m *Manager, net string) error { return m.DisconnectLogsFromProject(ctx, net) },
+			ProjectEnabled: func(s *config.ProjectSharedConfig) bool { return s.Logs },
+		},
 	}
 }

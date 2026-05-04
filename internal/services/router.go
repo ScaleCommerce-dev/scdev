@@ -67,8 +67,10 @@ func RouterContainerConfig(cfg RouterConfig) runtime.ContainerConfig {
 	}
 
 	labels := map[string]string{
-		"scdev.managed": "true",
-		"scdev.service": "router",
+		"scdev.managed":       "true",
+		"scdev.service":       "router",
+		DozzleVisibilityLabel: "true",
+		DozzleGroupLabel:      DozzleSharedGroup,
 	}
 
 	// Store configured ports in labels for later comparison

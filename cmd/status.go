@@ -108,6 +108,26 @@ func runStatusImpl(ctx context.Context, proj *project.Project) error {
 		}
 	}
 
+	// Redis Insights status
+	if proj.Config.Shared.RedisInsights {
+		redisStatus := getSharedServiceStatus(ctx, mgr, mgr.RedisInsightsStatus)
+		fmt.Printf("  %-15s %s\n", "redis", ui.StatusColor(redisStatus, plainMode))
+		if redisStatus == "running" {
+			url := fmt.Sprintf("%s://redis.shared.%s", protocol, domain)
+			fmt.Printf("                  %s\n", ui.Hyperlink(url, url, plainMode))
+		}
+	}
+
+	// Logs (Dozzle) status
+	if proj.Config.Shared.Logs {
+		logsStatus := getSharedServiceStatus(ctx, mgr, mgr.LogsStatus)
+		fmt.Printf("  %-15s %s\n", "logs", ui.StatusColor(logsStatus, plainMode))
+		if logsStatus == "running" {
+			url := fmt.Sprintf("%s://logs.shared.%s", protocol, domain)
+			fmt.Printf("                  %s\n", ui.Hyperlink(url, url, plainMode))
+		}
+	}
+
 	// Links
 	if stateMgr, err := state.DefaultManager(); err == nil {
 		if links, err := stateMgr.GetLinksForProject(proj.Config.Name); err == nil && len(links) > 0 {

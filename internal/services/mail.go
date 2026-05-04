@@ -21,11 +21,13 @@ func MailContainerConfig(cfg MailServiceConfig) runtime.ContainerConfig {
 	mailHost := fmt.Sprintf("mail.shared.%s", cfg.Domain)
 
 	labels := map[string]string{
-		"scdev.managed": "true",
-		"scdev.service": "mail",
+		"scdev.managed":       "true",
+		"scdev.service":       "mail",
+		DozzleVisibilityLabel: "true",
+		DozzleGroupLabel:      DozzleSharedGroup,
 
 		// Enable Traefik routing for web UI
-		"traefik.enable":        "true",
+		"traefik.enable":         "true",
 		"traefik.docker.network": SharedNetworkName,
 
 		// HTTP router for web UI

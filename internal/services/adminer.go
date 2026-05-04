@@ -28,8 +28,10 @@ func DBUIContainerConfig(cfg DBUIServiceConfig) runtime.ContainerConfig {
 	dbHost := fmt.Sprintf("db.shared.%s", cfg.Domain)
 
 	labels := map[string]string{
-		"scdev.managed": "true",
-		"scdev.service": "db",
+		"scdev.managed":       "true",
+		"scdev.service":       "db",
+		DozzleVisibilityLabel: "true",
+		DozzleGroupLabel:      DozzleSharedGroup,
 
 		// Enable Traefik routing for web UI
 		"traefik.enable":         "true",

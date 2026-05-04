@@ -138,15 +138,32 @@ These run once and are shared across all your projects. No per-project configura
 | Mail | `https://mail.shared.scalecommerce.site` | Catches all outgoing email ([Mailpit](https://github.com/axllent/mailpit)) |
 | DB | `https://db.shared.scalecommerce.site` | Browse any project's database ([Adminer](https://www.adminer.org/)) |
 | Redis | `https://redis.shared.scalecommerce.site` | Inspect Redis keys and data ([Redis Insights](https://redis.io/insight/)) |
+| Logs | `https://logs.shared.scalecommerce.site` | Tail container logs across all projects ([Dozzle](https://dozzle.dev/)), grouped per project |
 
 **Connecting from your app containers:** Configure your app to send mail to `mail:1025` (SMTP, no auth). For databases and Redis, use your project's own service names (e.g., `db:5432`, `redis:6379`) - Adminer and Redis Insights are browser UIs, not the services themselves.
+
+**Log retention:** Dozzle is a viewer, not a store. Logs come from Docker's per-container ring buffer (default in Docker Desktop: ~50 MB rotated, ~5 files), so they survive `scdev down` and Docker Desktop restarts but are **lost when a container is recreated** - that includes `scdev update` (on config drift), `scdev remove`, and `scdev services recreate`. To grow the per-container buffer, set `log-opts: { max-size, max-file }` in Docker Desktop's daemon JSON. Persistent log history across recreates needs a separate log shipper (Loki, Vector, etc.) and is out of scope for scdev.
+
+**Per-project visibility:** Dozzle only shows containers from projects that opt in via `shared.logs: true`. Projects without it stay hidden, even though Dozzle has full Docker socket access. Shared service containers (router, mail, db, redis, logs) are always visible.
 
 Open them directly:
 
 ```bash
-scdev mail    # open Mailpit
-scdev db      # open Adminer
-scdev redis   # open Redis Insights
+scdev mail        # open Mailpit
+scdev db          # open Adminer
+scdev redis       # open Redis Insights
+scdev logs --open # open Dozzle log viewer
+```
+
+**Per-project opt-in/out.** `router`, `mail`, and `logs` are connected to every project by default; `db` and `redis` are opt-in. Override individual fields under `shared:` in `.scdev/config.yaml`; missing fields keep their defaults.
+
+```yaml
+# .scdev/config.yaml
+shared:
+  db: true       # opt in  (default: false)
+  redis: true    # opt in  (default: false)
+  mail: false    # opt out (default: true)
+  # router, logs not listed -> stay at default true
 ```
 
 ## Features
@@ -506,9 +523,10 @@ mutagen:
 | `variables` | map | - | Reusable `${VAR}` placeholders substituted throughout the config (not passed to containers) |
 | `environment` | map | - | Environment variables passed to ALL containers |
 | `shared.router` | bool | `true` | Connect to shared Traefik router |
-| `shared.mail` | bool | `false` | Connect to shared Mailpit |
+| `shared.mail` | bool | `true` | Connect to shared Mailpit |
 | `shared.db` | bool | `false` | Connect to shared Adminer |
 | `shared.redis` | bool | `false` | Connect to shared Redis Insights |
+| `shared.logs` | bool | `true` | Connect to shared Dozzle log viewer |
 | `mutagen.ignore` | list | - | Paths excluded from file sync (macOS). Mutagen itself is configured globally, see below |
 
 #### Service fields (`services.<name>.`)
@@ -617,6 +635,7 @@ scdev doesn't reinvent the wheel. It orchestrates proven open-source tools into 
 | [Mailpit](https://github.com/axllent/mailpit) | Email testing - catches all outgoing mail | github.com/axllent/mailpit |
 | [Adminer](https://www.adminer.org/) | Database browser - MySQL, PostgreSQL, SQLite | adminer.org |
 | [Redis Insights](https://redis.io/insight/) | Redis browser - keys, queries, memory analysis | redis.io/insight |
+| [Dozzle](https://dozzle.dev/) | Container log viewer - per-project grouping in the browser | dozzle.dev |
 
 ## Contributing
 

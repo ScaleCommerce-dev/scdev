@@ -106,10 +106,13 @@ variables:                    # reusable values for ${VAR} substitution in this 
   DB_NAME: ${PROJECTNAME}
 
 shared:                       # connect shared services to project's docker network
-  router: true
-  mail: true                  # Mailpit - catch all outgoing email (SMTP at mail:1025)
-  db: true                    # Adminer - browse databases via web UI
-  redis: true                 # Redis Insights - browse Redis keys via web UI
+                              # router/mail/logs default to true; db/redis default to false
+                              # missing fields keep their defaults, so list only what you want to change
+  router: true                # default: true  - shared Traefik router (HTTPS, subdomains)
+  mail: true                  # default: true  - Mailpit (SMTP at mail:1025)
+  db: true                    # default: false - Adminer database browser
+  redis: true                 # default: false - Redis Insights
+  logs: true                  # default: true  - Dozzle log viewer (per-project grouping)
 
 environment:                  # env vars passed to ALL containers
   APP_ENV: dev
@@ -471,6 +474,8 @@ fi
 This matters because `public/build` lives in `mutagen.ignore` (binary, regenerable), so it's lost on container recreation. Without the entrypoint rebuild, the first page load after a clean start 500s on a missing `manifest.json`.
 
 **Mailer DSN:** for any Symfony/Sylius app, wire mail to Mailpit with `MAILER_DSN: "smtp://mail:1025"` (no auth, no TLS). For Laravel: `MAIL_HOST=mail MAIL_PORT=1025 MAIL_ENCRYPTION=null`.
+
+**Log retention with `shared.logs: true`:** Dozzle streams from Docker's per-container log buffer; it does not store logs itself. Logs survive `scdev down` and Docker Desktop restarts, but are lost whenever the container is recreated (any `scdev update` that hits config drift, `scdev remove`, or `scdev services recreate`). If your template's setup flow depends on grepping a previous run's output, don't - dump the relevant info to a synced file inside the project instead.
 
 ### Don't include files that the scaffolder creates
 

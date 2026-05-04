@@ -117,7 +117,7 @@ func showProjectInfo(ctx context.Context, proj *project.Project) error {
 	fmt.Println()
 
 	// Shared services
-	if proj.Config.Shared.Router || proj.Config.Shared.Mail || proj.Config.Shared.DBUI || proj.Config.Shared.RedisInsights {
+	if proj.Config.Shared.Router || proj.Config.Shared.Mail || proj.Config.Shared.DBUI || proj.Config.Shared.RedisInsights || proj.Config.Shared.Logs {
 		fmt.Println("Shared Services:")
 		// Always show docs URL when router is enabled
 		if proj.Config.Shared.Router {
@@ -140,6 +140,14 @@ func showProjectInfo(ctx context.Context, proj *project.Project) error {
 					fmt.Printf("                 └ %s\n", hostname)
 				}
 			}
+		}
+		if proj.Config.Shared.RedisInsights {
+			url := fmt.Sprintf("%s://redis.shared.%s", protocol, globalDomain)
+			fmt.Printf("  redis:         %s\n", ui.Hyperlink(url, url, plainMode))
+		}
+		if proj.Config.Shared.Logs {
+			url := fmt.Sprintf("%s://logs.shared.%s", protocol, globalDomain)
+			fmt.Printf("  logs:          %s\n", ui.Hyperlink(url, url, plainMode))
 		}
 		fmt.Println()
 	}

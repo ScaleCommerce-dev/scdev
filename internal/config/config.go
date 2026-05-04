@@ -50,6 +50,7 @@ type SharedConfig struct {
 	Mail          MailConfig          `yaml:"mail"`
 	DBUI          DBUIConfig          `yaml:"db"`
 	RedisInsights RedisInsightsConfig `yaml:"redis_insights"`
+	Logs          LogsConfig          `yaml:"logs"`
 }
 
 // RouterConfig defines Traefik configuration
@@ -73,6 +74,11 @@ type RedisInsightsConfig struct {
 	Image string `yaml:"image"`
 }
 
+// LogsConfig defines Dozzle log viewer configuration
+type LogsConfig struct {
+	Image string `yaml:"image"`
+}
+
 // ProjectConfig represents .scdev/config.yaml
 type ProjectConfig struct {
 	Version         int                      `yaml:"version"`
@@ -92,12 +98,28 @@ type ProjectMutagenConfig struct {
 	Ignore []string `yaml:"ignore"` // Paths to exclude from sync (not synced in either direction)
 }
 
-// ProjectSharedConfig defines which shared services a project uses
+// ProjectSharedConfig defines which shared services a project uses.
+// Defaults are populated by defaultProjectShared() in loader.go before
+// yaml.Decode, so the user's config only overrides fields they specify.
+// router, mail, logs default to true; db, redis default to false.
 type ProjectSharedConfig struct {
 	Router        bool `yaml:"router"`
 	Mail          bool `yaml:"mail"`
 	DBUI          bool `yaml:"db"`
 	RedisInsights bool `yaml:"redis"`
+	Logs          bool `yaml:"logs"`
+}
+
+// defaultProjectShared returns the default ProjectSharedConfig used for
+// projects whose .scdev/config.yaml omits the shared block (or omits
+// individual fields). Connect-by-default services are enabled here;
+// niche services (db, redis) stay opt-in.
+func defaultProjectShared() ProjectSharedConfig {
+	return ProjectSharedConfig{
+		Router: true,
+		Mail:   true,
+		Logs:   true,
+	}
 }
 
 // ServiceConfig defines a container service

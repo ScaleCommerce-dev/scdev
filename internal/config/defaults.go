@@ -25,6 +25,9 @@ const (
 	// RedisInsightsImage is the default Redis Insights image
 	RedisInsightsImage = "redis/redisinsight:latest"
 
+	// LogsImage is the default Dozzle log viewer image
+	LogsImage = "amir20/dozzle:latest"
+
 	// TestImage is the lightweight image used for integration tests
 	// Keep in sync with testdata/projects/*/config.yaml fixtures
 	TestImage = "alpine:latest"

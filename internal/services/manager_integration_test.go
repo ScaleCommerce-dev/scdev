@@ -23,6 +23,7 @@ type sharedServicesSnapshot struct {
 	mailRunning   bool
 	dbuiRunning   bool
 	redisRunning  bool
+	logsRunning   bool
 	networkExists bool
 }
 
@@ -40,6 +41,9 @@ func snapshotSharedServices(ctx context.Context, mgr *Manager, docker *runtime.D
 	}
 	if status, err := mgr.RedisInsightsStatus(ctx); err == nil {
 		s.redisRunning = status.Running
+	}
+	if status, err := mgr.LogsStatus(ctx); err == nil {
+		s.logsRunning = status.Running
 	}
 	s.networkExists, _ = docker.NetworkExists(ctx, SharedNetworkName)
 	return s
@@ -68,6 +72,9 @@ func restoreSharedServices(ctx context.Context, snap sharedServicesSnapshot) {
 	}
 	if snap.redisRunning {
 		_ = mgr.StartRedisInsights(ctx)
+	}
+	if snap.logsRunning {
+		_ = mgr.StartLogs(ctx)
 	}
 }
 

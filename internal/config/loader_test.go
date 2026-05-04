@@ -115,6 +115,58 @@ func TestLoadProject(t *testing.T) {
 	}
 }
 
+// TestLoadProject_PartialSharedBlockKeepsDefaults locks in the contract
+// documented in defaultProjectShared(): the project loader pre-initializes
+// cfg.Shared so missing fields keep their defaults. If a future refactor
+// moves cfg construction or order-of-operations relative to decoder.Decode,
+// every default silently flips back to false - this test is the canary.
+func TestLoadProject_PartialSharedBlockKeepsDefaults(t *testing.T) {
+	tmpDir := t.TempDir()
+	scdevDir := filepath.Join(tmpDir, ".scdev")
+	if err := os.MkdirAll(scdevDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	configContent := `version: 1
+name: defaults-check
+shared:
+  router: false   # explicit override of a default-true field
+  db: true        # opt in to a default-false field
+services:
+  app:
+    image: alpine:latest
+    command: sleep infinity
+`
+	if err := os.WriteFile(filepath.Join(scdevDir, "config.yaml"), []byte(configContent), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	cfg, err := LoadProject(tmpDir)
+	if err != nil {
+		t.Fatalf("LoadProject: %v", err)
+	}
+
+	// Explicit overrides win in both directions.
+	if cfg.Shared.Router {
+		t.Error("Router: explicit false should override default true")
+	}
+	if !cfg.Shared.DBUI {
+		t.Error("DBUI: explicit true should be honored")
+	}
+
+	// Missing fields keep their defaults from defaultProjectShared().
+	if !cfg.Shared.Mail {
+		t.Error("Mail: should default to true when not specified")
+	}
+	if !cfg.Shared.Logs {
+		t.Error("Logs: should default to true when not specified")
+	}
+
+	// Default-false fields stay false when not specified.
+	if cfg.Shared.RedisInsights {
+		t.Error("RedisInsights: should default to false when not specified")
+	}
+}
+
 func TestLoadProjectWithVariables(t *testing.T) {
 	// Set SCDEV_DOMAIN for predictable test results
 	oldDomain := os.Getenv("SCDEV_DOMAIN")

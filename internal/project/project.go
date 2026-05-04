@@ -711,6 +711,16 @@ func (p *Project) buildContainerConfig(name string, svc config.ServiceConfig, mu
 		cfg.Env["GROUP_ID"] = fmt.Sprintf("%d", os.Getgid())
 	}
 
+	// Opt-in to the shared Dozzle log viewer: stamp the visibility-filter
+	// label and per-project group only when shared.logs is enabled in the
+	// project config. Without these labels, Dozzle's DOZZLE_FILTER hides
+	// the container entirely - so projects that don't opt in stay out of
+	// Dozzle's UI even though they share the host's Docker daemon.
+	if p.Config.Shared.Logs {
+		cfg.Labels[services.DozzleVisibilityLabel] = "true"
+		cfg.Labels[services.DozzleGroupLabel] = p.Config.Name
+	}
+
 	// Add any explicit labels from config (before routing, so routing labels take precedence)
 	for k, v := range svc.Labels {
 		cfg.Labels[k] = v
