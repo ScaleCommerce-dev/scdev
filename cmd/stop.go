@@ -10,10 +10,15 @@ import (
 )
 
 var stopCmd = &cobra.Command{
-	Use:   "stop",
-	Short: "Stop the project",
-	Long:  `Stop all running containers but keep them for quick restart.`,
-	RunE:  runStop,
+	Use:   "stop [service]",
+	Short: "Stop the project or a single service",
+	Long: `Stop project containers (kept around for quick restart).
+
+Without arguments, stops every running service.
+With a service name, stops only that one container; other services keep
+running.`,
+	Args: cobra.MaximumNArgs(1),
+	RunE: runStop,
 }
 
 func init() {
@@ -22,6 +27,12 @@ func init() {
 
 func runStop(cmd *cobra.Command, args []string) error {
 	return withProject(2*time.Minute, func(ctx context.Context, proj *project.Project) error {
+		if len(args) == 1 {
+			service := args[0]
+			fmt.Printf("Stopping service %s...\n", service)
+			return proj.StopService(ctx, service)
+		}
+
 		fmt.Printf("Stopping project %s...\n", proj.Config.Name)
 
 		if err := proj.Stop(ctx); err != nil {

@@ -37,7 +37,8 @@ zdev create <template> [name]   # Create from template (GitHub repo or local dir
 zdev start                      # Start project
 zdev start <service>            # Start one service (project setup runs idempotently)
 zdev start -q                   # Start quietly (no info display, for scripts)
-zdev stop                       # Stop containers
+zdev stop                       # Stop all containers
+zdev stop <service>             # Stop one service container
 zdev restart                    # Stop + start every service
 zdev restart <service>          # Bounce one service container in-place
 zdev down                       # Remove containers and network

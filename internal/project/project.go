@@ -378,6 +378,57 @@ func (p *Project) startServiceWithMutagen(ctx context.Context, name string, svc 
 	return p.Runtime.StartContainer(ctx, containerName)
 }
 
+// StopService stops a single service container. Pauses only the Mutagen
+// sessions tied to that service. Other services in the project remain
+// running. To start it back up, use `zdev start <service>` (or `zdev
+// restart <service>` for an in-place bounce of an existing container).
+func (p *Project) StopService(ctx context.Context, name string) error {
+	if _, ok := p.Config.Services[name]; !ok {
+		return fmt.Errorf("service %q not found in project config (available: %s)", name, strings.Join(p.ServiceNames(), ", "))
+	}
+
+	containerName := p.ContainerName(name)
+	exists, err := p.Runtime.ContainerExists(ctx, containerName)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		fmt.Printf("Service %s is not running\n", name)
+		return nil
+	}
+
+	if p.IsMutagenEnabled() {
+		if m, err := p.EnsureMutagen(ctx); err == nil {
+			for _, mount := range p.GetMutagenSyncMounts() {
+				if mount.ServiceName != name {
+					continue
+				}
+				if existsSess, _ := m.SessionExists(ctx, mount.SessionName); existsSess {
+					fmt.Printf("Pausing sync session %s...\n", mount.SessionName)
+					if err := m.PauseSession(ctx, mount.SessionName); err != nil {
+						fmt.Printf("Warning: could not pause session %s: %v\n", mount.SessionName, err)
+					}
+				}
+			}
+		}
+	}
+
+	running, err := p.Runtime.IsContainerRunning(ctx, containerName)
+	if err != nil {
+		return err
+	}
+	if !running {
+		fmt.Printf("Service %s is not running\n", name)
+		return nil
+	}
+
+	fmt.Printf("Stopping service %s...\n", name)
+	if err := p.Runtime.StopContainer(ctx, containerName); err != nil {
+		return fmt.Errorf("failed to stop service %s: %w", name, err)
+	}
+	return nil
+}
+
 // Stop stops all project services
 func (p *Project) Stop(ctx context.Context) error {
 	// Pause Mutagen sync sessions first (before stopping containers)

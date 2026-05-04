@@ -608,6 +608,92 @@ func TestStartService_RunsProjectSetupIdempotently(t *testing.T) {
 }
 
 // =============================================================================
+// Lifecycle tests: StopService
+// =============================================================================
+
+func TestStopService_StopsOnlyNamedService(t *testing.T) {
+	cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	mock := runtime.NewMockRuntime()
+	mock.ContainersExist["app.testproject.zdev"] = true
+	mock.ContainersRunning["app.testproject.zdev"] = true
+	mock.ContainersExist["db.testproject.zdev"] = true
+	mock.ContainersRunning["db.testproject.zdev"] = true
+
+	p := newMultiServiceTestProject(mock)
+
+	ctx := context.Background()
+	if err := p.StopService(ctx, "app"); err != nil {
+		t.Fatalf("StopService() error: %v", err)
+	}
+
+	if mock.CallCount("StopContainer") != 1 {
+		t.Errorf("StopContainer called %d times, want 1", mock.CallCount("StopContainer"))
+	}
+	if !mock.CalledWith("StopContainer", "app.testproject.zdev") {
+		t.Error("StopContainer was not called with app.testproject.zdev")
+	}
+	if mock.CalledWith("StopContainer", "db.testproject.zdev") {
+		t.Error("StopContainer should NOT have been called for db")
+	}
+}
+
+func TestStopService_NoOpForAlreadyStoppedContainer(t *testing.T) {
+	cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	mock := runtime.NewMockRuntime()
+	mock.ContainersExist["app.testproject.zdev"] = true
+	mock.ContainersRunning["app.testproject.zdev"] = false
+
+	p := newMultiServiceTestProject(mock)
+
+	ctx := context.Background()
+	if err := p.StopService(ctx, "app"); err != nil {
+		t.Fatalf("StopService() error: %v", err)
+	}
+
+	if mock.CallCount("StopContainer") != 0 {
+		t.Errorf("StopContainer called %d times, want 0 (already stopped)", mock.CallCount("StopContainer"))
+	}
+}
+
+func TestStopService_NoOpForMissingContainer(t *testing.T) {
+	cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	mock := runtime.NewMockRuntime()
+	p := newMultiServiceTestProject(mock)
+
+	ctx := context.Background()
+	if err := p.StopService(ctx, "app"); err != nil {
+		t.Fatalf("StopService() error: %v", err)
+	}
+
+	if mock.CallCount("StopContainer") != 0 {
+		t.Errorf("StopContainer called %d times, want 0 (container missing)", mock.CallCount("StopContainer"))
+	}
+}
+
+func TestStopService_FailsForUnknownService(t *testing.T) {
+	cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	mock := runtime.NewMockRuntime()
+	p := newMultiServiceTestProject(mock)
+
+	ctx := context.Background()
+	err := p.StopService(ctx, "doesnotexist")
+	if err == nil {
+		t.Fatal("StopService() expected error for unknown service, got nil")
+	}
+	if mock.CallCount("StopContainer") != 0 {
+		t.Error("Expected no container operations for unknown service")
+	}
+}
+
+// =============================================================================
 // Lifecycle tests: RestartService
 // =============================================================================
 

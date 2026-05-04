@@ -324,6 +324,7 @@ Each project runs in its own isolated network. Services within a project reach e
 zdev start              # Start every service in the project
 zdev start <service>    # Start a single service (project setup runs idempotently)
 zdev stop               # Stop containers (keeps them for quick restart)
+zdev stop <service>     # Stop a single service container
 zdev restart            # Stop + start every service
 zdev restart <service>  # Bounce a single service container in-place
 zdev down        # Remove containers and network
