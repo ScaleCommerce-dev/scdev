@@ -1,3 +1,14 @@
+## v0.7.2
+
+### Bug Fixes
+
+- **Justfile recipes now run from the project root**, not `.zdev/commands/`. Relative paths in `setup.just` like `docker build -f services/app/Dockerfile services/app/` now resolve where users author them. Previously `just` was invoked with cwd set to the directory of the justfile, so paths relative to the project root failed with "path not found" while the same command worked when run by hand.
+- **Fix flaky `TestManager_DocsRoutes/NonExistingReturns302`** under `make test-integration`. The test fabricated a synthetic `GlobalConfig{SSL.Enabled: false}` while concurrently-running `internal/project` integration tests' deferred restore reloaded the real global config and rewrote `~/.zdev/traefik/docs.yaml` to match. Now the test loads the same real global config so its expected redirect URL stays consistent regardless of who writes `docs.yaml` last.
+
+### Features
+
+- **`zdev start <service>` and `zdev restart <service>`** scope the action to a single container. Project-wide setup (network, volumes, state registration, shared service connections) runs idempotently, so single-service starts work whether or not the project has been started before. `zdev restart <service>` is a true in-place bounce - to pick up config changes use `zdev update`.
+
 ## v0.7.1
 
 ### Bug Fixes
